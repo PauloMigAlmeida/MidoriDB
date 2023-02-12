@@ -8,5 +8,6 @@ bool datastructure_init_suite(void);
 
 /* unit tests */
 void test_initialise_linkedlist(void);
+void test_linkedlist_add_tail(void);
 
 #endif /* TESTS_DATASTRUCTURE_H */
