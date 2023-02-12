@@ -6,7 +6,6 @@ struct page_test {
         struct list_head head;
 };
 
-
 void test_initialise_linkedlist(void) {
 	/* test dynamic init */
 	struct page_test *d;
