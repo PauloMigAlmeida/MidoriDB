@@ -28,7 +28,7 @@ void test_initialise_linkedlist(void) {
 	CU_ASSERT(&s.head == s.head.prev);
 }
 
-void test_linkedlist_add_tail(void) {
+void test_linkedlist_add(void) {
 	struct page_test x = {
 		.data = 10,
 		.head = LIST_HEAD_INIT(x.head)
@@ -39,7 +39,7 @@ void test_linkedlist_add_tail(void) {
 		.head = LIST_HEAD_INIT(y.head)
 	};
 
-	list_add_tail(&y.head, &x.head);
+	list_add(&y.head, &x.head);
 	CU_ASSERT(x.head.next == &y.head);
 	CU_ASSERT(x.head.prev == &y.head);
 	CU_ASSERT(y.head.prev == &x.head);
@@ -49,7 +49,7 @@ void test_linkedlist_add_tail(void) {
 		.data = 30,
 		.head = LIST_HEAD_INIT(z.head)
 	};
-	list_add_tail(&z.head, &y.head);
+	list_add(&z.head, &y.head);
 	CU_ASSERT(x.head.next == &y.head);
 	CU_ASSERT(x.head.prev == &z.head);
 	CU_ASSERT(y.head.prev == &x.head);

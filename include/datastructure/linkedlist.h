@@ -7,7 +7,7 @@ struct list_head {
 };
 
 void list_head_init(struct list_head *head);
-void list_add_tail(struct list_head *new, struct list_head *head);
+void list_add(struct list_head *new, struct list_head *head);
 void list_del(struct list_head *entry);
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
