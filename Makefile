@@ -6,7 +6,8 @@ DIR_ROOT := $(CURDIR)
 
 include $(DIR_ROOT)/scripts/config.mk
 
-DIR_SRC_SUBSYSTEMS := $(wildcard $(DIR_SRC)/*)
+DIR_SRC_SUBSYSTEMS 		:= $(wildcard $(DIR_SRC)/*)
+DIR_SRC_TESTS_SUBSYSTEMS 	:= $(wildcard $(DIR_SRC_TESTS)/*)
 
 #----------------------------------------------------------------------------
 # Build targets
@@ -14,14 +15,18 @@ DIR_SRC_SUBSYSTEMS := $(wildcard $(DIR_SRC)/*)
 
 default: build
 
-all: clean compile
-	@# Help: clean and build the whole project
+all: clean compile linker
+	@# Help: clean, build and link the whole project
 
 .PHONY: compile
-compile: $(DIR_SRC_SUBSYSTEMS)
+compile: $(DIR_SRC_SUBSYSTEMS) $(DIR_SRC_TESTS_SUBSYSTEMS)
 
 .PHONY: $(DIR_SRC_SUBSYSTEMS)
 $(DIR_SRC_SUBSYSTEMS):
+	@$(MAKE) $(MAKE_FLAGS) --directory=$@
+
+.PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
+$(DIR_SRC_TESTS_SUBSYSTEMS):
 	@$(MAKE) $(MAKE_FLAGS) --directory=$@
 
 .PHONY: clean
@@ -34,6 +39,14 @@ clean:
 build: all
 	@echo "[build] compiling sources"
 	@# Help: build the whole project
+
+.PHONY: linker
+linker:
+	@echo "[linker] linking all object files"
+	@$(CC) $(CFLAGS) \
+		-shared \
+		-o $(DIR_BUILD_LIB)/libmidoridb.so \
+		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o")
 
 .PHONY: cscope
 cscope: 

@@ -6,12 +6,12 @@ DIR_ROOT	:= $(CURDIR)/../../
 
 include $(DIR_ROOT)/scripts/config.mk
 
-DIR_TARGET	:= $(DIR_BUILD_LIB)/main
+DIR_TARGET	:= $(DIR_BUILD_TESTS)/
 
 SRC_C_FILES	:= $(wildcard *.c)
 BIN_C_FILES	:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
 
-TAG 		:= [main]
+TAG 		:= [tests/main]
 
 all: mkdir compile
 	@echo "$(TAG) Compiled successfully"
@@ -29,7 +29,11 @@ compile: $(BIN_C_FILES)
 
 $(BIN_C_FILES): $(DIR_TARGET)/%.o: %.c
 	@echo "$(TAG) Compiling $<"
-	@$(CC) $(CCFLAGS) -I$(DIR_INCLUDE) -c $< -o $@
+	@$(CC) $(CCFLAGS) \
+		-I$(DIR_INCLUDE) \
+		-lcunit $< \
+		-o $(basename $@) \
+		$(shell find $(DIR_BUILD)/ -type f -name "*.o")
 
 		
 

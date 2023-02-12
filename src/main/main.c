@@ -1,7 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "datastructure/linkedlist.h"
 
-int main(int argc, char **argv) {
+struct page_test {
+	int data;
+	struct list_head head;
+};
+
+
+void libmidori_main(void) {
+//	struct page_test *x = malloc(sizeof(*x));
+//	list_head_init(&x->head);
+
 	printf("hello world\n");
-        return 0;
+//	free(x);
+	exit(0);
 }
