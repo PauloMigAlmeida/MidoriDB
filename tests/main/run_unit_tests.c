@@ -1,9 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include "CUnit/Basic.h"
-
-extern bool datastructure_init_suite(void);
+#include "tests/unittest.h"
+#include "tests/datastructure.h"
 
 int main(void) {
 	/* initialize the CUnit test registry */

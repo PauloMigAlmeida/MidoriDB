@@ -15,19 +15,8 @@ DIR_SRC_TESTS_SUBSYSTEMS 	:= $(wildcard $(DIR_SRC_TESTS)/*)
 
 default: build
 
-all: clean compile linker
+all: clean compile linker test
 	@# Help: clean, build and link the whole project
-
-.PHONY: compile
-compile: $(DIR_SRC_SUBSYSTEMS) $(DIR_SRC_TESTS_SUBSYSTEMS)
-
-.PHONY: $(DIR_SRC_SUBSYSTEMS)
-$(DIR_SRC_SUBSYSTEMS):
-	@$(MAKE) $(MAKE_FLAGS) --directory=$@
-
-.PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
-$(DIR_SRC_TESTS_SUBSYSTEMS):
-	@$(MAKE) $(MAKE_FLAGS) --directory=$@
 
 .PHONY: clean
 clean:
@@ -35,8 +24,15 @@ clean:
 	@echo "[clean] generated files deleted"
 	@# Help: clean all generated files
 
+.PHONY: compile
+compile: $(DIR_SRC_SUBSYSTEMS)
+
+.PHONY: $(DIR_SRC_SUBSYSTEMS)
+$(DIR_SRC_SUBSYSTEMS):
+	@$(MAKE) $(MAKE_FLAGS) --directory=$@
+
 .PHONY: build
-build: all
+build: clean compile linker
 	@echo "[build] compiling sources"
 	@# Help: build the whole project
 
@@ -47,6 +43,13 @@ linker:
 		-shared \
 		-o $(DIR_BUILD_LIB)/libmidoridb.so \
 		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o")
+
+.PHONY: test
+test: $(DIR_SRC_TESTS_SUBSYSTEMS)
+
+.PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
+$(DIR_SRC_TESTS_SUBSYSTEMS):
+	@$(MAKE) $(MAKE_FLAGS) --directory=$@
 
 .PHONY: cscope
 cscope: 

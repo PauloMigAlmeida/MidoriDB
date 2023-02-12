@@ -1,7 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include "CUnit/Basic.h"
+#include "tests/datastructure.h"
 #include "datastructure/linkedlist.h"
 
 struct page_test {

@@ -31,9 +31,10 @@ $(BIN_C_FILES): $(DIR_TARGET)/%.o: %.c
 	@echo "$(TAG) Compiling $<"
 	@$(CC) $(CCFLAGS) \
 		-I$(DIR_INCLUDE) \
-		-lcunit $< \
-		-o $(basename $@) \
-		$(shell find $(DIR_BUILD)/ -type f -name "*.o")
+		-lcunit \
+		-L$(DIR_BUILD_LIB) -lmidoridb -Wl,-rpath=$(DIR_BUILD_LIB) \
+		$< -o $(basename $@) \
+		$(shell find $(DIR_BUILD_TESTS)/ -type f -name "*.o")
 
 		
 
