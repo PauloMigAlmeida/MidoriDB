@@ -58,3 +58,50 @@ void test_linkedlist_add(void) {
 	CU_ASSERT(z.head.next == &x.head);
 }
 
+void test_linkedlist_del(void) {
+	struct page_test x = {
+		.data = 10,
+		.head = LIST_HEAD_INIT(x.head)
+	};
+	
+	struct page_test y = {
+		.data = 20,
+		.head = LIST_HEAD_INIT(y.head)
+	};
+
+	struct page_test z = {
+		.data = 30,
+		.head = LIST_HEAD_INIT(z.head)
+	};
+	list_add(&y.head, &x.head);
+	list_add(&z.head, &y.head);
+
+	/* delete first */
+	list_del(&x.head);
+	CU_ASSERT(x.head.next == NULL);
+	CU_ASSERT(x.head.prev == NULL);
+	CU_ASSERT(y.head.prev == &z.head);
+	CU_ASSERT(y.head.next == &z.head);
+	CU_ASSERT(z.head.prev == &y.head);
+	CU_ASSERT(z.head.next == &y.head);
+	list_add(&x.head, &z.head);
+
+	/* delete middle */
+	list_del(&y.head);
+	CU_ASSERT(y.head.next == NULL);
+	CU_ASSERT(y.head.prev == NULL);
+	CU_ASSERT(x.head.prev == &z.head);
+	CU_ASSERT(x.head.next == &z.head);
+	CU_ASSERT(z.head.prev == &x.head);
+	CU_ASSERT(z.head.next == &x.head);
+	list_add(&y.head, &x.head);
+
+	/* delete end */
+	list_del(&z.head);
+	CU_ASSERT(z.head.next == NULL);
+	CU_ASSERT(z.head.prev == NULL);
+	CU_ASSERT(x.head.prev == &y.head);
+	CU_ASSERT(x.head.next == &y.head);
+	CU_ASSERT(y.head.prev == &x.head);
+	CU_ASSERT(y.head.next == &x.head);
+}

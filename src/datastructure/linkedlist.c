@@ -19,4 +19,11 @@ void list_add(struct list_head *new, struct list_head *head) {
 }
 
 void list_del(struct list_head *entry) {
+	struct list_head *prev, *next;
+	prev = entry->prev;
+	next = entry->next;
+	prev->next = next;
+	next->prev = prev;
+	entry->prev = NULL;
+	entry->next = NULL;
 }

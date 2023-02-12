@@ -6,6 +6,7 @@ bool datastructure_init_suite(void) {
 	ADD_SUITE(suite, "datastructure");
 	ADD_UNITTEST(suite, test_initialise_linkedlist);
 	ADD_UNITTEST(suite, test_linkedlist_add);
+	ADD_UNITTEST(suite, test_linkedlist_del);
 	
 	return false;
 }
