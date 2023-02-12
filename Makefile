@@ -35,6 +35,12 @@ build: all
 	@echo "[build] compiling sources"
 	@# Help: build the whole project
 
+.PHONY: cscope
+cscope: 
+	@rm -rf cscope*
+	@find . -name '\.pc' -prune -o -name '*\.[ch]' -print > cscope.files
+	@cscope -b -q -f cscope.out
+
 MAKEOVERRIDES =
 help:
 	@printf "%-20s %s\n" "Target" "Description"
