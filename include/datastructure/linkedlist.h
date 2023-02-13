@@ -1,7 +1,7 @@
-#ifndef MIDORIDB_DATASTRUCTURE_LINKEDLIST_H
-#define MIDORIDB_DATASTRUCTURE_LINKEDLIST_H
+#ifndef DATASTRUCTURE_LINKEDLIST_H
+#define DATASTRUCTURE_LINKEDLIST_H
 
-#include <stddef.h>
+#include "compiler/common.h"
 
 /*
  * Circular doubly linked list implementation
@@ -28,4 +28,4 @@ void list_del(struct list_head *entry);
 #define list_entry(ptr, type, member) \
         container_of(ptr, type, member)
 
-#endif /* MIDORIDB_DATASTRUCTURE_LINKEDLIST_H */ 
+#endif /* DATASTRUCTURE_LINKEDLIST_H */ 
