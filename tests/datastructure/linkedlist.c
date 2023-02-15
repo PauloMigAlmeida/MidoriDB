@@ -104,3 +104,37 @@ void test_linkedlist_del(void) {
 	CU_ASSERT(y.head.prev == &x.head);
 	CU_ASSERT(y.head.next == &x.head);
 }
+
+void test_linkedlist_iterate(void) {
+	int total = 0;
+	struct list_head *pos;
+	struct page_test *entry = NULL;
+	LIST_HEAD(head);
+
+	struct page_test x = {
+		.data = 10,
+		.head = LIST_HEAD_INIT(x.head)
+	};
+
+	struct page_test y = {
+		.data = 20,
+		.head = LIST_HEAD_INIT(y.head)
+	};
+
+	struct page_test z = {
+		.data = 30,
+		.head = LIST_HEAD_INIT(z.head)
+	};
+
+	list_add(&x.head, &head);
+	list_add(&y.head, &head);
+	list_add(&z.head, &head);
+
+
+	list_for_each(pos, &head) {
+		entry = list_entry(pos, typeof(*entry), head);
+		total += entry->data;
+	}
+
+	CU_ASSERT_EQUAL(total, 60);
+}

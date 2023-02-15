@@ -6,6 +6,10 @@
 #include <stdarg.h>
 #include <errno.h>
 
+/* Are two types/vars the same type (ignoring qualifiers)? */
+#define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
+
+
 static inline void die(const char *fmt, ...) 
 {
         va_list ap;

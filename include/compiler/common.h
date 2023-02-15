@@ -8,5 +8,6 @@
 #include <string.h>
 #include <stddef.h>
 #include "compiler/bug.h"
+#include "compiler/container_of.h"
 
 #endif /* COMPILER_COMMON_H */

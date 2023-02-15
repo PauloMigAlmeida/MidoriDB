@@ -10,5 +10,6 @@ bool datastructure_init_suite(void);
 void test_initialise_linkedlist(void);
 void test_linkedlist_add(void);
 void test_linkedlist_del(void);
+void test_linkedlist_iterate(void);
 
 #endif /* TESTS_DATASTRUCTURE_H */
