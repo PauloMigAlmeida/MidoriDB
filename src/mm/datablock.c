@@ -1,11 +1,10 @@
 #include "mm/datablock.h"
 
-static struct list_head *head;
 static uint64_t block_id_acc;
 
 void datablock_init(void) {
-	if ((head = malloc(sizeof(*head))))
-		list_head_init(head);
+	if ((datablocks_head = malloc(sizeof(*datablocks_head))))
+		list_head_init(datablocks_head);
 	else
 		die("couldn't initiate datablock");
 }
@@ -16,7 +15,7 @@ struct datablock *datablock_alloc(void) {
 		memset(new, 0, sizeof(*new));
 		new->block_id = block_id_acc++;
 		list_head_init(&new->head);
-		list_add(&new->head, head->prev);
+		list_add(&new->head, datablocks_head->prev);
 	} else {
 		die("couldn't alloc datablock");
 	}
