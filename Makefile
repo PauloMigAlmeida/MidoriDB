@@ -15,7 +15,7 @@ DIR_SRC_TESTS_SUBSYSTEMS 	:= $(wildcard $(DIR_SRC_TESTS)/*)
 
 default: build
 
-all: clean compile linker test
+all: clean compile link test
 	@# Help: clean, build and link the whole project
 
 .PHONY: clean
@@ -32,24 +32,41 @@ $(DIR_SRC_SUBSYSTEMS):
 	@$(MAKE) $(MAKE_FLAGS) --directory=$@
 
 .PHONY: build
-build: clean compile linker
+build: clean compile link
 	@echo "[build] compiling sources"
 	@# Help: build the whole project
 
-.PHONY: linker
-linker:
+.PHONY: link
+link:
 	@echo "[linker] linking all object files"
 	@$(CC) $(CFLAGS) \
 		-shared \
 		-o $(DIR_BUILD_LIB)/libmidoridb.so \
 		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o")
 
-.PHONY: test
-test: $(DIR_SRC_TESTS_SUBSYSTEMS)
-
 .PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
 $(DIR_SRC_TESTS_SUBSYSTEMS):
 	@$(MAKE) $(MAKE_FLAGS) --directory=$@
+
+.PHONY: test_compile
+test_compile: $(DIR_SRC_TESTS_SUBSYSTEMS)
+
+.PHONY: test
+test: test_compile
+	@echo "[test/linker] linking all object files"
+
+	@for f in "$(DIR_BUILD_TESTS)/main/*.o"; 			\
+	do								\
+		$(CC) $(CCFLAGS) 					\
+	        	-lcunit 					\
+	        	-L$(DIR_BUILD_LIB) 				\
+			-lmidoridb 					\
+			-Wl,-rpath=$(DIR_BUILD_LIB)			\
+	                -o $(DIR_BUILD_TESTS)/$$(basename $$f '.o') 	\
+			$$f						\
+                	$(shell find $(DIR_BUILD_TESTS)/ -name '*.o'	\
+			  -not -path '$(DIR_BUILD_TESTS)/main/*') ; 	\
+	done
 
 .PHONY: cscope
 cscope: 

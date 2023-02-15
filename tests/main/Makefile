@@ -6,7 +6,7 @@ DIR_ROOT	:= $(CURDIR)/../../
 
 include $(DIR_ROOT)/scripts/config.mk
 
-DIR_TARGET	:= $(DIR_BUILD_TESTS)/
+DIR_TARGET	:= $(DIR_BUILD_TESTS)/main
 
 SRC_C_FILES	:= $(wildcard *.c)
 BIN_C_FILES	:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
@@ -31,10 +31,6 @@ $(BIN_C_FILES): $(DIR_TARGET)/%.o: %.c
 	@echo "$(TAG) Compiling $<"
 	@$(CC) $(CCFLAGS) \
 		-I$(DIR_INCLUDE) \
-		-lcunit \
-		-L$(DIR_BUILD_LIB) -lmidoridb -Wl,-rpath=$(DIR_BUILD_LIB) \
-		$< -o $(basename $@) \
-		$(shell find $(DIR_BUILD_TESTS)/ -type f -name "*.o")
-
+		-c $< -o $@
 		
 
