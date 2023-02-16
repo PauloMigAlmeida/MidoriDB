@@ -3,10 +3,12 @@
 static uint64_t block_id_acc;
 
 void datablock_init(void) {
-	if ((datablocks_head = malloc(sizeof(*datablocks_head))))
+	if ((datablocks_head = malloc(sizeof(*datablocks_head)))) {
 		list_head_init(datablocks_head);
-	else
+		block_id_acc = 0;
+	} else {
 		die("couldn't initiate datablock");
+	}
 }
 
 struct datablock *datablock_alloc(void) {
