@@ -13,6 +13,7 @@ bool datastructure_init_suite(void) {
 	ADD_UNITTEST(suite, test_btree_init);
 	ADD_UNITTEST(suite, test_btree_destroy);
 	ADD_UNITTEST(suite, test_btree_lookup);
+	ADD_UNITTEST(suite, test_btree_insert);
 	ADD_UNITTEST(suite, test_btree_update);
 	ADD_UNITTEST(suite, test_btree_remove);
 

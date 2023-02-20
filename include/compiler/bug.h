@@ -9,7 +9,6 @@
 /* Are two types/vars the same type (ignoring qualifiers)? */
 #define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
 
-
 static inline void die(const char *fmt, ...) 
 {
         va_list ap;
@@ -29,5 +28,10 @@ static inline void die(const char *fmt, ...)
         exit(ret);
 }
 
+#define BUG_ON(cond)							\
+	do {								\
+		if ((cond))						\
+			die("BUG_ON: %s:%u", __func__, __LINE__);	\
+	} while (0)
 
 #endif /* COMPILER_BUG_H */

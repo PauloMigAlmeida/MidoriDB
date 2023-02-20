@@ -3,15 +3,30 @@
 
 #include "compiler/common.h"
 
+struct btree_node_tuple {
+	void *key;
+	void *value;
+};
+
+struct btree_node {
+	struct btree_node_tuple *keys;
+	int key_count;
+	bool is_leaf;
+};
+
 /**
  * struct btree_head - btree head
  *
  * @node: the first node in the tree
  * @keylen: number of keys each node can hold
+ * @cmp_fn: compare function
  */
 struct btree_head {
-	unsigned long *node;
-	unsigned int keylen;
+	struct btree_node *node;
+	size_t key_len;
+	size_t key_size;
+	size_t val_size;
+	int (*cmp_fn)(void *, void *);
 };
 
 /**
@@ -19,7 +34,10 @@ struct btree_head {
  *
  * @keylen: number of keys each node can hold
  */
-struct btree_head *btree_init(unsigned int keylen);
+struct btree_head *btree_init(int key_len,
+			      size_t key_size,
+			      size_t val_size,
+			      int (*cmp_fn)(void *, void *));
 
 /**
  * btree_destroy - destroy btree recursively
@@ -49,10 +67,18 @@ void *btree_lookup(struct btree_head *head, unsigned long *key);
 bool btree_update(struct btree_head *head, unsigned long *key, void *val);
 
 /**
+ * btree_insert- insert an entry in the btree
+ *
+ * @head: the btree to update
+ * @key: the key to insert
+ * @val: the value to be inserted (must not be %NULL)
+ */
+void btree_insert(struct btree_head *head, void *key, void *val);
+
+/**
  * btree_remove - remove an entry from the btree
  *
  * @head: the btree to update
- * @geo: the btree geometry
  * @key: the key to remove
  *
  * This function returns the removed entry, or %NULL if the key
@@ -60,5 +86,8 @@ bool btree_update(struct btree_head *head, unsigned long *key, void *val);
  */
 void *btree_remove(struct btree_head *head, unsigned long *key);
 
+
+int btree_cmp_str(void *key1, void *key2);
+int btree_cmp_ul(void *key1, void *key2);
 
 #endif /* DATASTRUCTURE_BTREE_H */
