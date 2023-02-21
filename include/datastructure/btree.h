@@ -12,6 +12,10 @@ struct btree_node {
 	struct btree_node_tuple *keys;
 	int key_count;
 	struct btree_node *children;
+	/*TODO check if we need that... apparently other implementations use
+	 * "n" to interchangeably denote number of keys and number of children...
+	 * I'm not convinced that I need to keep track of both
+	 */
 	int children_count;
 	bool is_leaf;
 };
@@ -25,7 +29,7 @@ struct btree_node {
  */
 struct btree_head {
 	struct btree_node *root;
-	size_t min_degree;
+	int min_degree;
 	size_t key_size;
 	size_t val_size;
 	int (*cmp_fn)(void *, void *);
