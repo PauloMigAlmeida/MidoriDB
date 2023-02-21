@@ -10,5 +10,7 @@
 #include <stdbool.h>
 #include "compiler/bug.h"
 #include "compiler/container_of.h"
+#include "compiler/error.h"
+
 
 #endif /* COMPILER_COMMON_H */

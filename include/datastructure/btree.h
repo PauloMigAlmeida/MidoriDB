@@ -11,6 +11,8 @@ struct btree_node_tuple {
 struct btree_node {
 	struct btree_node_tuple *keys;
 	int key_count;
+	struct btree_node *children;
+	int children_count;
 	bool is_leaf;
 };
 
@@ -22,8 +24,8 @@ struct btree_node {
  * @cmp_fn: compare function
  */
 struct btree_head {
-	struct btree_node *node;
-	size_t key_len;
+	struct btree_node *root;
+	size_t min_degree;
 	size_t key_size;
 	size_t val_size;
 	int (*cmp_fn)(void *, void *);
@@ -32,9 +34,9 @@ struct btree_head {
 /**
  * btree_init - initialise a btree
  *
- * @keylen: number of keys each node can hold
+ * @min_degree: number of keys each node can hold
  */
-struct btree_head *btree_init(int key_len,
+struct btree_head *btree_init(int min_degree,
 			      size_t key_size,
 			      size_t val_size,
 			      int (*cmp_fn)(void *, void *));
@@ -44,7 +46,7 @@ struct btree_head *btree_init(int key_len,
  *
  * @head: the btree head to destroy
  */
-void btree_destroy(struct btree_head *head);
+void btree_destroy(struct btree_head **head);
 
 /**
  * btree_lookup - look up a key in the btree
@@ -54,7 +56,7 @@ void btree_destroy(struct btree_head *head);
  *
  * This function returns the value for the given key, or NULL.
  */
-void *btree_lookup(struct btree_head *head, unsigned long *key); 
+void *btree_lookup(struct btree_head *head, void *key);
 
 
 /**
@@ -73,7 +75,7 @@ bool btree_update(struct btree_head *head, unsigned long *key, void *val);
  * @key: the key to insert
  * @val: the value to be inserted (must not be %NULL)
  */
-void btree_insert(struct btree_head *head, void *key, void *val);
+int btree_insert(struct btree_head *head, void *key, void *val);
 
 /**
  * btree_remove - remove an entry from the btree
