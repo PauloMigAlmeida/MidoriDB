@@ -19,6 +19,11 @@ int btree_cmp_ul(void *key1, void *key2)
 		return 1;
 }
 
+static inline int btree_max_degree(struct btree_head *head)
+{
+	return 2 * head->min_degree - 1;
+}
+
 struct btree_head* btree_init(int min_degree,
 		size_t key_size,
 		size_t val_size,
@@ -44,24 +49,25 @@ struct btree_head* btree_init(int min_degree,
 
 static void __btree_destroy(struct btree_head *head, struct btree_node *node)
 {
-	for (int i = 0; i < node->key_count; i++) {
-		free(node->keys[i].key);
-		free(node->keys[i].value);
-	}
-	free(node->keys);
+	if (node->children) {
+		if (!node->is_leaf) {
+			for (int i = 0; i < btree_max_degree(head); i++)
+				__btree_destroy(head, node->children + i);
+		}
 
-	for (int i = 0; i < node->children_count; i++) {
-		__btree_destroy(head, node->children + i);
+		free(node->children);
 	}
-	free(node->children);
 
-	free(node);
+	if (node->keys)
+		free(node->keys);
 }
 
 void btree_destroy(struct btree_head **head)
 {
-	if ((*head)->root)
+	if ((*head)->root) {
 		__btree_destroy(*head, (*head)->root);
+		free((*head)->root);
+	}
 
 	free(*head);
 	*head = NULL;
@@ -92,27 +98,29 @@ void* btree_lookup(struct btree_head *head, void *key)
 
 bool btree_update(struct btree_head *head, unsigned long *key, void *val)
 {
+	(void)head;
+	(void)key;
+	(void)val;
 	return true;
 }
 
 static struct btree_node* btree_node_alloc(struct btree_head *head)
 {
 	struct btree_node *node;
-	size_t max_degree;
+	int max_degree;
 
-	max_degree = 2 * head->min_degree - 1;
+	max_degree = btree_max_degree(head);
 
 	if (!(node = malloc(sizeof(*node))))
 		goto err_node;
 
-	if (!(node->keys = calloc(max_degree, head->key_size)))
+	if (!(node->keys = calloc(max_degree, sizeof(struct btree_node_tuple))))
 		goto err_keys;
 
-	if (!(node->children = calloc(max_degree, sizeof(*node))))
+	if (!(node->children = calloc(max_degree, sizeof(struct btree_node))))
 		goto err_children;
 
 	node->key_count = 0;
-	node->children_count = 0;
 	node->is_leaf = false;
 	return node;
 
@@ -201,6 +209,7 @@ static struct btree_node* btree_split_root(struct btree_head *head)
 {
 	struct btree_node *s;
 	if (!(s = btree_node_alloc(head)))
+		//TODO properly hand this
 		die("couldn't allocate mem");
 
 	s->is_leaf = false;
@@ -212,7 +221,7 @@ static struct btree_node* btree_split_root(struct btree_head *head)
 	return s;
 }
 
-static void btree_insert_nonfull(struct btree_head *head, struct btree_node *x, void *key, void *val)
+static int btree_insert_nonfull(struct btree_head *head, struct btree_node *x, void *key, void *val)
 {
 	int i;
 
@@ -224,9 +233,8 @@ static void btree_insert_nonfull(struct btree_head *head, struct btree_node *x, 
 			i--;
 		}
 
-		// Insert the new key at found location
-		memcpy(x->keys[i + 1].key, key, head->key_size);
-		memcpy(x->keys[i + 1].value, val, head->val_size);
+		x->keys[i + 1].key = key;
+		x->keys[i + 1].value = val;
 		x->key_count++;
 	} else {
 		// Find the child which is going to have the new key
@@ -234,7 +242,7 @@ static void btree_insert_nonfull(struct btree_head *head, struct btree_node *x, 
 			i--;
 
 		// See if the found child is full
-		if (x->children[i + 1].key_count == 2 * head->min_degree - 1) {
+		if (x->children[i + 1].key_count == btree_max_degree(head)) {
 
 			// If the child is full, then split it
 			btree_split_child(head, x, i + 1);
@@ -247,32 +255,27 @@ static void btree_insert_nonfull(struct btree_head *head, struct btree_node *x, 
 		}
 		btree_insert_nonfull(head, &x->children[i + 1], key, val);
 	}
+
+	return 0;
+
 }
 
 int btree_insert(struct btree_head *head, void *key, void *val)
 {
 	struct btree_node *node;
-	void *tmp_key, *tmp_val;
 
 	if (!head->root) {
 
 		if (!(node = btree_node_alloc(head)))
 			goto err;
-		if (!(tmp_key = malloc(head->key_size)))
-			goto err_node;
-		if (!(tmp_val = malloc(head->val_size)))
-			goto err_key;
 
-		memcpy(tmp_key, key, head->key_size);
-		memcpy(tmp_val, val, head->val_size);
-
-		node->keys[0].key = tmp_key;
-		node->keys[0].value = tmp_val;
+		node->keys[0].key = key;
+		node->keys[0].value = val;
 		node->is_leaf = true;
 		node->key_count = 1;
 		head->root = node;
 
-	} else if (head->root->key_count == 2 * head->min_degree - 1) {
+	} else if (head->root->key_count == btree_max_degree(head)) {
 
 		node = btree_split_root(head);
 		btree_split_child(head, node, 0);
@@ -284,16 +287,14 @@ int btree_insert(struct btree_head *head, void *key, void *val)
 
 	return 0;
 
-	err_key:
-	free(tmp_key);
-	err_node:
-	free(node);
 	err:
 	return -EMDNOMEM;
 }
 
 void* btree_remove(struct btree_head *head, unsigned long *key)
 {
+	(void)key;
+	(void)head;
 	return head;
 }
 

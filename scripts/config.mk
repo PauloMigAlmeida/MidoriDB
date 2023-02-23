@@ -17,7 +17,7 @@ CC		:= gcc
 CCFLAGS     	:= -std=gnu99 -I$(DIR_INCLUDE) -g \
 		       -O2 \
 		       -fpic \
-        	       -masm=intel \
+        	   -masm=intel \
 		       -Wall -Wextra -Wpedantic \
 		       -D_FORTIFY_SOURCE=3 \
 		       -fsanitize=bounds \
