@@ -10,13 +10,8 @@ struct btree_node_tuple {
 
 struct btree_node {
 	struct btree_node_tuple *keys;
-	int key_count;
 	struct btree_node *children;
-	/*TODO check if we need that... apparently other implementations use
-	 * "n" to interchangeably denote number of keys and number of children...
-	 * I'm not convinced that I need to keep track of both
-	 */
-	int children_count;
+	int key_count;
 	bool is_leaf;
 };
 
