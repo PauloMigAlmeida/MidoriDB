@@ -51,7 +51,7 @@ static void __btree_destroy(struct btree_head *head, struct btree_node *node)
 {
 	if (node->children) {
 		if (!node->is_leaf) {
-			for (int i = 0; i < btree_max_degree(head); i++)
+			for (int i = 0; i < node->key_count + 1; i++)
 				__btree_destroy(head, node->children + i);
 		}
 

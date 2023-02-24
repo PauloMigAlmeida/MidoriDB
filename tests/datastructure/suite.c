@@ -15,6 +15,8 @@ bool datastructure_init_suite(void) {
 	ADD_UNITTEST(suite, test_btree_lookup);
 	ADD_UNITTEST(suite, test_btree_insert__before_split);
 	ADD_UNITTEST(suite, test_btree_insert__root_split);
+	ADD_UNITTEST(suite, test_btree_insert__intermidiate_split);
+	ADD_UNITTEST(suite, test_btree_insert__increase_height);
 	ADD_UNITTEST(suite, test_btree_update);
 	ADD_UNITTEST(suite, test_btree_remove);
 
