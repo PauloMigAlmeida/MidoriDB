@@ -117,7 +117,7 @@ static struct btree_node* btree_node_alloc(struct btree_head *head)
 	if (!(node->keys = calloc(max_degree, sizeof(struct btree_node_tuple))))
 		goto err_keys;
 
-	if (!(node->children = calloc(max_degree, sizeof(struct btree_node))))
+	if (!(node->children = calloc(max_degree + 1, sizeof(struct btree_node))))
 		goto err_children;
 
 	node->key_count = 0;
@@ -131,9 +131,6 @@ static struct btree_node* btree_node_alloc(struct btree_head *head)
 
 static int btree_split_child(struct btree_head *head, struct btree_node *x, int i)
 {
-//	// Create a new node which is going to store (t-1) keys
-//	// of y
-//	BTreeNode *z = new BTreeNode(y->t, y->leaf);
 	struct btree_node *y;
 	struct btree_node *z;
 
@@ -142,63 +139,44 @@ static int btree_split_child(struct btree_head *head, struct btree_node *x, int 
 	if (!(z = btree_node_alloc(head)))
 		goto err;
 	z->is_leaf = y->is_leaf;
-	//	z->n = t - 1;
 	z->key_count = head->min_degree - 1;
 
-//	// Copy the last (t-1) keys of y to z
-//	for (int j = 0; j < t-1; j++)
-//	z->keys[j] = y->keys[j+t];
-
+	// Copy the last (t-1) keys of y to z
 	for (int j = 0; j < head->min_degree - 1; j++)
 		z->keys[j] = y->keys[j + head->min_degree];
 
-//	// Copy the last t children of y to z
-//	if (y->leaf == false)
-//	{
-//	for (int j = 0; j < t; j++)
-//	    z->C[j] = y->C[j+t];
-//	}
-//
+	// Copy the last t children of y to z
 
 	if (!y->is_leaf) {
 		for (int j = 0; j < head->min_degree; j++)
 			z->children[j] = y->children[j + head->min_degree];
 	}
 
-//	// Reduce the number of keys in y
-//	y->n = t - 1;
+	// Reduce the number of keys in y
 	y->key_count = head->min_degree - 1;
-//
-//	// Since this node is going to have a new child,
-//	// create space of new child
-//	for (int j = n; j >= i+1; j--)
-//	C[j+1] = C[j];
+
+	// Since this node is going to have a new child,
+	// create space of new child
 
 	for (int j = x->key_count; j >= i + 1; j--)
 		x->children[j + 1] = x->children[j];
-//
-//	// Link the new child to this node
-//	C[i+1] = z;
-	//TODO not convinved that memcpy is to be employed here
-	memcpy(&x->children[i + 1], z, sizeof(struct btree_node));
-//
-//	// A key of y will move to this node. Find the location of
-//	// new key and move all greater keys one space ahead
-//	for (int j = n-1; j >= i; j--)
-//	keys[j+1] = keys[j];
+
+	// Link the new child to this node
+	x->children[i + 1] = *z;
+
+	// A key of y will move to this node. Find the location of
+	// new key and move all greater keys one space ahead
 
 	for (int j = x->key_count - 1; j >= i; j--)
 		x->keys[j + 1] = x->keys[j];
-//
-//	// Copy the middle key of y to this node
-//	keys[i] = y->keys[t-1];
 
+	// Copy the middle key of y to this node
 	x->keys[i] = y->keys[head->min_degree - 1];
-//
-//	// Increment count of keys in this node
-//	n = n + 1;
 
+	// Increment count of keys in this node
 	x->key_count++;
+
+	free(z);
 	return 0;
 
 	err:
@@ -214,7 +192,8 @@ static struct btree_node* btree_split_root(struct btree_head *head)
 
 	s->is_leaf = false;
 	s->key_count = 0;
-	memcpy(&s->children[0], head->root, sizeof(struct btree_node));
+	s->children[0] = *head->root;
+	free(head->root);
 	head->root = s;
 	btree_split_child(head, s, 0);
 
@@ -278,7 +257,6 @@ int btree_insert(struct btree_head *head, void *key, void *val)
 	} else if (head->root->key_count == btree_max_degree(head)) {
 
 		node = btree_split_root(head);
-		btree_split_child(head, node, 0);
 		btree_insert_nonfull(head, node, key, val);
 
 	} else {
