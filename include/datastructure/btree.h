@@ -27,7 +27,7 @@ struct btree_head {
 	int min_degree;
 	size_t key_size;
 	size_t val_size;
-	int (*cmp_fn)(void *, void *);
+	int (*cmp_fn)(void*, void*);
 };
 
 /**
@@ -35,10 +35,10 @@ struct btree_head {
  *
  * @min_degree: number of keys each node can hold
  */
-struct btree_head *btree_init(int min_degree,
-			      size_t key_size,
-			      size_t val_size,
-			      int (*cmp_fn)(void *, void *));
+struct btree_head* btree_init(int min_degree,
+		size_t key_size,
+		size_t val_size,
+		int (*cmp_fn)(void*, void*));
 
 /**
  * btree_destroy - destroy btree recursively
@@ -55,8 +55,7 @@ void btree_destroy(struct btree_head **head);
  *
  * This function returns the value for the given key, or NULL.
  */
-void *btree_lookup(struct btree_head *head, void *key);
-
+void* btree_lookup(struct btree_head *head, void *key);
 
 /**
  * btree_update - update an entry in the btree
@@ -85,8 +84,7 @@ int btree_insert(struct btree_head *head, void *key, void *val);
  * This function returns the removed entry, or %NULL if the key
  * could not be found.
  */
-void *btree_remove(struct btree_head *head, unsigned long *key);
-
+void btree_remove(struct btree_head *head, void *key);
 
 int btree_cmp_str(void *key1, void *key2);
 int btree_cmp_ul(void *key1, void *key2);
