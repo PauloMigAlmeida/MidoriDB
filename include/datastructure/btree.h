@@ -4,8 +4,8 @@
 #include "compiler/common.h"
 
 struct btree_node_tuple {
-	void *key;
-	void *value;
+	uint64_t *key;
+	uint64_t*value;
 };
 
 struct btree_node {

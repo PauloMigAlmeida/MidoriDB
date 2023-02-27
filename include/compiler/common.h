@@ -11,6 +11,7 @@
 #include "compiler/bug.h"
 #include "compiler/container_of.h"
 #include "compiler/error.h"
+#include "compiler/heap.h"
 
 
 #endif /* COMPILER_COMMON_H */

@@ -83,6 +83,8 @@ void test_btree_insert__before_split(void)
 	CU_ASSERT_EQUAL(*((uint64_t* )head->root->keys[2].key), key3);
 	CU_ASSERT_EQUAL(*((uint64_t* )head->root->keys[2].value), val);
 
+	btree_traverse(head, head->root);
+
 	btree_destroy(&head);
 }
 
@@ -122,6 +124,8 @@ void test_btree_insert__root_split(void)
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[1].value), val);
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[2].key), key5);
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[2].value), val);
+
+	btree_traverse(head, head->root);
 
 	btree_destroy(&head);
 }
@@ -168,6 +172,7 @@ void test_btree_insert__intermidiate_split(void)
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[0].value), val);
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[1].key), key6);
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[1].value), val);
+	btree_traverse(head, head->root);
 
 	btree_destroy(&head);
 }
@@ -239,6 +244,8 @@ void test_btree_insert__increase_height(void)
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[1].key), key10);
 	CU_ASSERT_EQUAL(*((uint64_t* )tmp_node->keys[1].value), val);
 
+	btree_traverse(head, head->root);
+
 	btree_destroy(&head);
 }
 
@@ -250,7 +257,7 @@ void test_btree_update(void)
 void test_btree_remove(void)
 {
 	struct btree_head *head;
-	uint64_t arr[10];
+	uint64_t arr[6];
 	uint64_t val = 0xB1EE5;
 
 	head = btree_init(2, sizeof(uint64_t), sizeof(uint64_t), &btree_cmp_ul);
