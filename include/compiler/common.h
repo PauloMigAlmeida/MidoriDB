@@ -13,5 +13,7 @@
 #include "compiler/error.h"
 #include "compiler/heap.h"
 
+/* calculate the length of the array - and avoid tendinitis ;) */
+#define ARR_SIZE(arr)		sizeof(arr)/sizeof(arr[0])
 
 #endif /* COMPILER_COMMON_H */
