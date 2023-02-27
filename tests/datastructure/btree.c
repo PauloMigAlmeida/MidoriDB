@@ -257,7 +257,7 @@ void test_btree_update(void)
 void test_btree_remove(void)
 {
 	struct btree_head *head;
-	uint64_t arr[11];
+	uint64_t arr[13];
 	uint64_t val = 0xB1EE5;
 
 	head = btree_init(2, sizeof(uint64_t), sizeof(uint64_t), &btree_cmp_ul);
