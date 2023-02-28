@@ -41,7 +41,7 @@ link:
 	@echo "[linker] linking all object files"
 	@$(CC) $(CFLAGS) \
 		-shared \
-		-o $(DIR_BUILD_LIB)/libmidoridb.so \
+		-o $(DIR_BUILD_LIB)/$(LIB_DYN_NAME) \
 		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o")
 
 .PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
@@ -61,10 +61,10 @@ test: test_compile
 	        	-lcunit 					\
 	        	-L$(DIR_BUILD_LIB) 				\
 			-lmidoridb 					\
-			-Wl,-rpath=$(DIR_BUILD_LIB)			\
+			-Wl,-rpath $(DIR_BUILD_LIB)			\
 	                -o $(DIR_BUILD_TESTS)/$$(basename $$f '.o') 	\
 			$$f						\
-                	$(shell find $(DIR_BUILD_TESTS)/ -name '*.o'	\
+			$(shell find $(DIR_BUILD_TESTS) -name '*.o'	\
 			  -not -path '$(DIR_BUILD_TESTS)/main/*') ; 	\
 	done
 

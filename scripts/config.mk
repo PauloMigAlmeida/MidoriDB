@@ -12,20 +12,37 @@ DIR_INCLUDE	:= $(DIR_ROOT)/include
 #-------------------
 # Tool configuration
 #-------------------
-CC		:= gcc
+
+ifeq ($(OS),Windows_NT)
+	DETECTED_OS := Windows
+else
+	DETECTED_OS := $(shell sh -c 'uname 2>/dev/null || echo Unknown')
+endif
+$(info [global] detected OS: $(DETECTED_OS))
+
+ifeq ($(DETECTED_OS),Linux)
+	CC		:= gcc
+	LIB_DYN_NAME	:= libmidoridb.so
+else ifeq ($(DETECTED_OS),Darwin)
+	CC		:= clang
+	LIB_DYN_NAME	:= libmidoridb.dylib
+else
+	$(error MidoriDB doesn't support '$(DETECTED_OS)' OS yet )
+endif
+
 
 CCFLAGS     	:= -std=gnu99 -I$(DIR_INCLUDE) -g \
 		       -O2 \
 		       -fpic \
-        	   -masm=intel \
+			-masm=intel \
 		       -Wall -Wextra -Wpedantic \
 		       -D_FORTIFY_SOURCE=3 \
 		       -fsanitize=bounds \
 		       -fsanitize-undefined-trap-on-error \
 		       -fstack-protector-strong \
 		       -Wvla \
-		       -Wimplicit-fallthrough \
-		       -ftrivial-auto-var-init=zero
+		       -Wimplicit-fallthrough 
+
 
 MAKE_FLAGS  	:= --quiet --no-print-directory
 
