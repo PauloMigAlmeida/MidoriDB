@@ -4,8 +4,8 @@
 #include "compiler/common.h"
 
 struct btree_node_tuple {
-	uint64_t *key;
-	uint64_t*value;
+	void *key;
+	void *value;
 };
 
 struct btree_node {
@@ -85,6 +85,13 @@ int btree_insert(struct btree_head *head, void *key, void *val);
  * could not be found.
  */
 void btree_remove(struct btree_head *head, void *key);
+
+/**
+ * btree_traverse - utility method for traversing the btree. Mostly used for debugging purposes
+ *
+ * @head: head of the btree
+ */
+void btree_traverse(struct btree_head *head);
 
 int btree_cmp_str(void *key1, void *key2);
 int btree_cmp_ul(void *key1, void *key2);

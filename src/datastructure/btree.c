@@ -560,7 +560,7 @@ static void btree_node_remove(struct btree_head *head, struct btree_node *node, 
 //		else
 //			btree_node_remove(head, &node->children[idx], key);
 		// experiment
-		if (idx == node->key_count && idx > node->key_count)
+		if (idx > node->key_count)
 			btree_node_remove(head, &node->children[idx - 1], key);
 		else
 			btree_node_remove(head, &node->children[idx], key);
@@ -579,14 +579,40 @@ void btree_remove(struct btree_head *head, void *key)
 	//  if it has a child, otherwise set root as NULL
 	if (head->root->key_count == 0) {
 		struct btree_node *tmp = head->root;
-		if (head->root->is_leaf)
+		if (head->root->is_leaf) {
 			head->root = NULL;
-		else
+			free(tmp->children);
+		} else {
 			head->root = &head->root->children[0];
-
-		// Free the old root TODO: check that during test
-		__btree_destroy(head, tmp);
+		}
+		// Free the old root
+		free(tmp->keys);
+		free(tmp);
 
 	}
+}
+
+static void __btree_traverse(struct btree_head *head, struct btree_node *node, int level)
+{
+	for (int j = 0; j < level; j++)
+		printf("\t");
+
+	printf("[");
+	for (int i = 0; i < node->key_count; i++) {
+		printf("%lu", *(uint64_t*)node->keys[i].key);
+		if (i != node->key_count - 1)
+			printf(", ");
+	}
+	printf("] - {keys: keys: %p, children: %p}\n", (void*)node->keys, (void*)node->children);
+
+	if (!node->is_leaf)
+		for (int i = 0; i <= node->key_count; i++)
+			__btree_traverse(head, &node->children[i], level + 1);
+}
+
+void btree_traverse(struct btree_head *head)
+{
+	printf("\n\n");
+	__btree_traverse(head, head->root, 0);
 }
 
