@@ -10,7 +10,7 @@
 
 #include <string.h>
 
-#define memzero(dest, size)	memset(dest, '\0', size)
+#define memzero(dest, size)	memset(dest, 0, size)
 
 #define zalloc(size) __extension__({			\
         void *__mptr;					\
