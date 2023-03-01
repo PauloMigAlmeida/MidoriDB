@@ -6,7 +6,7 @@ DIR_ROOT := $(CURDIR)
 
 include $(DIR_ROOT)/scripts/config.mk
 
-DIR_SRC_SUBSYSTEMS 		:= $(wildcard $(DIR_SRC)/*)
+DIR_SRC_SUBSYSTEMS 			:= $(wildcard $(DIR_SRC)/*)
 DIR_SRC_TESTS_SUBSYSTEMS 	:= $(wildcard $(DIR_SRC_TESTS)/*)
 
 #----------------------------------------------------------------------------

@@ -5,13 +5,13 @@ static void btree_traverse(struct btree_head *head, struct btree_node *node, int
 {
 	for (int j = 0; j < level; j++)
 		printf("\t");
-	printf("[", level);
+	printf("[");
 	for (int i = 0; i < node->key_count; i++) {
 		printf("%lu", *(uint64_t*)node->keys[i].key);
-		if(i != node->key_count -1)
+		if (i != node->key_count - 1)
 			printf(", ");
 	}
-	printf("]\n", level);
+	printf("] - {keys: keys: %p, children: %p}\n", (void*)node->keys, (void*)node->children);
 
 	if (!node->is_leaf)
 		for (int i = 0; i <= node->key_count; i++)
@@ -254,10 +254,21 @@ void test_btree_update(void)
 	CU_ASSERT(true);
 }
 
+static void btree_traverse_pointers(struct btree_head *head, struct btree_node *node)
+{
+//	printf("%p\n", (void*)node);
+	printf("%p\n", (void*)node->keys);
+	printf("%p\n", (void*)node->children);
+
+	if (!node->is_leaf)
+		for (int i = 0; i <= node->key_count; i++)
+			btree_traverse_pointers(head, &node->children[i]);
+}
+
 void test_btree_remove(void)
 {
 	struct btree_head *head;
-	uint64_t arr[14];
+	uint64_t arr[4105];
 	uint64_t val = 0xB1EE5;
 
 	head = btree_init(2, sizeof(uint64_t), sizeof(uint64_t), &btree_cmp_ul);
@@ -268,12 +279,16 @@ void test_btree_remove(void)
 	}
 
 	printf("\n\n");
-	btree_traverse(head, head->root, 0);
-	printf("\n");
+//	btree_traverse(head, head->root, 0);
+//	btree_traverse_pointers(head, head->root);
+//	printf("\n");
+//
+//	printf("btree_destroy\n\n");
 
-//	btree_remove(head, &arr[0]);
+	btree_remove(head, &arr[0]);
 
-//	btree_traverse(head, head->root);
+//	btree_traverse(head, head->root, 0);
+//	btree_traverse_pointers(head, head->root);
 
 	btree_destroy(&head);
 	CU_ASSERT(head == NULL);

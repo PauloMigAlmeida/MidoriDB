@@ -34,10 +34,9 @@ struct btree_head* btree_init(int min_degree,
 	BUG_ON(min_degree < 2);
 	BUG_ON(!cmp_fn);
 
-	if (!(head = malloc(sizeof(*head))))
+	if (!(head = zalloc(sizeof(*head))))
 		die("couldn't alloc mem for btree");
 
-	memset(head, 0, sizeof(*head));
 	head->min_degree = min_degree;
 	head->key_size = key_size;
 	head->val_size = val_size;
@@ -46,29 +45,31 @@ struct btree_head* btree_init(int min_degree,
 	return head;
 }
 
+#define verbose_free(ptr) do { \
+				/*printf("%p\n", (void*)ptr);*/\
+				free(ptr);	\
+			}while(0);
+
 static void __btree_destroy(struct btree_head *head, struct btree_node *node)
 {
-	if (!node)
-		return;
 
-	if (node->children) {
-		if (!node->is_leaf) {
-			for (int i = 0; i < node->key_count + 1; i++)
-				__btree_destroy(head, &node->children[i]);
+	if (!node->is_leaf) {
+		// A non-leaf node with k children contains k − 1 keys
+		for (int i = 0; i < node->key_count + 1; i++) {
+			__btree_destroy(head, &node->children[i]);
 		}
 
-		free(node->children);
 	}
 
-	if (node->keys)
-		free(node->keys);
+	verbose_free(node->children);
+	verbose_free(node->keys);
 }
 
 void btree_destroy(struct btree_head **head)
 {
 	if ((*head)->root) {
 		__btree_destroy(*head, (*head)->root);
-		free((*head)->root);
+		verbose_free((*head)->root);
 	}
 
 	free(*head);
@@ -122,11 +123,44 @@ static struct btree_node* btree_node_alloc(struct btree_head *head)
 	if (!(node->children = calloc(max_degree, sizeof(struct btree_node))))
 		goto err_children;
 
+	node->is_leaf = true;
 	return node;
 
 	err_children: free(node->keys);
 	err_keys: free(node);
 	err_node: return NULL;
+}
+
+static int btree_node_copy(struct btree_head *head, struct btree_node *dst, struct btree_node *src)
+{
+
+	int max_degree = btree_max_degree(head) + 1 /* sentinel node */;
+
+	dst->is_leaf = src->is_leaf;
+	dst->key_count = src->key_count;
+
+	if (!(dst->keys = calloc(max_degree, sizeof(struct btree_node_tuple))))
+		goto err;
+
+	memcpy(dst->keys, src->keys, max_degree * sizeof(struct btree_node_tuple));
+
+	if (!(dst->children = calloc(max_degree, sizeof(struct btree_node))))
+		goto err_children;
+
+	if (!src->is_leaf) {
+		for (int i = 0; i <= src->key_count; i++) {
+			if (btree_node_copy(head, &dst->children[i], &src->children[i]) != 0)
+				goto err_recur;
+		}
+	}
+
+	return 0;
+
+	err_recur: free(dst->children);
+	err_children: free(dst->keys);
+	err:
+	printf("error while allocating mem");
+	return -EMDNOMEM;
 }
 
 static int btree_split_child(struct btree_head *head, struct btree_node *x, int i)
@@ -265,17 +299,13 @@ int btree_insert(struct btree_head *head, void *key, void *val)
 // A function to remove the idx-th key from this node - which is a leaf node
 static void btree_node_removeFromLeaf(struct btree_head *head, struct btree_node *node, int idx)
 {
-	// Move all the keys after the idx-th pos one place backward
+	(void)(head);
+// Move all the keys after the idx-th pos one place backward
 	for (int i = idx + 1; i < node->key_count; ++i) {
 		node->keys[i - 1] = node->keys[i];
+		memzero(&node->keys[i], sizeof(struct btree_node_tuple));
 	}
 
-	// Reduce the count of keys
-	/*
-	 * idx = 0, t = 3 => [0, 1, 2] => [1, 2]
-	 * idx = 1, t = 3 => [0, 1, 2] => [0, 2]
-	 */
-//	memzero(&node->keys[btree_max_degree(head)], sizeof(struct btree_node_tuple));
 	node->key_count--;
 
 }
@@ -283,12 +313,12 @@ static void btree_node_removeFromLeaf(struct btree_head *head, struct btree_node
 // A function to get predecessor of keys[idx] TODO watch out
 static struct btree_node_tuple btree_node_getPred(struct btree_node *node, int idx)
 {
-	// Keep moving to the right most node until we reach a leaf
+// Keep moving to the right most node until we reach a leaf
 	struct btree_node *cur = &node->children[idx];
 	while (!cur->is_leaf)
 		cur = &cur->children[cur->key_count];
 
-	// Return the last key of the leaf
+// Return the last key of the leaf
 	return cur->keys[cur->key_count - 1];
 }
 
@@ -326,14 +356,15 @@ static void btree_node_merge(struct btree_head *head, struct btree_node *node, i
 	// Copying the child pointers from C[idx+1] to C[idx]
 	if (!child->is_leaf) {
 		for (int i = 0; i <= sibling->key_count; ++i) {
-			child->children[i + head->min_degree] = sibling->children[i];
-			memzero(&sibling->children[i], sizeof(struct btree_node));
+			btree_node_copy(head, &child->children[i + head->min_degree], &sibling->children[i]);
 		}
 	}
 
-	child->key_count += sibling->key_count; //TODO experiment
-	free(sibling->keys);
-	free(sibling->children);
+	// Updating the key count of child and the current node
+	child->key_count += sibling->key_count + 1;
+
+	// Freeing the memory occupied by sibling
+	__btree_destroy(head, sibling);
 
 	// Moving all keys after idx in the current node one step before -
 	// to fill the gap created by moving keys[idx] to C[idx]
@@ -346,18 +377,9 @@ static void btree_node_merge(struct btree_head *head, struct btree_node *node, i
 	// step before
 	for (int i = idx + 2; i <= node->key_count; ++i) {
 		node->children[i - 1] = node->children[i];
-		memzero(&node->children[i], sizeof(struct btree_node));
 	}
 
-	// Updating the key count of child and the current node
-//	child->key_count += sibling->key_count + 1;
-
-//	sibling->key_count = 0;
 	node->key_count--;
-
-	// Freeing the memory occupied by sibling
-//	__btree_destroy(head, sibling);
-//	free(sibling);
 }
 
 // A function to remove the idx-th key from this node - which is a non-leaf node
@@ -461,12 +483,13 @@ static void btree_node_borrowFromNext(struct btree_node *node, int idx)
 	// Moving all keys in sibling one step behind
 	for (int i = 1; i < sibling->key_count; ++i)
 		sibling->keys[i - 1] = sibling->keys[i];
+	memzero(&sibling->keys[sibling->key_count - 1], sizeof(struct btree_node_tuple));
 
 	// Moving the child pointers one step behind
-	if (!sibling->is_leaf)
-	{
+	if (!sibling->is_leaf) {
 		for (int i = 1; i <= sibling->key_count; ++i)
 			sibling->children[i - 1] = sibling->children[i];
+		memzero(&sibling->children[sibling->key_count], sizeof(struct btree_node));
 	}
 
 	// Increasing and decreasing the key count of C[idx] and C[idx+1]
@@ -481,13 +504,9 @@ static void btree_node_fill(struct btree_head *head, struct btree_node *node, in
 
 	// If the previous child(C[idx-1]) has more than t-1 keys, borrow a key
 	// from that child
-	if (idx != 0
-			&& node->children[idx - 1].key_count
-					>= head->min_degree) {
+	if (idx != 0 && node->children[idx - 1].key_count >= head->min_degree) {
 		btree_node_borrowFromPrev(node, idx);
-	} else if (idx != node->key_count
-			&& node->children[idx + 1].key_count
-					>= head->min_degree) {
+	} else if (idx != node->key_count && node->children[idx + 1].key_count >= head->min_degree) {
 		btree_node_borrowFromNext(node, idx);
 	} else {
 		if (idx != node->key_count)
@@ -513,8 +532,7 @@ static void btree_node_remove(struct btree_head *head, struct btree_node *node, 
 	int idx = btree_node_find_key(head, node, key);
 
 	// The key to be removed is present in this node
-	if (idx < node->key_count
-			&& head->cmp_fn(node->keys[idx].key, key) == 0) {
+	if (idx < node->key_count && head->cmp_fn(node->keys[idx].key, key) == 0) {
 
 		// If the node is a leaf node - removeFromLeaf is called
 		// Otherwise, removeFromNonLeaf function is called
@@ -536,6 +554,12 @@ static void btree_node_remove(struct btree_head *head, struct btree_node *node, 
 		// If the last child has been merged, it must have merged with the previous
 		// child and so we recurse on the (idx-1)th child. Else, we recurse on the
 		// (idx)th child which now has atleast t keys
+
+//		if (idx == node->key_count && idx > node->key_count)
+//			btree_node_remove(head, &node->children[idx - 1], key);
+//		else
+//			btree_node_remove(head, &node->children[idx], key);
+		// experiment
 		if (idx == node->key_count && idx > node->key_count)
 			btree_node_remove(head, &node->children[idx - 1], key);
 		else
