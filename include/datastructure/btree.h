@@ -78,10 +78,10 @@ int __must_check btree_insert(struct btree_head *head, void *key, void *val);
  * @head: the btree to update
  * @key: the key to remove
  *
- * This function returns the removed entry, or %NULL if the key
- * could not be found.
+ * This function returns 0 if entry was removed (or not found) or a negative value if
+ * an error happened
  */
-void btree_remove(struct btree_head *head, void *key);
+int __must_check btree_remove(struct btree_head *head, void *key);
 
 /**
  * btree_traverse - utility method for traversing the btree. Mostly used for debugging purposes
