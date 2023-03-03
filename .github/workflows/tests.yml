@@ -1,0 +1,21 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: install dependencies
+      run: apt-get update -y && apt-get install -y libcunit1 libcunit1-doc libcunit1-dev
+    - name: make all
+      run: make all
+    - name: run unit tests
+      run: ./build/tests/run_unit_tests
