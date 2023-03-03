@@ -11,6 +11,7 @@ void test_btree_destroy(void)
 	/* empty */
 	struct btree_head *head;
 	head = btree_init(2, &btree_cmp_ul);
+	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
 	btree_destroy(&head);
 	CU_ASSERT_PTR_EQUAL(head, NULL);
 
@@ -24,7 +25,7 @@ void test_btree_destroy(void)
 	head = btree_init(2, &btree_cmp_ul);
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		arr[i] = i;
-		btree_insert(head, arr + i, &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	btree_destroy(&head);
@@ -54,7 +55,7 @@ void test_btree_insert__before_split(void)
 	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
-		btree_insert(head, arr + i, &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	CU_ASSERT_PTR_NOT_EQUAL(head->root, NULL);
@@ -83,7 +84,7 @@ void test_btree_insert__root_split(void)
 	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
-		btree_insert(head, arr + i, &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	CU_ASSERT_PTR_NOT_EQUAL(head->root, NULL);
@@ -120,7 +121,7 @@ void test_btree_insert__intermidiate_split(void)
 	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
-		btree_insert(head, arr + i, &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	CU_ASSERT_PTR_NOT_EQUAL(head->root, NULL);
@@ -160,7 +161,7 @@ void test_btree_insert__increase_height(void)
 	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
-		btree_insert(head, arr + i, &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	CU_ASSERT_PTR_NOT_EQUAL(head->root, NULL);
@@ -222,7 +223,7 @@ void test_btree_remove(void)
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		arr[i] = i + 1;
-		btree_insert(head, &arr[i], &val);
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
 	}
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr) / 2; i++) {
