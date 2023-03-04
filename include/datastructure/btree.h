@@ -60,8 +60,10 @@ void* btree_lookup(struct btree_head *head, void *key);
  * @head: the btree to update
  * @key: the key to update
  * @val: the value to change it to (must not be %NULL)
+ *
+ * This function returns true if key is found and updated, false otherwise
  */
-bool __must_check btree_update(struct btree_head *head, unsigned long *key, void *val);
+bool btree_update(struct btree_head *head, unsigned long *key, void *val);
 
 /**
  * btree_insert- insert an entry in the btree

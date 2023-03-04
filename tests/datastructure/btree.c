@@ -57,6 +57,10 @@ void test_btree_lookup(void)
 
 	}
 
+	// try to find an item that doesn't exist
+	uint64_t bogus = 0xFFFFFFFFFF;
+	CU_ASSERT_PTR_EQUAL(btree_lookup(head, &bogus), NULL);
+
 	btree_destroy(&head);
 	CU_ASSERT_PTR_EQUAL(head, NULL);
 }
@@ -225,7 +229,32 @@ void test_btree_insert__increase_height(void)
 
 void test_btree_update(void)
 {
-	CU_ASSERT(true);
+	struct btree_head *head;
+	uint64_t keys[10];
+	uint64_t initial_values[10];
+	uint64_t new_values[10];
+
+	head = btree_init(2, &btree_cmp_ul);
+	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+
+	/* insert initial values */
+	for (uint64_t i = 0; i < ARR_SIZE(keys); i++) {
+		keys[i] = i;
+		initial_values[i] = 0xBEEF + i;
+		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &keys[i], &initial_values[i]), 0);
+		CU_ASSERT_PTR_EQUAL(btree_lookup(head, &keys[i]), &initial_values[i]);
+	}
+
+	/* update values */
+	for (uint64_t i = 0; i < ARR_SIZE(keys); i++) {
+		new_values[i] = 0xDEAD + i;
+		CU_ASSERT_TRUE(btree_update(head, &keys[i], &new_values[i]))
+		CU_ASSERT_PTR_EQUAL(btree_lookup(head, &keys[i]), &new_values[i]);
+	}
+
+	btree_traverse(head);
+	btree_destroy(&head);
+	CU_ASSERT_PTR_EQUAL(head, NULL);
 }
 
 void test_btree_remove(void)

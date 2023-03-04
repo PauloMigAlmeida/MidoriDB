@@ -67,14 +67,14 @@ void btree_destroy(struct btree_head **head)
 	*head = NULL;
 }
 
-static void* btree_search(struct btree_head *head, struct btree_node *node, void *key)
+static struct btree_node_tuple* btree_search(struct btree_head *head, struct btree_node *node, void *key)
 {
 	int i = 0;
 	while (i < node->key_count && head->cmp_fn(key, node->keys[i].key) > 0)
 		i++;
 
 	if (node->keys[i].key && head->cmp_fn(node->keys[i].key, key) == 0)
-		return node->keys[i].value;
+		return &node->keys[i];
 
 	if (node->is_leaf)
 		return NULL;
@@ -84,18 +84,39 @@ static void* btree_search(struct btree_head *head, struct btree_node *node, void
 
 void* btree_lookup(struct btree_head *head, void *key)
 {
+	struct btree_node_tuple *found;
+
 	if (!head->root)
 		return NULL; /* btree hasn't been initialised yet */
 
-	return btree_search(head, head->root, key);
+	found = btree_search(head, head->root, key);
+	if (found)
+		return found->value;
+	else
+		return NULL;
 }
 
 bool btree_update(struct btree_head *head, unsigned long *key, void *val)
 {
-	(void)head;
-	(void)key;
-	(void)val;
-	return true;
+	struct btree_node_tuple *found;
+
+	/* sanity checks */
+	if (!head->root)
+		return NULL; /* btree hasn't been initialised yet */
+
+	if (!key)
+		return false;
+
+	if (!val)
+		return false;
+
+	found = btree_search(head, head->root, key);
+	if (found) {
+		found->value = val;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 static struct btree_node* __must_check btree_node_alloc(struct btree_head *head)
@@ -350,7 +371,8 @@ static int __must_check btree_node_merge(struct btree_head *head, struct btree_n
 	// Copying the child pointers from C[idx+1] to C[idx]
 	if (!child->is_leaf) {
 		for (int i = 0; i <= sibling->key_count; ++i) {
-			if ((ret = btree_node_copy(head, &child->children[i + head->min_degree], &sibling->children[i])) != 0)
+			if ((ret = btree_node_copy(head, &child->children[i + head->min_degree], &sibling->children[i]))
+					!= 0)
 				return ret;
 		}
 	}
@@ -551,7 +573,7 @@ static int btree_node_remove(struct btree_head *head, struct btree_node *node, v
 
 		// If the child where the key is supposed to exist has less that t keys,
 		// we fill that child
-		if (node->children[idx].key_count < head->min_degree){
+		if (node->children[idx].key_count < head->min_degree) {
 			if ((ret = btree_node_fill(head, node, idx)) != 0)
 				return ret;
 		}
