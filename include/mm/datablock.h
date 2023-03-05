@@ -6,16 +6,14 @@
 
 #define DATABLOCK_PAGE_SIZE	4096
 
-struct list_head *datablocks_head;
-
 struct datablock {
 	uint64_t block_id;
 	char data[DATABLOCK_PAGE_SIZE];
 	struct list_head head;
 };
 
-void datablock_init(void);
-struct datablock *datablock_alloc(void);
+struct list_head* __must_check datablock_init(void);
+struct datablock* __must_check datablock_alloc(struct list_head *head);
 void datablock_free(struct datablock *block);
 
 #endif /* MM_DATABLOCK_H */

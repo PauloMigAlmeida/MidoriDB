@@ -2,29 +2,29 @@
 
 static uint64_t block_id_acc;
 
-void datablock_init(void) {
-	if ((datablocks_head = malloc(sizeof(*datablocks_head)))) {
-		list_head_init(datablocks_head);
+struct list_head* datablock_init(void)
+{
+	struct list_head *ret = NULL;
+	if ((ret = zalloc(sizeof(*ret)))) {
 		block_id_acc = 0;
-	} else {
-		die("couldn't initiate datablock");
+		list_head_init(ret);
 	}
+	return ret;
 }
 
-struct datablock *datablock_alloc(void) {
-	struct datablock *new;
-	if((new = malloc(sizeof(*new)))) {		
-		memset(new, 0, sizeof(*new));
+struct datablock* datablock_alloc(struct list_head *head)
+{
+	struct datablock *new = NULL;
+	if ((new = zalloc(sizeof(*new)))) {
 		new->block_id = block_id_acc++;
 		list_head_init(&new->head);
-		list_add(&new->head, datablocks_head->prev);
-	} else {
-		die("couldn't alloc datablock");
+		list_add(&new->head, head->prev);
 	}
 	return new;
 }
 
-void datablock_free(struct datablock *block) {
+void datablock_free(struct datablock *block)
+{
 	list_del(&block->head);
 	free(block);
 }
