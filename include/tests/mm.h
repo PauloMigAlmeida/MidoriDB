@@ -12,4 +12,9 @@ void test_datablock_alloc(void);
 void test_datablock_free(void);
 void test_datablock_iterate(void);
 
+void test_table_init(void);
+void test_table_add_column(void);
+void test_table_destroy(void);
+
+
 #endif /* TESTS_MM_H */

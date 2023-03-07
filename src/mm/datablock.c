@@ -6,7 +6,6 @@ struct list_head* datablock_init(void)
 {
 	struct list_head *ret = NULL;
 	if ((ret = zalloc(sizeof(*ret)))) {
-		block_id_acc = 0;
 		list_head_init(ret);
 	}
 	return ret;

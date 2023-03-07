@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include "compiler/bug.h"
 #include "compiler/container_of.h"
 #include "compiler/error.h"

@@ -59,7 +59,8 @@ void test_datablock_iterate(void)
 		sum_blk_ids += entry->block_id;
 	}
 
-	CU_ASSERT_EQUAL(sum_blk_ids, 3);
+	CU_ASSERT_EQUAL(sum_blk_ids,
+			block1->block_id + block2->block_id + block3->block_id);
 
 	datablock_free(block1);
 	datablock_free(block2);
