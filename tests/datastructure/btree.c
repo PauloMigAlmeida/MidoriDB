@@ -5,9 +5,9 @@ void test_btree_init(void)
 {
 	struct btree_head *head;
 	head = btree_init(100, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_destroy(void)
@@ -15,9 +15,9 @@ void test_btree_destroy(void)
 	/* empty */
 	struct btree_head *head;
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 
 	/*
 	 * stressing the splitting operations to ensure pointers are neither
@@ -33,7 +33,7 @@ void test_btree_destroy(void)
 	}
 
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 
 }
 
@@ -44,7 +44,7 @@ void test_btree_lookup(void)
 	uint64_t values[100];
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(keys); i++) {
 		keys[i] = i;
@@ -62,7 +62,7 @@ void test_btree_lookup(void)
 	CU_ASSERT_PTR_EQUAL(btree_lookup(head, &bogus), NULL);
 
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_insert__before_split(void)
@@ -72,7 +72,7 @@ void test_btree_insert__before_split(void)
 	uint64_t val = 0xDEADBEEF;
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
@@ -90,7 +90,7 @@ void test_btree_insert__before_split(void)
 
 	btree_traverse(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_insert__root_split(void)
@@ -101,7 +101,7 @@ void test_btree_insert__root_split(void)
 	uint64_t val = 0xDEADBEEF;
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
@@ -127,7 +127,7 @@ void test_btree_insert__root_split(void)
 
 	btree_traverse(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_insert__intermidiate_split(void)
@@ -138,7 +138,7 @@ void test_btree_insert__intermidiate_split(void)
 	uint64_t val = 0xDEADBEEF;
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
@@ -167,7 +167,7 @@ void test_btree_insert__intermidiate_split(void)
 	CU_ASSERT_PTR_EQUAL(tmp_node->keys[1].value, &val);
 	btree_traverse(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_insert__increase_height(void)
@@ -178,7 +178,7 @@ void test_btree_insert__increase_height(void)
 	uint64_t val = 0xDEADBEEF;
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		CU_ASSERT_EQUAL_FATAL(btree_insert(head, &arr[i], &val), 0);
@@ -224,7 +224,7 @@ void test_btree_insert__increase_height(void)
 
 	btree_traverse(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_update(void)
@@ -235,7 +235,7 @@ void test_btree_update(void)
 	uint64_t new_values[10];
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	/* insert initial values */
 	for (uint64_t i = 0; i < ARR_SIZE(keys); i++) {
@@ -254,7 +254,7 @@ void test_btree_update(void)
 
 	btree_traverse(head);
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
 void test_btree_remove(void)
@@ -264,7 +264,7 @@ void test_btree_remove(void)
 	uint64_t val = 0xB1EE5;
 
 	head = btree_init(2, &btree_cmp_ul);
-	CU_ASSERT_PTR_NOT_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NOT_NULL(head);
 
 	for (uint64_t i = 0; i < ARR_SIZE(arr); i++) {
 		arr[i] = i + 1;
@@ -278,6 +278,6 @@ void test_btree_remove(void)
 	}
 
 	btree_destroy(&head);
-	CU_ASSERT_PTR_EQUAL(head, NULL);
+	CU_ASSERT_PTR_NULL(head);
 }
 
