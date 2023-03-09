@@ -17,7 +17,9 @@ static inline bool __valid_name(char *name, size_t max_size)
 
 	for (size_t i = 0; i < arg_len; i++) {
 		char c = name[i];
-		if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+		if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+				(c >= '0' && c <= '9' && i != 0) ||
+				(c == '_' && i != 0)))
 			return false;
 	}
 	return true;
