@@ -7,12 +7,12 @@
 
 #include "mm/table.h"
 
-static bool table_validate_name(char *name)
+static inline bool __valid_name(char *name, size_t max_size)
 {
 	size_t arg_len;
 
 	arg_len = strlen(name);
-	if (arg_len == 0 || arg_len > TABLE_MAX_NAME)
+	if (arg_len == 0 || arg_len > max_size)
 		return false;
 
 	for (size_t i = 0; i < arg_len; i++) {
@@ -21,6 +21,11 @@ static bool table_validate_name(char *name)
 			return false;
 	}
 	return true;
+}
+
+static bool table_validate_name(char *name)
+{
+	return __valid_name(name, TABLE_MAX_NAME);
 }
 
 struct table* __must_check table_init(char *name)
@@ -86,18 +91,7 @@ bool table_destroy(struct table **table)
 
 static bool table_validate_column_name(char *name)
 {
-	size_t arg_len;
-
-	arg_len = strlen(name);
-	if (arg_len == 0 || arg_len > TABLE_MAX_COLUMN_NAME)
-		return false;
-
-	for (size_t i = 0; i < arg_len; i++) {
-		char c = name[i];
-		if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
-			return false;
-	}
-	return true;
+	return __valid_name(name, TABLE_MAX_COLUMN_NAME);
 }
 
 bool table_add_column(struct table *table, struct column *column)
