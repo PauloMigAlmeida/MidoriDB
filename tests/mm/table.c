@@ -74,7 +74,8 @@ void test_table_add_column(void)
 
 	/* valid case - normal case */
 	strcpy(column.name, "column_123");
-	column.length = 10;
+	column.type = VARCHAR;
+	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 1);
 
@@ -83,37 +84,50 @@ void test_table_add_column(void)
 		column.name[i] = 'a';
 	}
 	column.name[ARR_SIZE(column.name) - 1] = '\0';
-	column.length = 10;
+	column.type = INTEGER;
+	column.precision = 0;
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 
 	/* invalid case - invalid name */
 	strcpy(column.name, "!@#$%");
-	column.length = 10;
+	column.type = VARCHAR;
+	column.precision = 10;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 
 	/* invalid case - name starts with number*/
 	strcpy(column.name, "1column");
-	column.length = 10;
+	column.type = VARCHAR;
+	column.precision = 10;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 
 	/* invalid case - name starts with underscore*/
 	strcpy(column.name, "_column");
-	column.length = 10;
+	column.type = VARCHAR;
+	column.precision = 10;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 
 	/* invalid case - empty name */
 	strcpy(column.name, "");
-	column.length = 10;
+	column.type = VARCHAR;
+	column.precision = 10;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 
 	/* invalid case - invalid precision/length */
 	strcpy(column.name, "oi");
-	column.length = 0;
+	column.type = VARCHAR;
+	column.precision = 0;
+	CU_ASSERT_FALSE(table_add_column(table, &column));
+	CU_ASSERT_EQUAL(table->column_count, 2);
+
+	/* invalid case - invalid type -> precision combination*/
+	strcpy(column.name, "oi");
+	column.type = INTEGER;
+	column.precision = 1;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 2);
 

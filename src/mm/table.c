@@ -91,9 +91,18 @@ bool table_destroy(struct table **table)
 	return true;
 }
 
-static bool table_validate_column_name(char *name)
+static bool table_validate_column(struct column *column)
 {
-	return __valid_name(name, TABLE_MAX_COLUMN_NAME);
+	if (!__valid_name(column->name, TABLE_MAX_COLUMN_NAME))
+		return false;
+
+	/* data type validations */
+	if (column->type == VARCHAR && column->precision < 1)
+		return false;
+	else if (column->type != VARCHAR && column->precision != 0)
+		return false;
+
+	return true;
 }
 
 bool table_add_column(struct table *table, struct column *column)
@@ -103,7 +112,7 @@ bool table_add_column(struct table *table, struct column *column)
 		return false;
 
 	/* check column name rules */
-	if (!table_validate_column_name(column->name) || column->length < 1)
+	if (!table_validate_column(column))
 		return false;
 
 	if (pthread_mutex_lock(&table->mutex))

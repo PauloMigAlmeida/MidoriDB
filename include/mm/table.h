@@ -15,11 +15,23 @@
 #define TABLE_MAX_COLUMN_NAME	127
 #define TABLE_MAX_NAME		127
 
+enum COLUMN_TYPE {
+	VARCHAR,
+	INTEGER,
+	DOUBLE,
+	DATE,
+	// Add more in the future
+};
+
 struct column {
 	/* NUL-terminated string */
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+
+	/* type of value meant to be stored */
+	enum COLUMN_TYPE type;
+
 	/* how much space it takes up in memory */
-	int length;
+	int precision;
 };
 
 struct table {
