@@ -69,17 +69,19 @@ void test_table_add_column(void)
 	struct table *table;
 	struct column column;
 
+	/* valid case - normal case */
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
-
-	/* valid case - normal case */
 	strcpy(column.name, "column_123");
 	column.type = VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 1);
+	CU_ASSERT(table_destroy(&table));
 
 	/* valid case - biggest possible name */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	for (size_t i = 0; i < ARR_SIZE(column.name) - 1; i++) {
 		column.name[i] = 'a';
 	}
@@ -87,49 +89,77 @@ void test_table_add_column(void)
 	column.type = INTEGER;
 	column.precision = 0;
 	CU_ASSERT(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 1);
+	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid name */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "!@#$%");
 	column.type = VARCHAR;
 	column.precision = 10;
-	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
-	/* invalid case - name starts with number*/
+	/* invalid case - name starts with number */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "1column");
 	column.type = VARCHAR;
 	column.precision = 10;
-	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
-	/* invalid case - name starts with underscore*/
+	/* invalid case - name starts with underscore */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "_column");
 	column.type = VARCHAR;
 	column.precision = 10;
-	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - empty name */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "");
 	column.type = VARCHAR;
 	column.precision = 10;
-	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid precision/length */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "oi");
 	column.type = VARCHAR;
 	column.precision = 0;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
-	/* invalid case - invalid type -> precision combination*/
+	/* invalid case - invalid type -> precision combination */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "oi");
 	column.type = INTEGER;
 	column.precision = 1;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
-	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT(table_destroy(&table));
 
+	/* testing maximum number of columns per table */
+	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
+	for (size_t i = 0; i < TABLE_MAX_COLUMNS; i++) {
+		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%zu", i);
+		column.type = INTEGER;
+		column.precision = 0;
+		CU_ASSERT(table_add_column(table, &column));
+		CU_ASSERT_EQUAL(table->column_count, i + 1);
+	}
+	strcpy(column.name, "one_too_much");
+	CU_ASSERT_FALSE(table_add_column(table, &column));
+	CU_ASSERT_EQUAL(table->column_count, TABLE_MAX_COLUMNS);
 	CU_ASSERT(table_destroy(&table));
 }
