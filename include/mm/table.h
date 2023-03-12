@@ -63,7 +63,7 @@ struct table {
 struct table* __must_check table_init(char *name);
 
 /**
- * table_add_column - add column to an existing table
+ * table_add_column - add column to a table
  *
  * @table: table reference
  * @column: column to be added
@@ -71,6 +71,16 @@ struct table* __must_check table_init(char *name);
  * This function returns true if it could add the column successfully, false otherwise
  */
 bool table_add_column(struct table *table, struct column *column);
+
+/**
+ * table_rem_column - remove column from a table
+ *
+ * @table: table reference
+ * @column: column to be removed
+ *
+ * This function returns true if it could remove the column successfully, false otherwise
+ */
+bool table_rem_column(struct table *table, struct column *column);
 
 /**
  * table_destroy - free a table

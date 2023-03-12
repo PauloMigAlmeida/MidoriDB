@@ -149,5 +149,58 @@ bool table_add_column(struct table *table, struct column *column)
 	 */
 	BUG_ON(pthread_mutex_unlock(&table->mutex));
 	return false;
+}
 
+bool table_rem_column(struct table *table, struct column *column)
+{
+	int pos;
+	bool found = false;
+
+	/* sanity checks */
+	if (!table || !column || table->column_count == 0)
+		return false;
+
+	/*
+	 * check column name rules. Not so much because we care but
+	 * if this returns false then it's sure as hell that the column
+	 * doesn't exist so we can fail-fast
+	 */
+	if (!table_validate_column(column))
+		return false;
+
+	if (pthread_mutex_lock(&table->mutex))
+		return false;
+
+	for (pos = 0; pos < table->column_count; pos++) {
+		if (strncmp(table->columns[pos].name, column->name, TABLE_MAX_COLUMN_NAME) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		goto err_cleanup_mutex;
+
+	memmove(&table->columns[pos],
+		&table->columns[pos + 1],
+		(TABLE_MAX_COLUMNS - (pos + 1)) * sizeof(struct column));
+
+	table->column_count--;
+
+	if (pthread_mutex_unlock(&table->mutex))
+		return false;
+
+	return true;
+
+	err_cleanup_mutex:
+	/*
+	 * pthread_mutex_unlock should fail if
+	 * 	 - [EINVAL] The value specified for the argument is not correct.
+	 * 	 - [EPERM]  The mutex is not currently held by the caller.
+	 *
+	 * In both cases, this is the symptom for something much worse, so in this case
+	 * the program should die... and the developer blamed :)
+	 */
+	BUG_ON(pthread_mutex_unlock(&table->mutex));
+	return false;
 }

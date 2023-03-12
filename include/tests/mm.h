@@ -14,6 +14,7 @@ void test_datablock_iterate(void);
 
 void test_table_init(void);
 void test_table_add_column(void);
+void test_table_rem_column(void);
 void test_table_destroy(void);
 
 
