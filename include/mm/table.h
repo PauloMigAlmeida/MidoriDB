@@ -32,6 +32,9 @@ struct column {
 
 	/* how much space it takes up in memory */
 	int precision;
+
+	/* is this column indexed ? */
+	bool indexed;
 };
 
 struct table {
@@ -42,6 +45,8 @@ struct table {
 	int column_count;
 
 	struct list_head *datablock_head;
+	/* offset from the last datablock item with free space available */
+	size_t free_dtbkl_offset;
 
 	/*
 	 * using mutex locks as it is POSIX.
@@ -90,5 +95,14 @@ bool table_rem_column(struct table *table, struct column *column);
  * This function returns true if it could release all resources, false otherwise
  */
 bool table_destroy(struct table **table);
+
+/**
+ * table_insert_row - insert row into a table
+ *
+ * @table: table reference
+ * @data: ptr to data to be insert lives
+ * @len: size of data to be read from data ptr
+ */
+bool table_insert_row(struct table *table, void* data, size_t len);
 
 #endif /* INCLUDE_MM_TABLE_H_ */

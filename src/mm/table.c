@@ -42,6 +42,7 @@ struct table* __must_check table_init(char *name)
 		return NULL;
 
 	ret->column_count = 0;
+	ret->free_dtbkl_offset = 0;
 
 	if (!table_validate_name(name))
 		goto err_free;
@@ -186,6 +187,63 @@ bool table_rem_column(struct table *table, struct column *column)
 		(TABLE_MAX_COLUMNS - (pos + 1)) * sizeof(struct column));
 
 	table->column_count--;
+
+	if (pthread_mutex_unlock(&table->mutex))
+		return false;
+
+	return true;
+
+	err_cleanup_mutex:
+	/*
+	 * pthread_mutex_unlock should fail if
+	 * 	 - [EINVAL] The value specified for the argument is not correct.
+	 * 	 - [EPERM]  The mutex is not currently held by the caller.
+	 *
+	 * In both cases, this is the symptom for something much worse, so in this case
+	 * the program should die... and the developer blamed :)
+	 */
+	BUG_ON(pthread_mutex_unlock(&table->mutex));
+	return false;
+}
+
+bool table_insert_row(struct table *table, void *data, size_t len)
+{
+	/* sanity checks */
+	if (!table || !data || len == 0)
+		return false;
+
+	if (pthread_mutex_lock(&table->mutex))
+		return false;
+
+	/*
+	 * check whether the data we are trying to insert is beyond what this table is
+	 * meant hold - most likely someone has made a mistake for that to be the case.
+	 * Then again, this is C.. you can never be "too safe" under any circumstance
+	 */
+	size_t expected_row_size = 0;
+	for (int i = 0; i < table->column_count; i++)
+		expected_row_size += table->columns[i].precision;
+
+	if (len != expected_row_size)
+		return false;
+
+	/* is there enough space to insert that into an existing datablock, if not alloc a new one */
+	struct datablock *block;
+	if ((table->free_dtbkl_offset + len) >= DATABLOCK_PAGE_SIZE) {
+		// Notes to myself, paulo, you should test the crap out of that..
+		// TODO add some sort of POISON/EOF so when reading the datablock
+		// we would know that it's time to  go to the next datablock
+		//
+		// We also have to differentiate between EOF and data deleted.. this will
+		// happen once we implement delete operations
+		if (!(block = datablock_alloc(table->datablock_head)))
+			goto err_cleanup_mutex;
+	} else {
+		block = list_entry(table->datablock_head, typeof(*block), head);
+	}
+
+	memcpy(&block->data[table->free_dtbkl_offset], data, len);
+	table->free_dtbkl_offset += len;
 
 	if (pthread_mutex_unlock(&table->mutex))
 		return false;

@@ -17,6 +17,7 @@ void test_table_init(void)
 	CU_ASSERT_PTR_NOT_NULL(table);
 	CU_ASSERT_STRING_EQUAL(table->name, "test_123");
 	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 	CU_ASSERT(table_destroy(&table));
 	CU_ASSERT_PTR_NULL(table);
 
@@ -30,6 +31,7 @@ void test_table_init(void)
 	CU_ASSERT_PTR_NOT_NULL(table);
 	CU_ASSERT_STRING_EQUAL(table->name, bigname);
 	CU_ASSERT_EQUAL(table->column_count, 0);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 	CU_ASSERT(table_destroy(&table));
 	CU_ASSERT_PTR_NULL(table);
 
