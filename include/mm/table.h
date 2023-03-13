@@ -15,12 +15,24 @@
 #define TABLE_MAX_COLUMN_NAME	127
 #define TABLE_MAX_NAME		127
 
+struct row_header {
+	/* is this row empty? */
+	bool empty;	
+	/* was this row deleted? */
+	bool deleted;
+};
+struct row {
+	struct row_header header;
+	/* actual row data */
+	void *data;
+};
+
 enum COLUMN_TYPE {
 	VARCHAR,
 	INTEGER,
 	DOUBLE,
 	DATE,
-	// Add more in the future
+// Add more in the future
 };
 
 struct column {
@@ -103,6 +115,6 @@ bool table_destroy(struct table **table);
  * @data: ptr to data to be insert lives
  * @len: size of data to be read from data ptr
  */
-bool table_insert_row(struct table *table, void* data, size_t len);
+bool table_insert_row(struct table *table, void *data, size_t len);
 
 #endif /* INCLUDE_MM_TABLE_H_ */
