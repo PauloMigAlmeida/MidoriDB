@@ -21,10 +21,11 @@ struct row_header {
 	/* was this row deleted? */
 	bool deleted;
 };
+
 struct row {
 	struct row_header header;
 	/* actual row data */
-	void *data;
+	char data[];
 };
 
 enum COLUMN_TYPE {

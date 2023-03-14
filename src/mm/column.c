@@ -30,10 +30,7 @@ static bool table_validate_column(struct column *column)
 	if (!__valid_name(column->name, TABLE_MAX_COLUMN_NAME))
 		return false;
 
-	/* data type validations */
-	if (column->type == VARCHAR && column->precision < 1)
-		return false;
-	else if (column->type != VARCHAR && column->precision != 0)
+	if (column->precision < 1)
 		return false;
 
 	return true;

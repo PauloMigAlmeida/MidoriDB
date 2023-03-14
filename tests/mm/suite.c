@@ -15,6 +15,7 @@ bool mm_init_suite(void)
 	ADD_UNITTEST(suite, test_table_destroy);
 	ADD_UNITTEST(suite, test_table_add_column);
 	ADD_UNITTEST(suite, test_table_rem_column);
+	ADD_UNITTEST(suite, test_table_insert_row);
 	return false;
 }
 

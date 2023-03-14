@@ -53,12 +53,15 @@ struct table* __must_check table_init(char *name)
 	if (!ret->datablock_head)
 		goto err_free;
 
+	if (!datablock_alloc(ret->datablock_head))
+		goto err_datablock;
+
 	if (pthread_mutex_init(&ret->mutex, NULL))
-		goto err_mutex;
+		goto err_datablock;
 
 	return ret;
 
-	err_mutex:
+	err_datablock:
 	free(ret->datablock_head);
 	err_free:
 	free(ret);
@@ -69,6 +72,7 @@ bool table_destroy(struct table **table)
 {
 	struct datablock *entry = NULL;
 	struct list_head *pos = NULL;
+	struct list_head *tmp_pos = NULL;
 
 	if (!(*table))
 		return false;
@@ -78,7 +82,7 @@ bool table_destroy(struct table **table)
 		return false;
 
 	/* destroy all datablocks if any */
-	list_for_each(pos, (*table)->datablock_head)
+	list_for_each_safe(pos, tmp_pos, (*table)->datablock_head)
 	{
 		entry = list_entry(pos, typeof(*entry), head);
 		datablock_free(entry);
@@ -91,7 +95,6 @@ bool table_destroy(struct table **table)
 
 	return true;
 }
-
 
 bool table_insert_row(struct table *table, void *data, size_t len)
 {
@@ -116,7 +119,8 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 
 	/* is there enough space to insert that into an existing datablock, if not alloc a new one */
 	struct datablock *block;
-	if ((table->free_dtbkl_offset + len) >= DATABLOCK_PAGE_SIZE) {
+	struct row *new_row;
+	if ((table->free_dtbkl_offset + (sizeof(*new_row) + len)) >= DATABLOCK_PAGE_SIZE) {
 		// Notes to myself, paulo, you should test the crap out of that..
 		// TODO add some sort of POISON/EOF so when reading the datablock
 		// we would know that it's time to  go to the next datablock
@@ -125,12 +129,21 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 		// happen once we implement delete operations
 		if (!(block = datablock_alloc(table->datablock_head)))
 			goto err_cleanup_mutex;
+
+		table->free_dtbkl_offset = 0;
 	} else {
-		block = list_entry(table->datablock_head, typeof(*block), head);
+		// since it's a circular linked list then getting the head->prev is the same
+		// as getting the last available data block
+		block = list_entry(table->datablock_head->prev, typeof(*block), head);
 	}
 
-	memcpy(&block->data[table->free_dtbkl_offset], data, len);
-	table->free_dtbkl_offset += len;
+	new_row = (struct row*)&block->data[table->free_dtbkl_offset];
+	new_row->header.empty = true;
+	new_row->header.deleted = false;
+	memcpy(new_row->data, data, len);
+
+	//TODO replace it with struct_size for flex array when I implement it
+	table->free_dtbkl_offset += sizeof(*new_row) + len;
 
 	if (pthread_mutex_unlock(&table->mutex))
 		return false;
