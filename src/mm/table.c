@@ -120,7 +120,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 	/* is there enough space to insert that into an existing datablock, if not alloc a new one */
 	struct datablock *block;
 	struct row *new_row;
-	if ((table->free_dtbkl_offset + (sizeof(*new_row) + len)) >= DATABLOCK_PAGE_SIZE) {
+	if ((table->free_dtbkl_offset + struct_size(new_row, data, len)) >= DATABLOCK_PAGE_SIZE) {
 		// Notes to myself, paulo, you should test the crap out of that..
 		// TODO add some sort of POISON/EOF so when reading the datablock
 		// we would know that it's time to  go to the next datablock
@@ -142,8 +142,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 	new_row->header.deleted = false;
 	memcpy(new_row->data, data, len);
 
-	//TODO replace it with struct_size for flex array when I implement it
-	table->free_dtbkl_offset += sizeof(*new_row) + len;
+	table->free_dtbkl_offset += struct_size(new_row, data, len);
 
 	if (pthread_mutex_unlock(&table->mutex))
 		return false;

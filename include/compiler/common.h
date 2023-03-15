@@ -14,6 +14,7 @@
 #include "compiler/error.h"
 #include "compiler/heap.h"
 #include "compiler/compiler_attributes.h"
+#include "compiler/overflow.h"
 
 /* calculate the length of the array - and avoid tendinitis ;) */
 #define ARR_SIZE(arr)		sizeof(arr)/sizeof(arr[0])

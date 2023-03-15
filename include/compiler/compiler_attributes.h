@@ -14,4 +14,10 @@
  */
 #define __must_check	__attribute__((__warn_unused_result__))
 
+/* Are two types/vars the same type (ignoring qualifiers)? */
+#define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
+
+/* &a[0] degrades to a pointer: a different type from an array */
+#define __must_be_array(a) _Static_assert(!__same_type((a), &(a)[0]), "must be an array")
+
 #endif /* INCLUDE_COMPILER_COMPILER_ATTRIBUTES_H_ */

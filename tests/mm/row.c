@@ -28,8 +28,8 @@ static bool check_row_data(struct table *table, size_t row_num, void *expected, 
 	list_for_each(pos, table->datablock_head)
 	{
 		struct datablock *block = list_entry(pos, typeof(*block), head);
-		//TODO fix this once I implement struct size
-		for (size_t j = 0; j < ARR_SIZE(block->data) / (sizeof(struct row) + len); j++) {
+
+		for (size_t j = 0; j < ARR_SIZE(block->data) / struct_size_const(struct row, data, len); j++) {
 			struct row *row = (struct row*)&block->data[j * (sizeof(struct row) + len)];
 			if (i == row_num)
 				return memcmp(row->data, expected, len) == 0;
@@ -72,8 +72,8 @@ void test_table_insert_row(void)
 		CU_ASSERT(table_add_column(table, &column));
 		CU_ASSERT_EQUAL(table->column_count, i + 1);
 	}
-//	TODO fix this once I implement struct size
-	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / (sizeof(struct row) + sizeof(data))) + 1; i++) {
+
+	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / (struct_size_const(struct row, data, sizeof(data)))) + 1; i++) {
 		CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 		CU_ASSERT(check_row_data(table, i, data, sizeof(data)));
 	}
