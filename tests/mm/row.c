@@ -21,7 +21,6 @@ static size_t count_datablocks(struct table *table)
 
 static bool check_row_data(struct table *table, size_t row_num, void *expected, size_t len)
 {
-	printf("check_row_data: row_num: %zu\n", row_num);
 	//TODO implement jump to next datablock when EOB is found
 	struct list_head *pos;
 	size_t i = 0;
@@ -64,15 +63,22 @@ void test_table_insert_row(void)
 	int data[] = {1, 2, 3};
 	size_t fit_in_datablock = (DATABLOCK_PAGE_SIZE / (struct_size_const(struct row, data, sizeof(data))));
 
+	/* valid case - empty table */
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(table_destroy(&table));
+
 	/* valid case - normal case */
-	create_test_table(&table,ARR_SIZE(data));
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
+	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
 	CU_ASSERT(table_destroy(&table));
 
-	/* valid case - force allocate new datablocks */
-	create_test_table(&table,ARR_SIZE(data));
+	/* valid case - force allocate new data blocks */
+	create_test_table(&table, ARR_SIZE(data));
 
 	for (size_t i = 0; i < fit_in_datablock * 3; i++) {
 		CU_ASSERT(table_insert_row(table, data, sizeof(data)));
@@ -80,4 +86,19 @@ void test_table_insert_row(void)
 	}
 	CU_ASSERT_EQUAL(count_datablocks(table), 3);
 	CU_ASSERT(table_destroy(&table));
+
+	/* invalid case - different row size */
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT_FALSE(table_insert_row(table, data, sizeof(data) + 1));
+	CU_ASSERT_FALSE(check_row_data(table, 0, data, sizeof(data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(table_destroy(&table));
+
+	/* invalid case - invalid row size */
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT_FALSE(table_insert_row(table, data, 0));
+	CU_ASSERT_FALSE(check_row_data(table, 0, data, sizeof(data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(table_destroy(&table));
+
 }

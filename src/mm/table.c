@@ -115,7 +115,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 		expected_row_size += table->columns[i].precision;
 
 	if (len != expected_row_size)
-		return false;
+		goto err_cleanup_mutex;
 
 	/* is there enough space to insert that into an existing datablock, if not alloc a new one */
 	struct datablock *block;
