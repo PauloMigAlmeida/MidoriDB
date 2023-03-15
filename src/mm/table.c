@@ -119,8 +119,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 
 	/* is there enough space to insert that into an existing datablock, if not alloc a new one */
 	struct datablock *block;
-	struct row *new_row;
-	if ((table->free_dtbkl_offset + struct_size(new_row, data, len)) >= DATABLOCK_PAGE_SIZE) {
+	if ((table->free_dtbkl_offset + struct_size_const(struct row, data, len)) >= DATABLOCK_PAGE_SIZE) {
 		// Notes to myself, paulo, you should test the crap out of that..
 		// TODO add some sort of POISON/EOF so when reading the datablock
 		// we would know that it's time to  go to the next datablock
@@ -137,7 +136,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 		block = list_entry(table->datablock_head->prev, typeof(*block), head);
 	}
 
-	new_row = (struct row*)&block->data[table->free_dtbkl_offset];
+	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
 	new_row->header.empty = true;
 	new_row->header.deleted = false;
 	memcpy(new_row->data, data, len);
