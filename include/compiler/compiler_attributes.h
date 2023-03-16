@@ -20,4 +20,7 @@
 /* &a[0] degrades to a pointer: a different type from an array */
 #define __must_be_array(a) _Static_assert(!__same_type((a), &(a)[0]), "must be an array")
 
+/* align struct,member or variable for better performance on x86-64 platform */
+#define __x86_64_align 	__attribute__ ((aligned (8)))
+
 #endif /* INCLUDE_COMPILER_COMPILER_ATTRIBUTES_H_ */

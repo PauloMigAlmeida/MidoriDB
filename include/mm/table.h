@@ -24,8 +24,8 @@ struct row_header {
 
 struct row {
 	struct row_header header;
-	/* actual row data */
-	char data[];
+	/* actual row data - aligned for x86-64 arch */
+	__x86_64_align char  data[];
 };
 
 enum COLUMN_TYPE {
