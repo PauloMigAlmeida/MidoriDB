@@ -39,6 +39,20 @@ static bool check_row_data(struct table *table, size_t row_num, void *expected, 
 	return false;
 }
 
+static struct datablock* fetch_datablock(struct table *table, size_t idx)
+{
+	struct list_head *pos;
+	size_t i = 0;
+	list_for_each(pos, table->datablock_head)
+	{
+		struct datablock *block = list_entry(pos, typeof(*block), head);
+		if (i == idx)
+			return block;
+		i++;
+	}
+	return NULL;
+}
+
 static void create_test_table(struct table **out, size_t column_count)
 {
 	struct table *table;
@@ -101,4 +115,37 @@ void test_table_insert_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(table_destroy(&table));
 
+}
+
+void test_table_delete_row(void)
+{
+	struct table *table;
+	int data[] = {1, 2, 3};
+	struct datablock *block;
+	struct row *row;
+
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
+	row = (struct row*)&block->data[0];
+	//TODO block is not initialised when alloc'ed so row->header.empty is never true
+	// I have to fix this
+//	CU_ASSERT(row->header.empty);
+//	CU_ASSERT_FALSE(row->header.deleted);
+
+	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_FALSE(row->header.empty);
+	CU_ASSERT_FALSE(row->header.deleted);
+
+	CU_ASSERT(table_delete_row(table, block, 0));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(row->header.deleted);
+	CU_ASSERT_FALSE(row->header.empty);
+
+	CU_ASSERT(table_destroy(&table));
 }

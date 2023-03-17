@@ -17,7 +17,7 @@
 
 struct row_header {
 	/* is this row empty? */
-	bool empty;	
+	bool empty;
 	/* was this row deleted? */
 	bool deleted;
 };
@@ -25,7 +25,7 @@ struct row_header {
 struct row {
 	struct row_header header;
 	/* actual row data - aligned for x86-64 arch */
-	__x86_64_align char  data[];
+	__x86_64_align char data[];
 };
 
 enum COLUMN_TYPE {
@@ -117,5 +117,14 @@ bool table_destroy(struct table **table);
  * @len: size of data to be read from data ptr
  */
 bool table_insert_row(struct table *table, void *data, size_t len);
+
+/**
+ * table_delete_row - delete row from table
+ *
+ * @table: table reference
+ * @blk: pointer to datablock where row resides
+ * @offset: offset to row inside datablock
+ */
+bool table_delete_row(struct table *table, struct datablock *blk, size_t offset);
 
 #endif /* INCLUDE_MM_TABLE_H_ */
