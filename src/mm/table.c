@@ -53,9 +53,6 @@ struct table* __must_check table_init(char *name)
 	if (!ret->datablock_head)
 		goto err_free;
 
-	if (!datablock_alloc(ret->datablock_head))
-		goto err_datablock;
-
 	if (pthread_mutex_init(&ret->mutex, NULL))
 		goto err_datablock;
 

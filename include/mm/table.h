@@ -127,4 +127,14 @@ bool table_insert_row(struct table *table, void *data, size_t len);
  */
 bool table_delete_row(struct table *table, struct datablock *blk, size_t offset);
 
+/**
+ * table_calc_row_size - calculate payload size per row for a given table.
+ *
+ * @table: table reference
+ *
+ * This function only calculate the space to be occupied by column values
+ * so in other words, it doesn't take into account row header size
+ */
+size_t table_calc_row_size(struct table *table);
+
 #endif /* INCLUDE_MM_TABLE_H_ */
