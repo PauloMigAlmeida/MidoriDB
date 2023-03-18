@@ -132,7 +132,7 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
  *
  * @table: table reference
  *
- * This function only calculate the space to be occupied by column values
+ * This function only calculates the space to be occupied by column values
  * so in other words, it doesn't take into account row header size
  */
 size_t table_calc_row_size(struct table *table);

@@ -29,7 +29,7 @@ static bool check_row_data(struct table *table, size_t row_num, void *expected, 
 		struct datablock *block = list_entry(pos, typeof(*block), head);
 
 		for (size_t j = 0; j < ARR_SIZE(block->data) / struct_size_const(struct row, data, len); j++) {
-			struct row *row = (struct row*)&block->data[j * (sizeof(struct row) + len)];
+			struct row *row = (struct row*)&block->data[j * struct_size_const(struct row, data, len)];
 			if (i == row_num)
 				return memcmp(row->data, expected, len) == 0;
 			i++;
@@ -37,6 +37,26 @@ static bool check_row_data(struct table *table, size_t row_num, void *expected, 
 	}
 
 	return false;
+}
+
+static struct row* fetch_row(struct table *table, size_t row_num, size_t data_len)
+{
+	//TODO implement jump to next datablock when EOB is found
+	struct list_head *pos;
+	size_t i = 0;
+	list_for_each(pos, table->datablock_head)
+	{
+		struct datablock *block = list_entry(pos, typeof(*block), head);
+
+		for (size_t j = 0; j < ARR_SIZE(block->data) / struct_size_const(struct row, data, data_len); j++) {
+			struct row *row = (struct row*)&block->data[j * struct_size_const(struct row, data, data_len)];
+			if (i == row_num)
+				return row;
+			i++;
+		}
+	}
+
+	return NULL;
 }
 
 static struct datablock* fetch_datablock(struct table *table, size_t idx)
@@ -91,6 +111,30 @@ void test_table_insert_row(void)
 	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
 	CU_ASSERT(table_destroy(&table));
 
+	/* valid case - check if free_dtbkl_offset is moving as expected */
+	create_test_table(&table, ARR_SIZE(data));
+	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
+	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
+	CU_ASSERT(check_row_data(table, 2, data, sizeof(data)));
+	CU_ASSERT(table_delete_row(table,
+			fetch_datablock(table, 0),
+			struct_size_const(struct row, data, sizeof(data) /* index -> 1*/)))
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
+	CU_ASSERT_FALSE(fetch_row(table, 0, 0)->header.deleted);
+
+	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
+	CU_ASSERT(fetch_row(table, 1, sizeof(data))->header.deleted);
+
+	CU_ASSERT(check_row_data(table, 2, data, sizeof(data)));
+	CU_ASSERT_FALSE(fetch_row(table, 2, sizeof(data))->header.deleted);
+
+	CU_ASSERT(table_destroy(&table));
+
 	/* valid case - force allocate new data blocks */
 	create_test_table(&table, ARR_SIZE(data));
 
@@ -132,13 +176,13 @@ void test_table_delete_row(void)
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
 	row = (struct row*)&block->data[0];
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT_FALSE(row->header.empty);
 	CU_ASSERT_FALSE(row->header.deleted);
 
 	CU_ASSERT(table_delete_row(table, block, 0));
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(row->header.deleted);
 	CU_ASSERT_FALSE(row->header.empty);
@@ -153,11 +197,11 @@ void test_table_delete_row(void)
 
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT_FALSE(table_delete_row(table, block, DATABLOCK_PAGE_SIZE + 1));
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT(table_destroy(&table));
