@@ -19,28 +19,10 @@ static size_t count_datablocks(struct table *table)
 	return ret;
 }
 
-static bool check_row_data(struct table *table, size_t row_num, void *expected, size_t len)
-{
-	//TODO implement jump to next datablock when EOB is found
-	struct list_head *pos;
-	size_t i = 0;
-	list_for_each(pos, table->datablock_head)
-	{
-		struct datablock *block = list_entry(pos, typeof(*block), head);
-
-		for (size_t j = 0; j < ARR_SIZE(block->data) / struct_size_const(struct row, data, len); j++) {
-			struct row *row = (struct row*)&block->data[j * struct_size_const(struct row, data, len)];
-			if (i == row_num)
-				return memcmp(row->data, expected, len) == 0;
-			i++;
-		}
-	}
-
-	return false;
-}
-
 static struct row* fetch_row(struct table *table, size_t row_num, size_t data_len)
 {
+	BUG_ON(data_len != table_calc_row_size(table));
+
 	//TODO implement jump to next datablock when EOB is found
 	struct list_head *pos;
 	size_t i = 0;
@@ -57,6 +39,15 @@ static struct row* fetch_row(struct table *table, size_t row_num, size_t data_le
 	}
 
 	return NULL;
+}
+
+static bool check_row_data(struct table *table, size_t row_num, void *expected, size_t data_len)
+{
+	BUG_ON(data_len != table_calc_row_size(table));
+	struct row *row = fetch_row(table, row_num, data_len);
+	return memcmp(row->data, expected, data_len) == 0;
+
+	return false;
 }
 
 static struct datablock* fetch_datablock(struct table *table, size_t idx)
@@ -120,12 +111,14 @@ void test_table_insert_row(void)
 	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
 	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
 	CU_ASSERT(check_row_data(table, 2, data, sizeof(data)));
+
 	CU_ASSERT(table_delete_row(table,
 			fetch_datablock(table, 0),
 			struct_size_const(struct row, data, sizeof(data) /* index -> 1*/)))
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
 	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
-	CU_ASSERT_FALSE(fetch_row(table, 0, 0)->header.deleted);
+	CU_ASSERT_FALSE(fetch_row(table, 0, sizeof(data))->header.deleted);
 
 	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
 	CU_ASSERT(fetch_row(table, 1, sizeof(data))->header.deleted);
@@ -148,14 +141,12 @@ void test_table_insert_row(void)
 	/* invalid case - different row size */
 	create_test_table(&table, ARR_SIZE(data));
 	CU_ASSERT_FALSE(table_insert_row(table, data, sizeof(data) + 1));
-	CU_ASSERT_FALSE(check_row_data(table, 0, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid row size */
 	create_test_table(&table, ARR_SIZE(data));
 	CU_ASSERT_FALSE(table_insert_row(table, data, 0));
-	CU_ASSERT_FALSE(check_row_data(table, 0, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT(table_destroy(&table));
 
@@ -216,4 +207,9 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 
 	CU_ASSERT(table_destroy(&table));
+}
+
+void test_table_update_row(void)
+{
+
 }
