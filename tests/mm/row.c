@@ -165,8 +165,8 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
-	row = (struct row*)&block->data[0];
+	block = fetch_datablock(table, 0);
+	row = fetch_row(table, 0, sizeof(data));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT_FALSE(row->header.empty);
@@ -211,5 +211,35 @@ void test_table_delete_row(void)
 
 void test_table_update_row(void)
 {
+	struct table *table;
+	int old_data[] = {1, 2, 3};
+	int new_data[] = {4, 5, 6};
+	struct datablock *block;
+	struct row *row;
 
+	/* valid case - common */
+	create_test_table(&table, ARR_SIZE(old_data));
+	CU_ASSERT_EQUAL(count_datablocks(table), 0);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT(table_insert_row(table, old_data, sizeof(old_data)));
+	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
+	block = fetch_datablock(table, 0);
+	row = fetch_row(table, 0, sizeof(old_data));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(old_data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_FALSE(row->header.empty);
+	CU_ASSERT_FALSE(row->header.deleted);
+	CU_ASSERT(check_row_data(table, 0, old_data, sizeof(old_data)));
+
+	CU_ASSERT(table_update_row(table, block, 0, new_data, sizeof(new_data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(new_data)));
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_FALSE(row->header.deleted);
+	CU_ASSERT_FALSE(row->header.empty);
+	CU_ASSERT(check_row_data(table, 0, new_data, sizeof(new_data)));
+
+	block = NULL;
+	row = NULL;
+	CU_ASSERT(table_destroy(&table));
 }

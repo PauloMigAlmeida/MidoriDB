@@ -113,7 +113,7 @@ bool table_destroy(struct table **table);
  * table_insert_row - insert row into a table
  *
  * @table: table reference
- * @data: ptr to data to be insert lives
+ * @data: ptr to data to be inserted lives
  * @len: size of data to be read from data ptr
  */
 bool table_insert_row(struct table *table, void *data, size_t len);
@@ -126,6 +126,17 @@ bool table_insert_row(struct table *table, void *data, size_t len);
  * @offset: offset to row inside datablock
  */
 bool table_delete_row(struct table *table, struct datablock *blk, size_t offset);
+
+/**
+ * table_update_row - delete row from table
+ *
+ * @table: table reference
+ * @blk: pointer to datablock where row resides
+ * @offset: offset to row inside datablock
+ * @data: ptr to data to be updated lives
+ * @len: size of data to be read from data ptr
+ */
+bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len);
 
 /**
  * table_calc_row_size - calculate payload size per row for a given table.

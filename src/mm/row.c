@@ -88,3 +88,20 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 	return true;
 }
 
+bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len)
+{
+	/* sanity checks */
+	if (!table || !blk || offset >= DATABLOCK_PAGE_SIZE || len != table_calc_row_size(table))
+		return false;
+
+	struct row *row = (struct row*)&blk->data[offset];
+
+	/* something went terribly wrong here if this is true */
+	BUG_ON(row->header.deleted || row->header.empty);
+
+	//TODO if row contains any variable length value, then we have to free it first otherwise we will get a memleak
+	memcpy(row->data, data, len);
+
+	return true;
+}
+

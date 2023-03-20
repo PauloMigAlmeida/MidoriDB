@@ -18,6 +18,7 @@ void test_table_add_column(void);
 void test_table_rem_column(void);
 void test_table_insert_row(void);
 void test_table_delete_row(void);
+void test_table_update_row(void);
 
 
 #endif /* TESTS_MM_H */
