@@ -6,7 +6,7 @@
  */
 #include "mm/table.h"
 
-size_t table_calc_row_size(struct table *table)
+size_t table_calc_row_data_size(struct table *table)
 {
 	size_t size = 0;
 	for (int i = 0; i < table->column_count; i++)
@@ -23,13 +23,13 @@ static void table_datablock_init(struct datablock *block, size_t row_size)
 	}
 }
 
-bool table_insert_row(struct table *table, void *data, size_t len)
+bool table_insert_row(struct table *table, void *data, size_t data_len)
 {
 	struct datablock *block;
 	bool should_alloc;
 
 	/* sanity checks */
-	if (!table || !data || len == 0)
+	if (!table || !data || data_len == 0)
 		return false;
 
 	/*
@@ -37,14 +37,14 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 	 * meant hold - most likely someone has made a mistake for that to be the case.
 	 * Then again, this is C.. you can never be "too safe" under any circumstance
 	 */
-	if (len != table_calc_row_size(table))
+	if (data_len != table_calc_row_data_size(table))
 		return false;
 
 	/* is this the first ever item of the table ? */
 	should_alloc = table->datablock_head == table->datablock_head->prev;
 	/* or is there enough space to insert that into an existing datablock ? */
 	should_alloc = should_alloc || (table->free_dtbkl_offset +
-			struct_size_const(struct row, data, len)) >= DATABLOCK_PAGE_SIZE;
+			struct_size_const(struct row, data, data_len)) >= DATABLOCK_PAGE_SIZE;
 	if (should_alloc) {
 		// Notes to myself, paulo, you should test the crap out of that..
 		// TODO add some sort of POISON/EOF so when reading the datablock
@@ -55,7 +55,7 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 		if (!(block = datablock_alloc(table->datablock_head)))
 			return false;
 
-		table_datablock_init(block, len);
+		table_datablock_init(block, struct_size_const(struct row, data, data_len));
 		table->free_dtbkl_offset = 0;
 	} else {
 		// since it's a circular linked list then getting the head->prev is the same
@@ -66,9 +66,9 @@ bool table_insert_row(struct table *table, void *data, size_t len)
 	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
 	new_row->header.empty = false;
 	new_row->header.deleted = false;
-	memcpy(new_row->data, data, len);
+	memcpy(new_row->data, data, data_len);
 
-	table->free_dtbkl_offset += struct_size(new_row, data, len);
+	table->free_dtbkl_offset += struct_size(new_row, data, data_len);
 
 	return true;
 }
@@ -91,7 +91,7 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len)
 {
 	/* sanity checks */
-	if (!table || !blk || offset >= DATABLOCK_PAGE_SIZE || len != table_calc_row_size(table))
+	if (!table || !blk || offset >= DATABLOCK_PAGE_SIZE || len != table_calc_row_data_size(table))
 		return false;
 
 	struct row *row = (struct row*)&blk->data[offset];

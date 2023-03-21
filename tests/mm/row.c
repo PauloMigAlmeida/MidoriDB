@@ -21,7 +21,7 @@ static size_t count_datablocks(struct table *table)
 
 static struct row* fetch_row(struct table *table, size_t row_num, size_t data_len)
 {
-	BUG_ON(data_len != table_calc_row_size(table));
+	BUG_ON(data_len != table_calc_row_data_size(table));
 
 	//TODO implement jump to next datablock when EOB is found
 	struct list_head *pos;
@@ -43,7 +43,7 @@ static struct row* fetch_row(struct table *table, size_t row_num, size_t data_le
 
 static bool check_row_data(struct table *table, size_t row_num, void *expected, size_t data_len)
 {
-	BUG_ON(data_len != table_calc_row_size(table));
+	BUG_ON(data_len != table_calc_row_data_size(table));
 	struct row *row = fetch_row(table, row_num, data_len);
 	return memcmp(row->data, expected, data_len) == 0;
 }
@@ -54,7 +54,7 @@ static struct row_header header_used = {.deleted = false, .empty = false};
 
 static bool check_row_header(struct table *table, size_t row_num, struct row_header *expected)
 {
-	struct row *row = fetch_row(table, row_num, table_calc_row_size(table));
+	struct row *row = fetch_row(table, row_num, table_calc_row_data_size(table));
 	return memcmp(&row->header, expected, sizeof(struct row_header)) == 0;
 }
 
@@ -113,6 +113,7 @@ void test_table_insert_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 2, &header_empty));
 	CU_ASSERT(table_destroy(&table));
 
 	/* valid case - check if free_dtbkl_offset is moving as expected */
@@ -124,6 +125,7 @@ void test_table_insert_row(void)
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 2, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 3, &header_empty));
 
 	CU_ASSERT(table_delete_row(table,
 			fetch_datablock(table, 0),
@@ -133,6 +135,7 @@ void test_table_insert_row(void)
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 1, &header_deleted, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 2, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 3, &header_empty));
 
 	CU_ASSERT(table_destroy(&table));
 
@@ -175,11 +178,13 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 1, &header_empty));
 
 	CU_ASSERT(table_delete_row(table, fetch_datablock(table, 0), 0));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_deleted, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 1, &header_empty));
 	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid offset  */
@@ -189,10 +194,14 @@ void test_table_delete_row(void)
 
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 1, &header_empty));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT_FALSE(table_delete_row(table, fetch_datablock(table, 0), DATABLOCK_PAGE_SIZE + 1));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row_header(table, 1, &header_empty));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT(table_destroy(&table));

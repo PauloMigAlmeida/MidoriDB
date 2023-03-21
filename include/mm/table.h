@@ -146,6 +146,6 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
  * This function only calculates the space to be occupied by column values
  * so in other words, it doesn't take into account row header size
  */
-size_t table_calc_row_size(struct table *table);
+size_t table_calc_row_data_size(struct table *table);
 
 #endif /* INCLUDE_MM_TABLE_H_ */
