@@ -46,8 +46,21 @@ static bool check_row_data(struct table *table, size_t row_num, void *expected, 
 	BUG_ON(data_len != table_calc_row_size(table));
 	struct row *row = fetch_row(table, row_num, data_len);
 	return memcmp(row->data, expected, data_len) == 0;
+}
 
-	return false;
+static struct row_header header_empty = {.deleted = false, .empty = true};
+static struct row_header header_deleted = {.deleted = true, .empty = false};
+static struct row_header header_used = {.deleted = false, .empty = false};
+
+static bool check_row_header(struct table *table, size_t row_num, struct row_header *expected)
+{
+	struct row *row = fetch_row(table, row_num, table_calc_row_size(table));
+	return memcmp(&row->header, expected, sizeof(struct row_header)) == 0;
+}
+
+static bool check_row(struct table *table, size_t row_num, struct row_header *exp_hdr, void *exp_data, size_t data_len)
+{
+	return check_row_header(table, row_num, exp_hdr) && check_row_data(table, row_num, exp_data, data_len);
 }
 
 static struct datablock* fetch_datablock(struct table *table, size_t idx)
@@ -98,8 +111,8 @@ void test_table_insert_row(void)
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
-	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
 	CU_ASSERT(table_destroy(&table));
 
 	/* valid case - check if free_dtbkl_offset is moving as expected */
@@ -108,23 +121,18 @@ void test_table_insert_row(void)
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
-	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
-	CU_ASSERT(check_row_data(table, 2, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 2, &header_used, data, sizeof(data)));
 
 	CU_ASSERT(table_delete_row(table,
 			fetch_datablock(table, 0),
 			struct_size_const(struct row, data, sizeof(data) /* index -> 1*/)))
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
-	CU_ASSERT(check_row_data(table, 0, data, sizeof(data)));
-	CU_ASSERT_FALSE(fetch_row(table, 0, sizeof(data))->header.deleted);
-
-	CU_ASSERT(check_row_data(table, 1, data, sizeof(data)));
-	CU_ASSERT(fetch_row(table, 1, sizeof(data))->header.deleted);
-
-	CU_ASSERT(check_row_data(table, 2, data, sizeof(data)));
-	CU_ASSERT_FALSE(fetch_row(table, 2, sizeof(data))->header.deleted);
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 1, &header_deleted, data, sizeof(data)));
+	CU_ASSERT(check_row(table, 2, &header_used, data, sizeof(data)));
 
 	CU_ASSERT(table_destroy(&table));
 
@@ -133,7 +141,7 @@ void test_table_insert_row(void)
 
 	for (size_t i = 0; i < fit_in_datablock * 3; i++) {
 		CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-		CU_ASSERT(check_row_data(table, i, data, sizeof(data)));
+		CU_ASSERT(check_row(table, i, &header_used, data, sizeof(data)));
 	}
 	CU_ASSERT_EQUAL(count_datablocks(table), 3);
 	CU_ASSERT(table_destroy(&table));
@@ -156,7 +164,6 @@ void test_table_delete_row(void)
 {
 	struct table *table;
 	int data[] = {1, 2, 3};
-	struct datablock *block;
 	struct row *row;
 
 	/* valid case - common */
@@ -165,20 +172,14 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	block = fetch_datablock(table, 0);
-	row = fetch_row(table, 0, sizeof(data));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT_FALSE(row->header.empty);
-	CU_ASSERT_FALSE(row->header.deleted);
+	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 
-	CU_ASSERT(table_delete_row(table, block, 0));
+	CU_ASSERT(table_delete_row(table, fetch_datablock(table, 0), 0));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT(row->header.deleted);
-	CU_ASSERT_FALSE(row->header.empty);
-	block = NULL;
-	row = NULL;
+	CU_ASSERT(check_row(table, 0, &header_deleted, data, sizeof(data)));
 	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid offset  */
@@ -187,11 +188,10 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
 	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
-	CU_ASSERT_FALSE(table_delete_row(table, block, DATABLOCK_PAGE_SIZE + 1));
+	CU_ASSERT_FALSE(table_delete_row(table, fetch_datablock(table, 0), DATABLOCK_PAGE_SIZE + 1));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
@@ -214,8 +214,6 @@ void test_table_update_row(void)
 	struct table *table;
 	int old_data[] = {1, 2, 3};
 	int new_data[] = {4, 5, 6};
-	struct datablock *block;
-	struct row *row;
 
 	/* valid case - common */
 	create_test_table(&table, ARR_SIZE(old_data));
@@ -223,23 +221,14 @@ void test_table_update_row(void)
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
 	CU_ASSERT(table_insert_row(table, old_data, sizeof(old_data)));
-	CU_ASSERT_PTR_NOT_NULL((block = fetch_datablock(table, 0)));
-	block = fetch_datablock(table, 0);
-	row = fetch_row(table, 0, sizeof(old_data));
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(old_data)));
+	CU_ASSERT(check_row(table, 0, &header_used, old_data, sizeof(old_data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(old_data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT_FALSE(row->header.empty);
-	CU_ASSERT_FALSE(row->header.deleted);
-	CU_ASSERT(check_row_data(table, 0, old_data, sizeof(old_data)));
 
-	CU_ASSERT(table_update_row(table, block, 0, new_data, sizeof(new_data)));
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size(row, data, sizeof(new_data)));
+	CU_ASSERT(table_update_row(table, fetch_datablock(table, 0), 0, new_data, sizeof(new_data)));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, struct_size_const(struct row, data, sizeof(new_data)));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	CU_ASSERT_FALSE(row->header.deleted);
-	CU_ASSERT_FALSE(row->header.empty);
-	CU_ASSERT(check_row_data(table, 0, new_data, sizeof(new_data)));
+	CU_ASSERT(check_row(table, 0, &header_used, new_data, sizeof(new_data)));
 
-	block = NULL;
-	row = NULL;
 	CU_ASSERT(table_destroy(&table));
 }
