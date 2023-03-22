@@ -66,11 +66,10 @@ struct table* __must_check table_init(char *name)
 }
 
 static void free_var_precision_content(struct table *table, struct datablock *block)
-{
-	size_t row_data_len = table_calc_row_data_size(table);
-	size_t row_size = struct_size_const(struct row, data, row_data_len);
+{	
+	size_t row_size = table_calc_row_size(table);
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
-		struct row *row = (struct row*)&block->data[struct_size(row, data, row_data_len) * i];
+		struct row *row = (struct row*)&block->data[row_size * i];
 
 		if (row->header.empty) /* end of the line */
 			break;

@@ -149,6 +149,14 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 size_t table_calc_row_data_size(struct table *table);
 
 /**
+ * table_calc_row_size - calculate row size (header + data/payload).
+ *
+ * @table: table reference
+ *
+ */
+size_t table_calc_row_size(struct table *table);
+
+/**
  * table_check_var_column - checks whether column has variable precision.
  *
  * @column: column reference

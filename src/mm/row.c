@@ -20,6 +20,11 @@ size_t table_calc_row_data_size(struct table *table)
 	return size;
 }
 
+size_t table_calc_row_size(struct table *table)
+{
+	return struct_size_const(struct row, table_calc_row_data_size(table));
+}
+
 static void table_datablock_init(struct datablock *block, size_t row_size)
 {
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
@@ -49,8 +54,7 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 	/* is this the first ever item of the table ? */
 	should_alloc = table->datablock_head == table->datablock_head->prev;
 	/* or is there enough space to insert that into an existing datablock ? */
-	should_alloc = should_alloc || (table->free_dtbkl_offset +
-			struct_size_const(struct row, data, data_len)) >= DATABLOCK_PAGE_SIZE;
+	should_alloc = should_alloc || (table->free_dtbkl_offset + table_calc_row_size(table)) >= DATABLOCK_PAGE_SIZE;
 	if (should_alloc) {
 		// Notes to myself, paulo, you should test the crap out of that..
 		// TODO add some sort of POISON/EOF so when reading the datablock
@@ -61,7 +65,7 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 		if (!(block = datablock_alloc(table->datablock_head)))
 			return false;
 
-		table_datablock_init(block, struct_size_const(struct row, data, data_len));
+		table_datablock_init(block, table_calc_row_size(table));
 		table->free_dtbkl_offset = 0;
 	} else {
 		// since it's a circular linked list then getting the head->prev is the same
@@ -97,7 +101,7 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 
 	}
 
-	table->free_dtbkl_offset += struct_size(new_row, data, data_len);
+	table->free_dtbkl_offset += table_calc_row_size(table);
 
 	return true;
 }
