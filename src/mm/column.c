@@ -135,3 +135,8 @@ bool table_rem_column(struct table *table, struct column *column)
 	BUG_ON(pthread_mutex_unlock(&table->mutex));
 	return false;
 }
+
+bool table_check_var_column(struct column *column)
+{
+	return column->type == VARCHAR;
+}

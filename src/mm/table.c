@@ -65,6 +65,30 @@ struct table* __must_check table_init(char *name)
 	return NULL;
 }
 
+static void free_var_precision_content(struct table *table, struct datablock *block)
+{
+	size_t row_data_len = table_calc_row_data_size(table);
+	size_t row_size = struct_size_const(struct row, data, row_data_len);
+	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+		struct row *row = (struct row*)&block->data[struct_size(row, data, row_data_len) * i];
+
+		if (row->header.empty) /* end of the line */
+			break;
+
+		size_t pos = 0;
+		for (int j = 0; j < table->column_count; j++) {
+			struct column *column = &table->columns[j];
+			if (table_check_var_column(column)) {
+				void **ptr = (void**)(row->data + pos);
+				free(*ptr);
+				pos += sizeof(uintptr_t);
+			} else {
+				pos += column->precision;
+			}
+		}
+	}
+}
+
 bool table_destroy(struct table **table)
 {
 	struct datablock *entry = NULL;
@@ -82,6 +106,8 @@ bool table_destroy(struct table **table)
 	list_for_each_safe(pos, tmp_pos, (*table)->datablock_head)
 	{
 		entry = list_entry(pos, typeof(*entry), head);
+		/* free variable precision value as they are alloc'ed separately */
+		free_var_precision_content(*table, entry);
 		datablock_free(entry);
 	}
 	free((*table)->datablock_head);

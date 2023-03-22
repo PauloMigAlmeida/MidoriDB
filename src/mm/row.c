@@ -9,8 +9,14 @@
 size_t table_calc_row_data_size(struct table *table)
 {
 	size_t size = 0;
-	for (int i = 0; i < table->column_count; i++)
-		size += table->columns[i].precision;
+	for (int i = 0; i < table->column_count; i++) {
+		/* for variable length column we store a pointer to the data */
+		if (table_check_var_column(&table->columns[i]))
+			size += sizeof(uintptr_t);
+		else
+			size += table->columns[i].precision;
+	}
+
 	return size;
 }
 
@@ -66,7 +72,30 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
 	new_row->header.empty = false;
 	new_row->header.deleted = false;
-	memcpy(new_row->data, data, data_len);
+
+	/*
+	 * if any column has a variable precision type then we also have to alloc memory to hold the content
+	 * while we only store the pointer into the row / datablock.
+	 */
+	size_t pos = 0;
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *column = &table->columns[i];
+		if (table_check_var_column(column)) {
+			void *ptr = malloc(column->precision);
+
+			// This line will give me a headache... I'm sure of it
+			memcpy(ptr, *((char**)((char*)data + pos)), column->precision);
+
+			uintptr_t *col_idx_ptr = (uintptr_t*)&new_row->data[pos];
+			*col_idx_ptr = (uintptr_t)ptr;
+
+			pos += sizeof(uintptr_t);
+		} else {
+			memcpy(new_row->data + pos, ((char*)data) + pos, column->precision);
+			pos += column->precision;
+		}
+
+	}
 
 	table->free_dtbkl_offset += struct_size(new_row, data, data_len);
 
@@ -99,8 +128,19 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 	/* something went terribly wrong here if this is true */
 	BUG_ON(row->header.deleted || row->header.empty);
 
-	//TODO if row contains any variable length value, then we have to free it first otherwise we will get a memleak
-	memcpy(row->data, data, len);
+	size_t pos = 0;
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *column = &table->columns[i];
+		if (table_check_var_column(column)) {
+			void **ptr = (void**)&row->data[pos];
+			memcpy(*ptr, *((char**)((char*)data + pos)), column->precision);
+			pos += sizeof(uintptr_t);
+		} else {
+			memcpy(row->data + pos, ((char*)data) + pos, column->precision);
+			pos += column->precision;
+		}
+
+	}
 
 	return true;
 }

@@ -139,7 +139,7 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len);
 
 /**
- * table_calc_row_size - calculate payload size per row for a given table.
+ * table_calc_row_data_size - calculate payload size per row for a given table.
  *
  * @table: table reference
  *
@@ -147,5 +147,14 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
  * so in other words, it doesn't take into account row header size
  */
 size_t table_calc_row_data_size(struct table *table);
+
+/**
+ * table_check_var_column - checks whether column has variable precision.
+ *
+ * @column: column reference
+ *
+ * This function returns true if column has variable precision, false otherwise
+ */
+bool table_check_var_column(struct column* column);
 
 #endif /* INCLUDE_MM_TABLE_H_ */
