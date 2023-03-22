@@ -92,15 +92,15 @@ static struct datablock* fetch_datablock(struct table *table, size_t idx)
 	return NULL;
 }
 
-static void create_test_table(struct table **out, enum COLUMN_TYPE type, size_t precision, size_t column_count)
+static void create_test_table(struct table **out, enum COLUMN_TYPE type, size_t precision, int column_count)
 {
 	struct table *table;
 	struct column column;
 
 	table = table_init("test");
 
-	for (size_t i = 0; i < column_count; i++) {
-		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%zu", i);
+	for (int i = 0; i < column_count; i++) {
+		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);
 		column.type = type;
 		column.precision = precision;
 		CU_ASSERT(table_add_column(table, &column));

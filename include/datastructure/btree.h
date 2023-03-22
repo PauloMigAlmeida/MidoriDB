@@ -63,7 +63,7 @@ void* btree_lookup(struct btree_head *head, void *key);
  *
  * This function returns true if key is found and updated, false otherwise
  */
-bool btree_update(struct btree_head *head, unsigned long *key, void *val);
+bool btree_update(struct btree_head *head, void *key, void *val);
 
 /**
  * btree_insert- insert an entry in the btree

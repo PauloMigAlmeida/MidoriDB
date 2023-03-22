@@ -95,8 +95,8 @@ void test_table_add_column(void)
 	/* testing maximum number of columns per table */
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
-	for (size_t i = 0; i < TABLE_MAX_COLUMNS; i++) {
-		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%zu", i);
+	for (int i = 0; i < TABLE_MAX_COLUMNS; i++) {
+		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);
 		column.type = INTEGER;
 		column.precision = sizeof(int);
 		CU_ASSERT(table_add_column(table, &column));
