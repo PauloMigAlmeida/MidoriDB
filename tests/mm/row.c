@@ -124,7 +124,7 @@ void test_table_insert_row(void)
 {
 	struct table *table;
 	int data[] = {1, 2, 3};
-	size_t fit_in_datablock = (DATABLOCK_PAGE_SIZE / table_calc_row_size(table));
+	size_t fit_in_datablock = (DATABLOCK_PAGE_SIZE / struct_size_const(struct row, data, sizeof(data)));
 
 	/* valid case - empty table */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
@@ -154,7 +154,7 @@ void test_table_insert_row(void)
 
 	CU_ASSERT(table_delete_row(table,
 			fetch_datablock(table, 0),
-			table_calc_row_size(table) /* index -> 1*/)))
+			table_calc_row_size(table) /* index -> 1*/))
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
@@ -192,7 +192,6 @@ void test_table_delete_row(void)
 {
 	struct table *table;
 	int data[] = {1, 2, 3};
-	struct row *row;
 
 	/* valid case - common */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));

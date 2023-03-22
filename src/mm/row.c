@@ -22,7 +22,7 @@ size_t table_calc_row_data_size(struct table *table)
 
 size_t table_calc_row_size(struct table *table)
 {
-	return struct_size_const(struct row, table_calc_row_data_size(table));
+	return struct_size_const(struct row, data, table_calc_row_data_size(table));
 }
 
 static void table_datablock_init(struct datablock *block, size_t row_size)
