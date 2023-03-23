@@ -82,10 +82,14 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 	 * while we only store the pointer into the row / datablock.
 	 */
 	size_t pos = 0;
-	for (int i = 0; i < table->column_count; i++) {
-		struct column *column = &table->columns[i];
+	int column_idx;
+	for (column_idx = 0; column_idx < table->column_count; column_idx++) {
+		struct column *column = &table->columns[column_idx];
 		if (table_check_var_column(column)) {
-			void *ptr = malloc(column->precision);
+			void *ptr = zalloc(column->precision);
+			
+			if(!ptr)
+				goto err;
 
 			// This line will give me a headache... I'm sure of it
 			memcpy(ptr, *((char**)((char*)data + pos)), column->precision);
@@ -104,6 +108,34 @@ bool table_insert_row(struct table *table, void *data, size_t data_len)
 	table->free_dtbkl_offset += table_calc_row_size(table);
 
 	return true;
+
+err:
+
+/* 
+ * if we failed to alloc memory for variable precision columns then 
+ * we have to free those we got so far to avoid memory leak.
+ * 
+ * notes to myself:
+ * 	- I need to figure out a way to simulate this via valgrind so I 
+ * 		can properly unit test this routine.
+*/
+pos = 0;
+for (int i = 0; i < column_idx; i++){
+	struct column *column = &table->columns[column_idx];
+	if (table_check_var_column(column)) {
+		uintptr_t **col_idx_ptr = (uintptr_t**)&new_row->data[pos];
+		free(*col_idx_ptr);
+		pos += sizeof(uintptr_t);
+	} else {
+		pos += column->precision;
+	}
+}
+
+memzero(new_row->data, table_calc_row_size(table));
+new_row->header.empty = true;
+new_row->header.deleted = false;
+
+return false;
 }
 
 bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
