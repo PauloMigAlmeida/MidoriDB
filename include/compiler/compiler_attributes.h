@@ -18,12 +18,18 @@
 #define __same_type(a, b) 	__builtin_types_compatible_p(typeof(a), typeof(b))
 
 /* &a[0] degrades to a pointer: a different type from an array */
-#define __must_be_array(a) 	_Static_assert(!__same_type((a), &(a)[0]), "must be an array")
+#define __must_be_array(a) 	BUILD_BUG(!__same_type((a), &(a)[0]), "must be an array")
 
 /* align struct, member or variable */
 #define __align(num)		__attribute__ ((aligned (num)))
 
 /* align struct,member or variable for better performance on x86-64 platform */
 #define __x86_64_align 		__align(8)
+
+/*
+ * tells gcc to inline functions even when not optimizing
+ * more: https://gcc.gnu.org/onlinedocs/gcc/Inline.html
+ */
+#define __force_inline		inline __attribute__((always_inline))
 
 #endif /* INCLUDE_COMPILER_COMPILER_ATTRIBUTES_H_ */

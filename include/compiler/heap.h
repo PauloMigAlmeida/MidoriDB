@@ -8,8 +8,6 @@
 #ifndef INCLUDE_COMPILER_HEAP_H_
 #define INCLUDE_COMPILER_HEAP_H_
 
-#include <string.h>
-
 #define memzero(dest, size)	memset(dest, 0, size)
 
 #define zalloc(size) __extension__({			\

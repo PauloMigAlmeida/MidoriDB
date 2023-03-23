@@ -15,11 +15,16 @@
 #define TABLE_MAX_COLUMN_NAME	127
 #define TABLE_MAX_NAME		127
 
+/* sanity checks */
+BUILD_BUG(IS_POWER_OF_2(TABLE_MAX_COLUMNS), "TABLE_MAX_COLUMNS must be a power of 2")
+
 struct row_header {
 	/* is this row empty? */
 	bool empty;
 	/* was this row deleted? */
 	bool deleted;
+	/* is value on column <bit> set to NULL ? */
+	char null_bitmap[(TABLE_MAX_COLUMNS / CHAR_BIT)];
 };
 
 struct row {

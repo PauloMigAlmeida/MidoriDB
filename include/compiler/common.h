@@ -9,14 +9,13 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include "compiler/macro.h"
 #include "compiler/bug.h"
 #include "compiler/container_of.h"
 #include "compiler/error.h"
 #include "compiler/heap.h"
 #include "compiler/compiler_attributes.h"
 #include "compiler/overflow.h"
-
-/* calculate the length of the array - and avoid tendinitis ;) */
-#define ARR_SIZE(arr)		sizeof(arr)/sizeof(arr[0])
+#include "compiler/bit.h"
 
 #endif /* COMPILER_COMMON_H */

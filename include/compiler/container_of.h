@@ -11,7 +11,7 @@
  */
 #define container_of(ptr, type, member) __extension__({			\
         void *__mptr = (void *)(ptr);					\
-	_Static_assert(__same_type(*(ptr), ((type *)0)->member) ||	\
+	BUILD_BUG(__same_type(*(ptr), ((type *)0)->member) ||	        \
                       __same_type(*(ptr), void),			\
                       "pointer type mismatch in container_of()");	\
         ((type *)(__mptr - offsetof(type, member))); })

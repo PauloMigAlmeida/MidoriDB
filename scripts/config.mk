@@ -30,7 +30,7 @@ else
 endif
 
 
-CCFLAGS			:= -std=gnu99 -I$(DIR_INCLUDE) \
+CCFLAGS			:= -std=gnu11 -I$(DIR_INCLUDE) \
 					-g \
 					-O2 \
 					-fpic \
