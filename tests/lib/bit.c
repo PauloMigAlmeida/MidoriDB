@@ -46,7 +46,7 @@ void test_bit_test(void)
     /* 
      * that reminds me of the MBR signature.
      *
-     * one might this this represents (0b10101010 01010101)
+     * one might think this represents (0b10101010 01010101)
      * but if you consider little-endian than it's in fact
      * (0b01010101 10101010).
      */
@@ -105,14 +105,536 @@ void test_bit_test(void)
 
 void test_bit_set(void)
 {
+    /* values that fit existing C types */
+    uint64_t value_s = 0xaa; // 0b10101010
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
 
+    bit_set(&value_s, 6, sizeof(value_s));
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    bit_set(&value_s, 4, sizeof(value_s));
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    bit_set(&value_s, 2, sizeof(value_s));
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+    
+    bit_set(&value_s, 0, sizeof(value_s));
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 0, sizeof(value_s)));
+
+    /* values that don't fit existing C types */
+    char value_d[] = {0xaa, 0x55}; 
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 15, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 13, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 11, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 9, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 6, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+    
+    bit_set(&value_d, 4, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 4, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 2, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_set(&value_d, 0, sizeof(value_d));
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 0, sizeof(value_d)));
 }
 
 void test_bit_clear(void)
 {
+    /* values that fit existing C types */
+    uint64_t value_s = 0xaa; // 0b10101010
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
 
+    bit_clear(&value_s, 7, sizeof(value_s));
+    CU_ASSERT(!bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    bit_clear(&value_s, 5, sizeof(value_s));
+    CU_ASSERT(!bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    bit_clear(&value_s, 3, sizeof(value_s));
+    CU_ASSERT(!bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    bit_clear(&value_s, 1, sizeof(value_s));
+    CU_ASSERT(!bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
+
+    /* values that don't fit existing C types */
+    char value_d[] = {0xaa, 0x55}; 
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 14, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 12, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 10, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 8, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 7, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 5, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 3, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_clear(&value_d, 1, sizeof(value_d));
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
 }
 
 void test_bit_toggle(void) {
+    /* values that fit existing C types */
+    uint64_t value_s = 0xaa; // 0b10101010
+    CU_ASSERT(bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
 
+    bit_toggle(&value_s, 7, sizeof(value_s));
+    bit_toggle(&value_s, 6, sizeof(value_s));
+    bit_toggle(&value_s, 5, sizeof(value_s));
+    bit_toggle(&value_s, 4, sizeof(value_s));
+    bit_toggle(&value_s, 3, sizeof(value_s));
+    bit_toggle(&value_s, 2, sizeof(value_s));
+    bit_toggle(&value_s, 1, sizeof(value_s));
+    bit_toggle(&value_s, 0, sizeof(value_s));
+
+    CU_ASSERT(!bit_test(&value_s, 7, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 6, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 5, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 4, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 3, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 2, sizeof(value_s)));
+    CU_ASSERT(!bit_test(&value_s, 1, sizeof(value_s)));
+    CU_ASSERT(bit_test(&value_s, 0, sizeof(value_s)));
+
+    /* values that don't fit existing C types */
+    char value_d[] = {0xaa, 0x55}; 
+    CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 0, sizeof(value_d)));
+
+    bit_toggle(&value_d, 15, sizeof(value_d));
+    bit_toggle(&value_d, 14, sizeof(value_d));
+    bit_toggle(&value_d, 13, sizeof(value_d));
+    bit_toggle(&value_d, 12, sizeof(value_d));
+    bit_toggle(&value_d, 11, sizeof(value_d));
+    bit_toggle(&value_d, 10, sizeof(value_d));
+    bit_toggle(&value_d, 9, sizeof(value_d));
+    bit_toggle(&value_d, 8, sizeof(value_d));
+    bit_toggle(&value_d, 7, sizeof(value_d));
+    bit_toggle(&value_d, 6, sizeof(value_d));
+    bit_toggle(&value_d, 5, sizeof(value_d));
+    bit_toggle(&value_d, 4, sizeof(value_d));
+    bit_toggle(&value_d, 3, sizeof(value_d));
+    bit_toggle(&value_d, 2, sizeof(value_d));
+    bit_toggle(&value_d, 1, sizeof(value_d));
+    bit_toggle(&value_d, 0, sizeof(value_d));
+
+    CU_ASSERT(bit_test(&value_d, 15, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 14, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 13, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 12, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 11, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 10, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 9, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 8, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 7, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 6, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 5, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 4, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 3, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 2, sizeof(value_d)));
+    CU_ASSERT(!bit_test(&value_d, 1, sizeof(value_d)));
+    CU_ASSERT(bit_test(&value_d, 0, sizeof(value_d)));
 }

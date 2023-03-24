@@ -12,10 +12,10 @@
 
 bool bit_test(void* field, size_t bit_number, size_t len);
 
-void bit_set(void* field, uint8_t bit_number);
+void bit_set(void* field, uint8_t bit_number, size_t len);
 
-void bit_clear(void* field, uint8_t bit_number);
+void bit_clear(void* field, uint8_t bit_number, size_t len);
 
-void bit_toggle(void* field, uint8_t bit_number);
+void bit_toggle(void* field, uint8_t bit_number, size_t len);
 
 #endif /* INCLUDE_COMPILER_BIT_H_ */
