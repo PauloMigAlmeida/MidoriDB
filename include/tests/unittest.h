@@ -6,22 +6,21 @@
 #include <stdbool.h>
 #include "CUnit/Basic.h"
 
-
 #define ADD_SUITE(suite, name)				\
-	do {						\
-		suite = CU_add_suite(name,		\
-				NULL,			\
-				NULL);			\
-	        if (!suite) {				\
+	do {									\
+		suite = CU_add_suite(name,			\
+				NULL,						\
+				NULL);						\
+	        if (!suite) {					\
 		        CU_cleanup_registry();		\
-			return true;			\
-	        }					\
+			return true;					\
+	        }								\
 	}while (0);
 
-#define ADD_UNITTEST(suite, fnc)		\
+#define ADD_UNITTEST(suite, fnc)			\
 	if (!CU_add_test(suite, #fnc, fnc)) {	\
-		CU_cleanup_registry();		\
-		return true;			\
+		CU_cleanup_registry();				\
+		return true;						\
 	}
 
 #endif /* TESTS_UNITTEST_H */

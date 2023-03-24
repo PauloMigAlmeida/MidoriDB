@@ -1,6 +1,7 @@
 #include "tests/unittest.h"
 #include "tests/datastructure.h"
 #include "tests/mm.h"
+#include "tests/lib.h"
 
 int main(void) {
 	/* initialize the CUnit test registry */
@@ -12,7 +13,8 @@ int main(void) {
 		return CU_get_error();
 	if(mm_init_suite())
 		return CU_get_error();
-
+	if(lib_init_suite())
+		return CU_get_error();
 
 	/* Run all tests using the basic interface */
 	CU_basic_set_mode(CU_BRM_VERBOSE);
@@ -25,4 +27,3 @@ int main(void) {
 	CU_cleanup_registry();
 	return CU_get_error();
 }
-
