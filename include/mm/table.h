@@ -120,10 +120,10 @@ bool table_destroy(struct table **table);
  * table_insert_row - insert row into a table
  *
  * @table: table reference
- * @data: ptr to data to be inserted lives
- * @len: size of data to be read from data ptr
+ * @row: struct row pointer to be inserted into table
+ * @len: size of row data to be read from row ptr
  */
-bool table_insert_row(struct table *table, void *data, size_t len);
+bool table_insert_row(struct table *table, struct row *row, size_t len);
 
 /**
  * table_delete_row - delete row from table

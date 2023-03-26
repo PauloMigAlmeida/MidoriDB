@@ -73,9 +73,10 @@ static bool check_row_header(struct table *table, size_t row_num, struct row_hea
 	return memcmp(&row->header, expected, sizeof(struct row_header)) == 0;
 }
 
-static bool check_row(struct table *table, size_t row_num, struct row_header *exp_hdr, void *exp_data, size_t data_len)
+static bool check_row(struct table *table, size_t row_num, struct row_header *exp_header, void* data, size_t data_len)
 {
-	return check_row_header(table, row_num, exp_hdr) && check_row_data(table, row_num, exp_data, data_len);
+	return check_row_header(table, row_num, exp_header) && 
+			check_row_data(table, row_num, data, data_len);
 }
 
 static struct datablock* fetch_datablock(struct table *table, size_t idx)
@@ -123,8 +124,13 @@ static void create_test_table_var_precision_columns(struct table **out, size_t c
 void test_table_insert_row(void)
 {
 	struct table *table;
+	
 	int data[] = {1, 2, 3};
-	size_t fit_in_datablock = (DATABLOCK_PAGE_SIZE / struct_size_const(struct row, data, sizeof(data)));
+	size_t row_size = struct_size_const(struct row, data, sizeof(data));
+	struct row *row = zalloc(row_size);	
+	memcpy(row->data, data, sizeof(data));
+
+	size_t fit_in_datablock = (DATABLOCK_PAGE_SIZE / row_size);
 
 	/* valid case - empty table */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
@@ -133,8 +139,8 @@ void test_table_insert_row(void)
 
 	/* valid case - normal case */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
@@ -143,9 +149,9 @@ void test_table_insert_row(void)
 
 	/* valid case - check if free_dtbkl_offset is moving as expected */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row(table, 1, &header_used, data, sizeof(data)));
@@ -168,7 +174,7 @@ void test_table_insert_row(void)
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
 
 	for (size_t i = 0; i < fit_in_datablock * 3; i++) {
-		CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+		CU_ASSERT(table_insert_row(table, row, row_size));
 		CU_ASSERT(check_row(table, i, &header_used, data, sizeof(data)));
 	}
 	CU_ASSERT_EQUAL(count_datablocks(table), 3);
@@ -176,29 +182,34 @@ void test_table_insert_row(void)
 
 	/* invalid case - different row size */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
-	CU_ASSERT_FALSE(table_insert_row(table, data, sizeof(data) + 1));
+	CU_ASSERT_FALSE(table_insert_row(table, row, row_size + 1));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT(table_destroy(&table));
 
 	/* invalid case - invalid row size */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
-	CU_ASSERT_FALSE(table_insert_row(table, data, 0));
+	CU_ASSERT_FALSE(table_insert_row(table, row, 0));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT(table_destroy(&table));
 
+	free(row);
 }
 
 void test_table_delete_row(void)
 {
 	struct table *table;
+
 	int data[] = {1, 2, 3};
+	size_t row_size = struct_size_const(struct row, data, sizeof(data));
+	struct row *row = zalloc(row_size);	
+	memcpy(row->data, data, sizeof(data));
 
 	/* valid case - common */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(data));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, table_calc_row_size(table));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
@@ -216,7 +227,7 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
-	CU_ASSERT(table_insert_row(table, data, sizeof(data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, table_calc_row_size(table));
 	CU_ASSERT(check_row(table, 0, &header_used, data, sizeof(data)));
 	CU_ASSERT(check_row_header(table, 1, &header_empty));
@@ -240,30 +251,27 @@ void test_table_delete_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 
 	CU_ASSERT(table_destroy(&table));
+	
+	free(row);
 }
 
 void test_table_update_row(void)
 {
 	struct table *table;
+	
 	int fp_old_data[] = {1, 2, 3};
 	int fp_new_data[] = {4, 5, 6};
-
-	char *vp_old_data_1 = "test1";
-	char *vp_old_data_2 = "test2";
-	char *vp_old_data_3 = "test3";
-	uintptr_t vp_old_data[] = {(uintptr_t)vp_old_data_1, (uintptr_t)vp_old_data_2, (uintptr_t)vp_old_data_3};
-
-	char *vp_new_data_1 = "test4";
-	char *vp_new_data_2 = "test5";
-	char *vp_new_data_3 = "test6";
-	uintptr_t vp_new_data[] = {(uintptr_t)vp_new_data_1, (uintptr_t)vp_new_data_2, (uintptr_t)vp_new_data_3};
+	
+	size_t row_size = struct_size_const(struct row, data, sizeof(fp_old_data));
+	struct row *row = zalloc(row_size);	
+	memcpy(row->data, fp_old_data, sizeof(fp_old_data));	
 
 	/* valid case - common */
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_old_data));
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
-	CU_ASSERT(table_insert_row(table, fp_old_data, sizeof(fp_old_data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT(check_row(table, 0, &header_used, fp_old_data, sizeof(fp_old_data)));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, table_calc_row_size(table));
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
@@ -274,14 +282,29 @@ void test_table_update_row(void)
 	CU_ASSERT(check_row(table, 0, &header_used, fp_new_data, sizeof(fp_new_data)));
 
 	CU_ASSERT(table_destroy(&table));
+	free(row);
 
-	/* valid case - variable precision columns */
+	/* valid case - variable precision columns */	
+	char *vp_old_data_1 = "test1";
+	char *vp_old_data_2 = "test2";
+	char *vp_old_data_3 = "test3";
+	uintptr_t vp_old_data[] = {(uintptr_t)vp_old_data_1, (uintptr_t)vp_old_data_2, (uintptr_t)vp_old_data_3};
+
+	char *vp_new_data_1 = "test4";
+	char *vp_new_data_2 = "test5";
+	char *vp_new_data_3 = "test6";
+	uintptr_t vp_new_data[] = {(uintptr_t)vp_new_data_1, (uintptr_t)vp_new_data_2, (uintptr_t)vp_new_data_3};
+
+	row_size = struct_size_const(struct row, data, sizeof(vp_old_data));
+	row = zalloc(row_size);	
+	memcpy(row->data, vp_old_data, sizeof(vp_old_data));
+
 	create_test_table_var_precision_columns(&table, 6, 3);
 	CU_ASSERT_EQUAL(count_datablocks(table), 0);
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
 
-	CU_ASSERT(table_insert_row(table, vp_old_data, sizeof(vp_old_data)));
-	CU_ASSERT(table_insert_row(table, vp_old_data, sizeof(vp_old_data)));
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(table_insert_row(table, row, row_size));
 	CU_ASSERT(check_row(table, 0, &header_used, vp_old_data, sizeof(vp_old_data)));
 	CU_ASSERT(check_row(table, 1, &header_used, vp_old_data, sizeof(vp_old_data)));
 	CU_ASSERT(check_row_header(table, 2, &header_empty));
@@ -296,5 +319,5 @@ void test_table_update_row(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	CU_ASSERT(table_destroy(&table));
-
+	free(row);
 }
