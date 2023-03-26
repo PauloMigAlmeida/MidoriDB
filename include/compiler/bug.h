@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
-
+#include "compiler/macro.h"
 
 static inline void die(const char *fmt, ...) 
 {
@@ -28,7 +28,7 @@ static inline void die(const char *fmt, ...)
 
 #define BUG_ON(cond)							\
 	do {								\
-		if ((cond))						\
+		if (unlikely(cond))					\
 			die("BUG_ON: %s:%u", __func__, __LINE__);	\
 	} while (0)
 
