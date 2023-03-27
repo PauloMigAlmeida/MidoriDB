@@ -29,8 +29,8 @@ static void table_datablock_init(struct datablock *block, size_t row_size)
 {
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 		struct row *row = (struct row*)&block->data[row_size * i];
-		row->header.empty = true;
-		row->header.deleted = false;
+		row->header.flags.empty = true;
+		row->header.flags.deleted = false;
 	}
 }
 
@@ -42,8 +42,6 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 	/* sanity checks */
 	if (!table || !row || len == 0 || len != table_calc_row_size(table))
 		return false;
-
-	BUG_ON(row->header.empty || row->header.deleted);
 
 	/* is this the first ever item of the table ? */
 	should_alloc = table->datablock_head == table->datablock_head->prev;
@@ -69,6 +67,9 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 
 	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
 	memcpy(&new_row->header, &row->header, sizeof(row->header));
+	//TODO add bug on here
+	new_row->header.flags.deleted = false;
+	new_row->header.flags.empty = false;
 
 	/*
 	 * if any column has a variable precision type then we also have to alloc memory to hold the content
@@ -80,8 +81,8 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 		struct column *column = &table->columns[column_idx];
 		if (table_check_var_column(column)) {
 			void *ptr = zalloc(column->precision);
-			
-			if(!ptr)
+
+			if (!ptr)
 				goto err;
 
 			// This line will give me a headache... I'm sure of it
@@ -102,33 +103,33 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 
 	return true;
 
-err:
+	err:
 
-/* 
- * if we failed to alloc memory for variable precision columns then 
- * we have to free those we got so far to avoid memory leak.
- * 
- * notes to myself:
- * 	- I need to figure out a way to simulate this via valgrind so I 
- * 		can properly unit test this routine.
-*/
-pos = 0;
-for (int i = 0; i < column_idx; i++){
-	struct column *column = &table->columns[column_idx];
-	if (table_check_var_column(column)) {
-		uintptr_t **col_idx_ptr = (uintptr_t**)&new_row->data[pos];
-		free(*col_idx_ptr);
-		pos += sizeof(uintptr_t);
-	} else {
-		pos += column->precision;
+	/*
+	 * if we failed to alloc memory for variable precision columns then
+	 * we have to free those we got so far to avoid memory leak.
+	 *
+	 * notes to myself:
+	 * 	- I need to figure out a way to simulate this via valgrind so I
+	 * 		can properly unit test this routine.
+	 */
+	pos = 0;
+	for (int i = 0; i < column_idx; i++) {
+		struct column *column = &table->columns[column_idx];
+		if (table_check_var_column(column)) {
+			uintptr_t **col_idx_ptr = (uintptr_t**)&new_row->data[pos];
+			free(*col_idx_ptr);
+			pos += sizeof(uintptr_t);
+		} else {
+			pos += column->precision;
+		}
 	}
-}
 
-memzero(new_row->data, table_calc_row_size(table));
-new_row->header.empty = true;
-new_row->header.deleted = false;
+	memzero(new_row->data, table_calc_row_size(table));
+	new_row->header.flags.empty = true;
+	new_row->header.flags.deleted = false;
 
-return false;
+	return false;
 }
 
 bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
@@ -140,9 +141,9 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 	struct row *row = (struct row*)&blk->data[offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(row->header.deleted || row->header.empty);
+	BUG_ON(row->header.flags.deleted || row->header.flags.empty);
 
-	row->header.deleted = true;
+	row->header.flags.deleted = true;
 	return true;
 }
 
@@ -155,7 +156,7 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 	struct row *row = (struct row*)&blk->data[offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(row->header.deleted || row->header.empty);
+	BUG_ON(row->header.flags.deleted || row->header.flags.empty);
 
 	size_t pos = 0;
 	for (int i = 0; i < table->column_count; i++) {

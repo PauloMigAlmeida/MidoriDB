@@ -630,7 +630,7 @@ static void __btree_traverse(struct btree_head *head, struct btree_node *node, i
 
 	printf("[");
 	for (int i = 0; i < node->key_count; i++) {
-		printf("%llu", *(uint64_t*)node->keys[i].key);
+		printf("%lu", *(uint64_t*)node->keys[i].key);
 		if (i != node->key_count - 1)
 			printf(", ");
 	}

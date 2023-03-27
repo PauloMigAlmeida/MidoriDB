@@ -20,11 +20,15 @@
 BUILD_BUG(TABLE_MAX_COLUMNS > 8, "TABLE_MAX_COLUMNS has to be greater than 8")
 BUILD_BUG(IS_POWER_OF_2(TABLE_MAX_COLUMNS), "TABLE_MAX_COLUMNS must be a power of 2")
 
-struct row_header {
+struct row_header_flags {
 	/* is this row empty? */
 	bool empty;
 	/* was this row deleted? */
 	bool deleted;
+};
+
+struct row_header {
+	struct row_header_flags flags;
 	/* is value on column <bit> set to NULL ? */
 	char null_bitmap[(TABLE_MAX_COLUMNS / CHAR_BIT)];
 };

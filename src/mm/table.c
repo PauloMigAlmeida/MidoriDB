@@ -71,7 +71,7 @@ static void free_var_precision_content(struct table *table, struct datablock *bl
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 		struct row *row = (struct row*)&block->data[row_size * i];
 
-		if (row->header.empty) /* end of the line */
+		if (row->header.flags.empty) /* end of the line */
 			break;
 
 		size_t pos = 0;

@@ -25,7 +25,7 @@ void test_bit_test(void)
     CU_ASSERT(bit_test(&value_s, 0, sizeof(value_s)));
 
     /* values that don't fit existing C types */
-    char value_c[] = {0xaa, 0xaa};
+    unsigned char value_c[] = {0xaa, 0xaa};
     CU_ASSERT(bit_test(&value_c, 15, sizeof(value_c)));
     CU_ASSERT(!bit_test(&value_c, 14, sizeof(value_c)));
     CU_ASSERT(bit_test(&value_c, 13, sizeof(value_c)));
@@ -50,7 +50,7 @@ void test_bit_test(void)
      * but if you consider little-endian than it's in fact
      * (0b01010101 10101010).
      */
-    char value_d[] = {0xaa, 0x55}; 
+    unsigned char value_d[] = {0xaa, 0x55};
     CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
     CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
     CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
@@ -74,7 +74,7 @@ void test_bit_test(void)
      * once little-endian is applied it becomes
      * (0b11111111 01010101 10101010)
      */
-    char value_e[] = {0xaa, 0x55, 0xff}; 
+    unsigned char value_e[] = {0xaa, 0x55, 0xff};
     CU_ASSERT(bit_test(&value_e, 23, sizeof(value_e)));
     CU_ASSERT(bit_test(&value_e, 22, sizeof(value_e)));
     CU_ASSERT(bit_test(&value_e, 21, sizeof(value_e)));
@@ -157,7 +157,7 @@ void test_bit_set(void)
     CU_ASSERT(bit_test(&value_s, 0, sizeof(value_s)));
 
     /* values that don't fit existing C types */
-    char value_d[] = {0xaa, 0x55}; 
+    unsigned char value_d[] = {0xaa, 0x55};
     CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
     CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
     CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
@@ -392,7 +392,7 @@ void test_bit_clear(void)
     CU_ASSERT(!bit_test(&value_s, 0, sizeof(value_s)));
 
     /* values that don't fit existing C types */
-    char value_d[] = {0xaa, 0x55}; 
+    unsigned char value_d[] = {0xaa, 0x55};
     CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
     CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
     CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
@@ -586,7 +586,7 @@ void test_bit_toggle(void) {
     CU_ASSERT(bit_test(&value_s, 0, sizeof(value_s)));
 
     /* values that don't fit existing C types */
-    char value_d[] = {0xaa, 0x55}; 
+    unsigned char value_d[] = {0xaa, 0x55};
     CU_ASSERT(!bit_test(&value_d, 15, sizeof(value_d)));
     CU_ASSERT(bit_test(&value_d, 14, sizeof(value_d)));
     CU_ASSERT(!bit_test(&value_d, 13, sizeof(value_d)));
