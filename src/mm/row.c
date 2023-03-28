@@ -147,29 +147,31 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 	return true;
 }
 
-bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len)
+bool table_update_row(struct table *table, struct datablock *blk, size_t offset, struct row *row, size_t len)
 {
 	/* sanity checks */
-	if (!table || !blk || offset >= DATABLOCK_PAGE_SIZE || len != table_calc_row_data_size(table))
+	if (!table || !blk || offset >= DATABLOCK_PAGE_SIZE || len != table_calc_row_size(table))
 		return false;
 
-	struct row *row = (struct row*)&blk->data[offset];
+	struct row *upd_row = (struct row*)&blk->data[offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(row->header.flags.deleted || row->header.flags.empty);
+	BUG_ON(upd_row->header.flags.deleted || upd_row->header.flags.empty);
+
+	/* we may have set some data to NULL so we better copy the null_bitmap too */
+	memcpy(upd_row->header.null_bitmap, row->header.null_bitmap, sizeof(row->header.null_bitmap));
 
 	size_t pos = 0;
 	for (int i = 0; i < table->column_count; i++) {
 		struct column *column = &table->columns[i];
 		if (table_check_var_column(column)) {
-			void **ptr = (void**)&row->data[pos];
-			memcpy(*ptr, *((char**)((char*)data + pos)), column->precision);
+			void **ptr = (void**)&upd_row->data[pos];
+			memcpy(*ptr, *((char**)((char*)row->data + pos)), column->precision);
 			pos += sizeof(uintptr_t);
 		} else {
-			memcpy(row->data + pos, ((char*)data) + pos, column->precision);
+			memcpy(upd_row->data + pos, ((char*)row->data) + pos, column->precision);
 			pos += column->precision;
 		}
-
 	}
 
 	return true;

@@ -13,7 +13,7 @@
 #include "lib/bit.h"
 
 #define TABLE_MAX_COLUMNS		128
-#define TABLE_MAX_COLUMN_NAME	127
+#define TABLE_MAX_COLUMN_NAME		127
 #define TABLE_MAX_NAME			127
 
 /* sanity checks */
@@ -144,10 +144,10 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
  * @table: table reference
  * @blk: pointer to datablock where row resides
  * @offset: offset to row inside datablock
- * @data: ptr to data to be updated lives
+ * @row: row's content
  * @len: size of data to be read from data ptr
  */
-bool table_update_row(struct table *table, struct datablock *blk, size_t offset, void *data, size_t len);
+bool table_update_row(struct table *table, struct datablock *blk, size_t offset, struct row *row, size_t len);
 
 /**
  * table_calc_row_data_size - calculate payload size per row for a given table.
