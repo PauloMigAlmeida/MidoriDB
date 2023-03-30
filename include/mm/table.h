@@ -27,14 +27,10 @@ struct row_header_flags {
 	bool deleted;
 };
 
-struct row_header {
+struct row {
 	struct row_header_flags flags;
 	/* is value on column <bit> set to NULL ? */
 	char null_bitmap[(TABLE_MAX_COLUMNS / CHAR_BIT)];
-};
-
-struct row {
-	struct row_header header;
 	/* actual row data - aligned for x86-64 arch */
 	__x86_64_align char data[];
 };
@@ -174,6 +170,6 @@ size_t table_calc_row_size(struct table *table);
  *
  * This function returns true if column has variable precision, false otherwise
  */
-bool table_check_var_column(struct column* column);
+bool table_check_var_column(struct column *column);
 
 #endif /* INCLUDE_MM_TABLE_H_ */

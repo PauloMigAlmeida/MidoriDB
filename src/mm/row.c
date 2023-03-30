@@ -29,8 +29,8 @@ static void table_datablock_init(struct datablock *block, size_t row_size)
 {
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 		struct row *row = (struct row*)&block->data[row_size * i];
-		row->header.flags.empty = true;
-		row->header.flags.deleted = false;
+		row->flags.empty = true;
+		row->flags.deleted = false;
 	}
 }
 
@@ -68,11 +68,10 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(new_row->header.flags.deleted || !new_row->header.flags.empty);
-
-	memcpy(new_row->header.null_bitmap, row->header.null_bitmap, sizeof(row->header.null_bitmap));	
-	new_row->header.flags.deleted = false;
-	new_row->header.flags.empty = false;
+	BUG_ON(new_row->flags.deleted || !new_row->flags.empty);
+	new_row->flags.deleted = false;
+	new_row->flags.empty = false;
+	memcpy(new_row->null_bitmap, row->null_bitmap, sizeof(row->null_bitmap));
 
 	/*
 	 * if any column has a variable precision type then we also have to alloc memory to hold the content
@@ -135,8 +134,8 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 	}
 
 	memzero(new_row->data, table_calc_row_size(table));
-	new_row->header.flags.empty = true;
-	new_row->header.flags.deleted = false;
+	new_row->flags.empty = true;
+	new_row->flags.deleted = false;
 
 	return false;
 }
@@ -150,9 +149,9 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 	struct row *row = (struct row*)&blk->data[offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(row->header.flags.deleted || row->header.flags.empty);
+	BUG_ON(row->flags.deleted || row->flags.empty);
 
-	row->header.flags.deleted = true;
+	row->flags.deleted = true;
 	return true;
 }
 
@@ -165,10 +164,10 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 	struct row *upd_row = (struct row*)&blk->data[offset];
 
 	/* something went terribly wrong here if this is true */
-	BUG_ON(upd_row->header.flags.deleted || upd_row->header.flags.empty);
+	BUG_ON(upd_row->flags.deleted || upd_row->flags.empty);
 
 	/* we may have set some data to NULL so we better copy the null_bitmap too */
-	memcpy(upd_row->header.null_bitmap, row->header.null_bitmap, sizeof(row->header.null_bitmap));
+	memcpy(upd_row->null_bitmap, row->null_bitmap, sizeof(row->null_bitmap));
 
 	size_t pos = 0;
 	for (int i = 0; i < table->column_count; i++) {
@@ -185,4 +184,3 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 
 	return true;
 }
-
