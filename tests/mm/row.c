@@ -311,15 +311,42 @@ void test_table_update_row(void)
 	struct row *row_old, *row_new;
 	size_t row_size;
 
+	/* valid case - fixed precision columns */
 	int fp_old_data[] = {1, 2, 3};
 	int fp_new_data[] = {4, 5, 6};
 
 	row_old = build_row(fp_old_data, sizeof(fp_old_data), NULL, 0);
 	row_new = build_row(fp_new_data, sizeof(fp_new_data), NULL, 0);
 	row_size = struct_size(row_new, data, sizeof(fp_old_data));
-
-	/* valid case - common */
+	
 	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_old_data));
+
+	CU_ASSERT(table_insert_row(table, row_old, row_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_old));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
+	CU_ASSERT(table_update_row(table, fetch_datablock(table, 0), 0, row_new, row_size));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT(check_row(table, 0, &header_used, row_new));
+
+	CU_ASSERT(table_destroy(&table));
+	free(row_old);
+	free(row_new);
+
+	/* valid case - fixed precision columns with NULL values */
+	int fpn_old_data[] = {0, 2, 0};
+	int fpn_old_null_fields[] = {0, 2};
+
+	int fpn_new_data[] = {4, 0, 6};
+	int fpn_new_null_fields[] = {1};
+
+	row_old = build_row(fpn_old_data, sizeof(fpn_old_data), fpn_old_null_fields, ARR_SIZE(fpn_old_null_fields));
+	row_new = build_row(fpn_new_data, sizeof(fpn_new_data), fpn_new_null_fields, ARR_SIZE(fpn_new_null_fields));
+	row_size = struct_size(row_new, data, sizeof(fpn_old_data));
+	
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fpn_old_data));
 
 	CU_ASSERT(table_insert_row(table, row_old, row_size));
 	CU_ASSERT(check_row(table, 0, &header_used, row_old));
@@ -371,5 +398,41 @@ void test_table_update_row(void)
 	free(row_old);
 	free(row_new);
 
-	//TODO create test using NULL values
+	/* valid case - variable precision columns with null columns */
+	char *vpn_old_data_1 = "00000";
+	char *vpn_old_data_2 = "test2";
+	char *vpn_old_data_3 = "00000";
+	int vpn_old_null_fields[] = {0, 2};
+	uintptr_t vpn_old_data[] = {(uintptr_t)vpn_old_data_1, (uintptr_t)vpn_old_data_2, (uintptr_t)vpn_old_data_3};
+
+	char *vpn_new_data_1 = "test4";
+	char *vpn_new_data_2 = "00000";
+	char *vpn_new_data_3 = "test6";
+	int vpn_new_null_fields[] = {1};
+	uintptr_t vpn_new_data[] = {(uintptr_t)vpn_new_data_1, (uintptr_t)vpn_new_data_2, (uintptr_t)vpn_new_data_3};
+
+	row_old = build_row(vpn_old_data, sizeof(vpn_old_data), vpn_old_null_fields, ARR_SIZE(vpn_old_null_fields));
+	row_new = build_row(vpn_new_data, sizeof(vpn_new_data), vpn_new_null_fields, ARR_SIZE(vpn_new_null_fields));
+	row_size = struct_size(row_new, data, sizeof(vpn_old_data));
+
+	create_test_table_var_precision_columns(&table, 6, 3);
+
+	CU_ASSERT(table_insert_row(table, row_old, row_size));
+	CU_ASSERT(table_insert_row(table, row_old, row_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_old));
+	CU_ASSERT(check_row(table, 1, &header_used, row_old));
+	CU_ASSERT(check_row_header_flags(table, 2, &header_empty));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, table_calc_row_size(table) * 2);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
+	CU_ASSERT(table_update_row(table, fetch_datablock(table, 0), row_size, row_new, row_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_old));
+	CU_ASSERT(check_row(table, 1, &header_used, row_new));
+	CU_ASSERT(check_row_header_flags(table, 2, &header_empty));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_size * 2);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row_old);
+	free(row_new);
 }

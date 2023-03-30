@@ -66,8 +66,11 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 	}
 
 	struct row *new_row = (struct row*)&block->data[table->free_dtbkl_offset];
-	memcpy(&new_row->header, &row->header, sizeof(row->header));
-	//TODO add bug on here
+
+	/* something went terribly wrong here if this is true */
+	BUG_ON(new_row->header.flags.deleted || !new_row->header.flags.empty);
+
+	memcpy(new_row->header.null_bitmap, row->header.null_bitmap, sizeof(row->header.null_bitmap));	
 	new_row->header.flags.deleted = false;
 	new_row->header.flags.empty = false;
 
@@ -85,7 +88,13 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 			if (!ptr)
 				goto err;
 
-			// This line will give me a headache... I'm sure of it
+			/* 
+			 * This line will give me a headache... I'm sure of it.
+			 *
+			 * So far my thought is the following:
+			 *	-> it is expected that the engine would ensure that the ptr
+			 *		copied here has the same length as the column->precision
+			 */ 
 			memcpy(ptr, *((char**)((char*)row->data + pos)), column->precision);
 
 			uintptr_t *col_idx_ptr = (uintptr_t*)&new_row->data[pos];
