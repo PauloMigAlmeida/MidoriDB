@@ -904,9 +904,10 @@ expr: BINARY expr %prec UMINUS { emit(result, "STRTOBIN"); }
 
 void yyerror(struct vector *vec, const char *s, ...)
 {
-  char buf[256] = {0};
+  char buf[256];
   va_list ap;
   
+  memzero(buf, sizeof(buf));
   va_start(ap, s);
   
   /* if the error happened at the lexical phase then 
@@ -926,7 +927,9 @@ void yyerror(struct vector *vec, const char *s, ...)
   		vfprintf(stderr, s, ap);  
   		fprintf(stderr, "\n");
   	}
-  }    
+  }
+  
+  va_end(ap);
 }
 
 bool emit(struct vector *vec, char *s, ...)
@@ -936,8 +939,10 @@ bool emit(struct vector *vec, char *s, ...)
   va_list ap;
   bool ret;
   
+  memzero(buf, sizeof(buf));
   va_start(ap, s);
-  sprintf(buf, s, ap);
+  vsnprintf(buf,sizeof(buf), s, ap);
+  va_end(ap);
   
   ret = vector_push(vec, buf, strlen(buf));
   ret = ret && vector_push(vec, &space, sizeof(space));
