@@ -172,4 +172,13 @@ size_t table_calc_row_size(struct table *table);
  */
 bool table_check_var_column(struct column *column);
 
+/**
+ * table_datablock_init - initialise datablock for a given table
+ *
+ * @table: table reference
+ * @row_size: size of each row
+ */
+
+void table_datablock_init(struct datablock *block, size_t row_size);
+
 #endif /* INCLUDE_MM_TABLE_H_ */

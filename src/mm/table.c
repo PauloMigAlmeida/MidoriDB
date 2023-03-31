@@ -66,7 +66,7 @@ struct table* __must_check table_init(char *name)
 }
 
 static void free_var_precision_content(struct table *table, struct datablock *block)
-{	
+{
 	size_t row_size = table_calc_row_size(table);
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 		struct row *row = (struct row*)&block->data[row_size * i];
@@ -118,3 +118,11 @@ bool table_destroy(struct table **table)
 	return true;
 }
 
+void table_datablock_init(struct datablock *block, size_t row_size)
+{
+	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+		struct row *row = (struct row*)&block->data[row_size * i];
+		row->flags.empty = true;
+		row->flags.deleted = false;
+	}
+}

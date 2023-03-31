@@ -14,6 +14,7 @@ static void create_test_table(struct table **out, enum COLUMN_TYPE *type, size_t
 	struct column column;
 
 	table = table_init("test");
+	CU_ASSERT_EQUAL(table->column_count, 0);
 
 	for (int i = 0; i < column_count; i++) {
 		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);

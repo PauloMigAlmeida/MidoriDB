@@ -25,15 +25,6 @@ size_t table_calc_row_size(struct table *table)
 	return struct_size_const(struct row, data, table_calc_row_data_size(table));
 }
 
-static void table_datablock_init(struct datablock *block, size_t row_size)
-{
-	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
-		struct row *row = (struct row*)&block->data[row_size * i];
-		row->flags.empty = true;
-		row->flags.deleted = false;
-	}
-}
-
 bool table_insert_row(struct table *table, struct row *row, size_t len)
 {
 	struct datablock *block;
