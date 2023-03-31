@@ -1,5 +1,5 @@
-#include "tests/mm.h"
-#include "mm/datablock.h"
+#include <primitive/datablock.h>
+#include <tests/primitive.h>
 
 void test_datablock_init(void)
 {

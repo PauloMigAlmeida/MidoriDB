@@ -1,5 +1,5 @@
 #----------------------------------------------------------------------------
-# mm program makefile
+# primitive program makefile
 #----------------------------------------------------------------------------
 
 DIR_ROOT	:= $(CURDIR)/../../
@@ -11,7 +11,7 @@ DIR_TARGET	:= $(DIR_BUILD_LIB)/mm
 SRC_C_FILES	:= $(wildcard *.c)
 BIN_C_FILES	:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
 
-TAG 		:= [mm]
+TAG 		:= [primitive]
 
 all: mkdir compile
 	@echo "$(TAG) Compiled successfully"

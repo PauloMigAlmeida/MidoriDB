@@ -5,7 +5,7 @@
  *      Author: paulo
  */
 
-#include "mm/table.h"
+#include <primitive/table.h>
 
 static inline bool __valid_name(char *name, size_t max_size)
 {
@@ -44,7 +44,7 @@ static bool datablock_add_column(struct table *table, size_t row_cur_size, size_
 	size_t blk_offset;
 
 	/* sanity checks */
-	if ((unlikely(!table || row_cur_size == row_nxt_size)))
+	if (!table || row_cur_size == row_nxt_size)
 		goto err;
 
 	old_head = table->datablock_head;

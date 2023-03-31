@@ -5,7 +5,7 @@
  *      Author: paulo
  */
 
-#include "tests/mm.h"
+#include <tests/primitive.h>
 #include "lib/bit.h"
 
 static void create_test_table(struct table **out, enum COLUMN_TYPE *type, size_t precision, int column_count)

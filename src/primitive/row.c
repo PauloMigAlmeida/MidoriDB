@@ -4,7 +4,7 @@
  *  Created on: 17/03/2023
  *      Author: paulo
  */
-#include "mm/table.h"
+#include <primitive/table.h>
 
 size_t table_calc_row_data_size(struct table *table)
 {

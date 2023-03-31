@@ -5,7 +5,7 @@
  *      Author: paulo
  */
 
-#include "mm/table.h"
+#include <primitive/table.h>
 
 static inline bool __valid_name(char *name, size_t max_size)
 {

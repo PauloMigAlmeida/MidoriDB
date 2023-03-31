@@ -5,8 +5,8 @@
  *      Author: paulo
  */
 
-#include "tests/mm.h"
-#include "mm/table.h"
+#include <primitive/table.h>
+#include <tests/primitive.h>
 
 void test_table_init(void)
 {

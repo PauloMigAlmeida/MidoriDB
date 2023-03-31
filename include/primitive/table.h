@@ -5,12 +5,12 @@
  *      Author: paulo
  */
 
-#ifndef INCLUDE_MM_TABLE_H_
-#define INCLUDE_MM_TABLE_H_
+#ifndef INCLUDE_PRIMITIVE_TABLE_H_
+#define INCLUDE_PRIMITIVE_TABLE_H_
 
-#include "compiler/common.h"
-#include "mm/datablock.h"
-#include "lib/bit.h"
+#include <primitive/datablock.h>
+#include <compiler/common.h>
+#include <lib/bit.h>
 
 #define TABLE_MAX_COLUMNS		128
 #define TABLE_MAX_COLUMN_NAME		127
@@ -178,7 +178,6 @@ bool table_check_var_column(struct column *column);
  * @table: table reference
  * @row_size: size of each row
  */
-
 void table_datablock_init(struct datablock *block, size_t row_size);
 
-#endif /* INCLUDE_MM_TABLE_H_ */
+#endif /* INCLUDE_PRIMITIVE_TABLE_H_ */

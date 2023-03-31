@@ -5,8 +5,8 @@
  *      Author: paulo
  */
 
-#include "tests/mm.h"
-#include "mm/table.h"
+#include <primitive/table.h>
+#include <tests/primitive.h>
 
 static struct row_header_flags header_empty = {.deleted = false, .empty = true};
 static struct row_header_flags header_deleted = {.deleted = true, .empty = false};

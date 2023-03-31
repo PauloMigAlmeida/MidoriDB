@@ -1,10 +1,10 @@
-#include "tests/mm.h"
+#include <tests/primitive.h>
 
-bool mm_init_suite(void)
+bool primitive_init_suite(void)
 {
 	CU_pSuite suite = NULL;
 
-	ADD_SUITE(suite, "mm");
+	ADD_SUITE(suite, "primitive");
 	/* data block */
 	ADD_UNITTEST(suite, test_datablock_init);
 	ADD_UNITTEST(suite, test_datablock_alloc);

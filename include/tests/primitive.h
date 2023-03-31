@@ -1,11 +1,11 @@
 #ifndef TESTS_MM_H
 #define TESTS_MM_H
 
+#include <primitive/table.h>
 #include "tests/unittest.h"
-#include "mm/table.h"
 
 /* test suites */
-bool mm_init_suite(void);
+bool primitive_init_suite(void);
 
 /* unit tests */
 void test_datablock_init(void);

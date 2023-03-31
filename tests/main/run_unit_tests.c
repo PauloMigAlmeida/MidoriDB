@@ -1,19 +1,20 @@
-#include "tests/unittest.h"
-#include "tests/datastructure.h"
-#include "tests/mm.h"
-#include "tests/lib.h"
+#include <tests/primitive.h>
+#include <tests/unittest.h>
+#include <tests/datastructure.h>
+#include <tests/lib.h>
 
-int main(void) {
+int main(void)
+{
 	/* initialize the CUnit test registry */
 	if (CUE_SUCCESS != CU_initialize_registry())
 		return CU_get_error();
 
 	/* add suites & tests */
-	if(datastructure_init_suite())
+	if (datastructure_init_suite())
 		return CU_get_error();
-	if(mm_init_suite())
+	if (primitive_init_suite())
 		return CU_get_error();
-	if(lib_init_suite())
+	if (lib_init_suite())
 		return CU_get_error();
 
 	/* Run all tests using the basic interface */
