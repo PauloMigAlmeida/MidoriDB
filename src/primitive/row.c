@@ -35,7 +35,7 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 		return false;
 
 	/* is this the first ever item of the table ? */
-	should_alloc = table->datablock_head == table->datablock_head->prev;
+	should_alloc = list_is_empty(table->datablock_head);
 	/* or is there enough space to insert that into an existing datablock ? */
 	should_alloc = should_alloc || (table->free_dtbkl_offset + len) >= DATABLOCK_PAGE_SIZE;
 	if (should_alloc) {

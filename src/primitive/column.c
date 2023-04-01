@@ -143,7 +143,7 @@ bool table_add_column(struct table *table, struct column *column)
 	table->column_count++;
 
 	/* if table isn't empty than we can to rearrange rows in datablocks */
-	if (table->datablock_head != table->datablock_head->next)
+	if (!list_is_empty(table->datablock_head))
 		datablock_add_column(table, row_cur_size, table_calc_row_size(table));
 
 	if (pthread_mutex_unlock(&table->mutex))

@@ -36,7 +36,16 @@ void list_del(struct list_head *entry);
 	     pos != (head); 			\
 	     pos = n, n = pos->next)
 
-#define list_entry(ptr, type, member) \
+#define list_entry(ptr, type, member) 		\
         container_of(ptr, type, member)
+
+/**
+ * list_is_empty - check if circular list is empty
+ * @head:	the head of your list
+ *
+ * this function returns true if list is empty, false otherwise
+ */
+#define list_is_empty(head)			\
+	((head) == (head)->next)
 
 #endif /* DATASTRUCTURE_LINKEDLIST_H */ 
