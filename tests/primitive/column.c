@@ -16,6 +16,12 @@ void test_table_add_column(void)
 	struct table *table;
 	struct column column;
 
+	struct row *row_before;
+	struct row *row_after;
+
+	size_t row_before_size;
+	size_t row_after_size;
+
 	/* valid case - normal case */
 	create_test_table_fixed_precision_columns(&table, 1);
 	CU_ASSERT(table_destroy(&table));
@@ -99,16 +105,16 @@ void test_table_add_column(void)
 	CU_ASSERT(table_destroy(&table));
 
 	/* add columns on table with existing data - same datablock */
-	int fp_data_before[] = {1, 2, 3};
-	int fp_data_after[] = {1, 2, 3, 0};
+	int fp_data1_before[] = {1, 2, 3};
+	int fp_data1_after[] = {1, 2, 3, 0};
 
-	struct row *row_before = build_row(fp_data_before, sizeof(fp_data_before), NULL, 0);
-	struct row *row_after = build_row(fp_data_after, sizeof(fp_data_after), NULL, 0);
+	row_before = build_row(fp_data1_before, sizeof(fp_data1_before), NULL, 0);
+	row_after = build_row(fp_data1_after, sizeof(fp_data1_after), NULL, 0);
 
-	size_t row_before_size = struct_size(row_before, data, sizeof(fp_data_before));
-	size_t row_after_size = struct_size(row_after, data, sizeof(fp_data_after));
+	row_before_size = struct_size(row_before, data, sizeof(fp_data1_before));
+	row_after_size = struct_size(row_after, data, sizeof(fp_data1_after));
 
-	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data_before));
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data1_before));
 
 	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
 	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
@@ -118,7 +124,7 @@ void test_table_add_column(void)
 
 	strcpy(column.name, "new_column");
 	column.type = INTEGER;
-	column.precision = sizeof(fp_data_before[0]);
+	column.precision = sizeof(fp_data1_before[0]);
 	CU_ASSERT(table_add_column(table, &column));
 
 	CU_ASSERT(table_insert_row(table, row_after, row_after_size));
@@ -126,6 +132,64 @@ void test_table_add_column(void)
 	CU_ASSERT(check_row(table, 1, &header_used, row_after));
 	CU_ASSERT(check_row(table, 2, &header_used, row_after));
 	CU_ASSERT(check_row_flags(table, 3, &header_empty));
+
+	// make sure we got the right number of
+	// datablocks after the data rearrange process
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_after_size * 3);
+
+	CU_ASSERT(table_destroy(&table));
+
+	free(row_before);
+	free(row_after);
+
+	/* add columns on table with existing data - force the creation of a new datablock after adding column */
+	int fp_data2_before[] = {1, 2, 3};
+	int fp_data2_after[] = {1, 2, 3, 0};
+
+	row_before = build_row(fp_data2_before, sizeof(fp_data2_before), NULL, 0);
+	row_after = build_row(fp_data2_after, sizeof(fp_data2_after), NULL, 0);
+
+	row_before_size = struct_size(row_before, data, sizeof(fp_data2_before));
+	row_after_size = struct_size(row_after, data, sizeof(fp_data2_after));
+
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data2_before));
+
+	size_t no_rows = (DATABLOCK_PAGE_SIZE / row_before_size);
+	for (size_t i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+		CU_ASSERT(check_row(table, i, &header_used, row_before));
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+
+	strcpy(column.name, "new_column");
+	column.type = INTEGER;
+	column.precision = sizeof(fp_data2_before[0]);
+	CU_ASSERT(table_add_column(table, &column));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, (no_rows - (DATABLOCK_PAGE_SIZE / row_after_size)) * row_after_size);
+	// make sure we got the right number of
+	// datablocks after the data rearrange process
+	CU_ASSERT_EQUAL(count_datablocks(table), 2);
+
+	for (size_t i = 0; i < no_rows; i++) {
+		/*
+		 * the block is zeroed-out so we can anticipate which value/gap will be left
+		 * when column is added. Additionally, we must ensure that the same number
+		 * of rows exists in the table (though in this case the data will be spread
+		 * across 2 datablocks instead of 1)
+		 */
+		CU_ASSERT(check_row(table, i, &header_used, row_after));
+	}
+
+	CU_ASSERT(table_insert_row(table, row_after, row_after_size));
+	CU_ASSERT(check_row(table, no_rows, &header_used, row_after));
+	CU_ASSERT(check_row_flags(table, no_rows + 1, &header_empty));
+
+	CU_ASSERT_EQUAL(count_datablocks(table), 2);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset,
+			(no_rows + 1 - (DATABLOCK_PAGE_SIZE / row_after_size)) * row_after_size);
+
 	CU_ASSERT(table_destroy(&table));
 
 	free(row_before);
