@@ -301,6 +301,12 @@ void test_table_rem_column(void)
 	struct table *table;
 	struct column column;
 
+	struct row *row_before;
+	struct row *row_after;
+
+	size_t row_before_size;
+	size_t row_after_size;
+
 	/* valid case - normal case */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
@@ -403,4 +409,124 @@ void test_table_rem_column(void)
 	CU_ASSERT_FALSE(table_rem_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 1);
 	CU_ASSERT(table_destroy(&table));
+
+	/*
+	 * remove column on table with existing data:
+	 *  - fixed precision
+	 *  - same datablock
+	 *  - remove first column
+	 */
+	int fp_data1_before[] = {1, 2, 3};
+	int fp_data1_after[] = {2, 3};
+
+	row_before = build_row(fp_data1_before, sizeof(fp_data1_before), NULL, 0);
+	row_after = build_row(fp_data1_after, sizeof(fp_data1_after), NULL, 0);
+
+	row_before_size = struct_size(row_before, data, sizeof(fp_data1_before));
+	row_after_size = struct_size(row_after, data, sizeof(fp_data1_after));
+
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data1_before));
+
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_before));
+	CU_ASSERT(check_row(table, 1, &header_used, row_before));
+	CU_ASSERT(check_row_flags(table, 2, &header_empty));
+
+	CU_ASSERT(table_rem_column(table, &table->columns[0]));
+
+	CU_ASSERT(table_insert_row(table, row_after, row_after_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_after));
+	CU_ASSERT(check_row(table, 1, &header_used, row_after));
+	CU_ASSERT(check_row(table, 2, &header_used, row_after));
+	CU_ASSERT(check_row_flags(table, 3, &header_empty));
+
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_after_size * 3);
+
+	CU_ASSERT(table_destroy(&table));
+
+	free(row_before);
+	free(row_after);
+
+	/*
+	 * remove column on table with existing data:
+	 *  - fixed precision
+	 *  - same datablock
+	 *  - remove middle column
+	 */
+	int fp_data2_before[] = {1, 2, 3};
+	int fp_data2_after[] = {1, 3};
+
+	row_before = build_row(fp_data2_before, sizeof(fp_data2_before), NULL, 0);
+	row_after = build_row(fp_data2_after, sizeof(fp_data2_after), NULL, 0);
+
+	row_before_size = struct_size(row_before, data, sizeof(fp_data2_before));
+	row_after_size = struct_size(row_after, data, sizeof(fp_data2_after));
+
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data2_before));
+
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_before));
+	CU_ASSERT(check_row(table, 1, &header_used, row_before));
+	CU_ASSERT(check_row_flags(table, 2, &header_empty));
+
+	CU_ASSERT(table_rem_column(table, &table->columns[1]));
+
+	CU_ASSERT(table_insert_row(table, row_after, row_after_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_after));
+	CU_ASSERT(check_row(table, 1, &header_used, row_after));
+	CU_ASSERT(check_row(table, 2, &header_used, row_after));
+	CU_ASSERT(check_row_flags(table, 3, &header_empty));
+
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_after_size * 3);
+
+	CU_ASSERT(table_destroy(&table));
+
+	free(row_before);
+	free(row_after);
+
+	/*
+	 * remove column on table with existing data:
+	 *  - fixed precision
+	 *  - same datablock
+	 *  - remove last column
+	 */
+	int fp_data3_before[] = {1, 2, 3};
+	int fp_data3_after[] = {1, 2};
+
+	row_before = build_row(fp_data3_before, sizeof(fp_data3_before), NULL, 0);
+	row_after = build_row(fp_data3_after, sizeof(fp_data3_after), NULL, 0);
+
+	row_before_size = struct_size(row_before, data, sizeof(fp_data3_before));
+	row_after_size = struct_size(row_after, data, sizeof(fp_data3_after));
+
+	create_test_table_fixed_precision_columns(&table, ARR_SIZE(fp_data3_before));
+
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(table_insert_row(table, row_before, row_before_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_before));
+	CU_ASSERT(check_row(table, 1, &header_used, row_before));
+	CU_ASSERT(check_row_flags(table, 2, &header_empty));
+
+	CU_ASSERT(table_rem_column(table, &table->columns[2]));
+
+	CU_ASSERT(table_insert_row(table, row_after, row_after_size));
+	CU_ASSERT(check_row(table, 0, &header_used, row_after));
+	CU_ASSERT(check_row(table, 1, &header_used, row_after));
+	CU_ASSERT(check_row(table, 2, &header_used, row_after));
+	CU_ASSERT(check_row_flags(table, 3, &header_empty));
+
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, row_after_size * 3);
+
+	CU_ASSERT(table_destroy(&table));
+
+	free(row_before);
+	free(row_after);
+
+	//TODO add tests with fixed precision columns -> multiple datablocks
+	//TODO add tests with mixed precision columns -> single datablock + multiple datablocks
 }

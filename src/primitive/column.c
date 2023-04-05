@@ -143,8 +143,10 @@ bool table_add_column(struct table *table, struct column *column)
 	table->column_count++;
 
 	/* if table isn't empty than we can to rearrange rows in datablocks */
-	if (!list_is_empty(table->datablock_head))
-		datablock_add_column(table, row_cur_size, table_calc_row_size(table));
+	if (!list_is_empty(table->datablock_head)) {
+		if (!datablock_add_column(table, row_cur_size, table_calc_row_size(table)))
+			goto err_cleanup_mutex;
+	}
 
 	if (pthread_mutex_unlock(&table->mutex))
 		return false;
@@ -162,6 +164,63 @@ bool table_add_column(struct table *table, struct column *column)
 	 */
 	BUG_ON(pthread_mutex_unlock(&table->mutex));
 	return false;
+}
+
+static void datablock_rem_column(struct table *table, size_t col_idx)
+{
+	struct list_head *head;
+	struct list_head *pos;
+	struct datablock *entry;
+	struct column *column;
+	struct row *row;
+	size_t row_cur_size, row_new_size, row_data_size;
+	size_t data_offset, blk_offset;
+
+	head = table->datablock_head;
+	column = &table->columns[col_idx];
+	row_cur_size = table_calc_row_size(table);
+	row_new_size = row_cur_size - column->precision;
+	row_data_size = table_calc_row_data_size(table);
+	data_offset = 0;
+	entry = NULL;
+
+	for (size_t i = 0; i < col_idx; i++)
+		data_offset += table->columns[i].precision;
+
+	list_for_each(pos, head)
+	{
+		entry = list_entry(pos, typeof(*entry), head);
+		blk_offset = 0;
+
+		// TODO we _may_ have to update indexes to point when making these changes
+		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_cur_size); i++) {
+			row = (struct row*)&entry->data[i * row_cur_size];
+
+			/* are we done yet? */
+			if (row->flags.empty)
+				break;
+
+			/* remove column data */
+			memmove(&row->data[data_offset],
+				&row->data[data_offset + column->precision],
+				row_data_size - (data_offset + column->precision));
+
+			/* make rows sit right next to each other now that row has a smaller size */
+			memmove(&entry->data[blk_offset], row, row_new_size);
+			blk_offset += row_new_size;
+		}
+
+		/* make it easier for the vacuum process */
+		memzero(&entry->data[blk_offset], sizeof(entry->data) - blk_offset);
+		for (size_t i = blk_offset / row_new_size; i < (DATABLOCK_PAGE_SIZE / row_new_size); i++) {
+			row = (struct row*)&entry->data[i * row_new_size];
+			row->flags.deleted = false;
+			row->flags.empty = true;
+		}
+	}
+
+	/* update reference to the next free row within the last datablock */
+	table->free_dtbkl_offset = blk_offset;
 }
 
 bool table_rem_column(struct table *table, struct column *column)
@@ -193,6 +252,10 @@ bool table_rem_column(struct table *table, struct column *column)
 
 	if (!found)
 		goto err_cleanup_mutex;
+
+	/* if table isn't empty than we can to rearrange rows in datablocks */
+	if (!list_is_empty(table->datablock_head))
+		datablock_rem_column(table, pos);
 
 	memmove(&table->columns[pos],
 		&table->columns[pos + 1],
