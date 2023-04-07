@@ -175,17 +175,23 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 	struct row *row;
 	size_t row_cur_size, row_new_size, row_data_size;
 	size_t data_offset, blk_offset;
+	size_t col_prec;
 
 	head = table->datablock_head;
 	column = &table->columns[col_idx];
+	col_prec = table_check_var_column(column) ? sizeof(uintptr_t) : (size_t)column->precision;
 	row_cur_size = table_calc_row_size(table);
-	row_new_size = row_cur_size - column->precision;
+	row_new_size = row_cur_size - col_prec;
 	row_data_size = table_calc_row_data_size(table);
 	data_offset = 0;
 	entry = NULL;
 
-	for (size_t i = 0; i < col_idx; i++)
-		data_offset += table->columns[i].precision;
+	for (size_t i = 0; i < col_idx; i++) {
+		if (table_check_var_column(&table->columns[i]))
+			data_offset += sizeof(uintptr_t);
+		else
+			data_offset += table->columns[i].precision;
+	}
 
 	list_for_each(pos, head)
 	{
@@ -200,10 +206,17 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 			if (row->flags.empty)
 				break;
 
+			/* if that held a var precision column, we need to free it */
+			if (table_check_var_column(column)) {
+				uintptr_t **var_ptr = (uintptr_t**)&row->data[data_offset];
+				free(*var_ptr);
+				memzero(var_ptr, sizeof(uintptr_t));
+			}
+
 			/* remove column data */
 			memmove(&row->data[data_offset],
-				&row->data[data_offset + column->precision],
-				row_data_size - (data_offset + column->precision));
+				&row->data[data_offset + col_prec],
+				row_data_size - (data_offset + col_prec));
 
 			/* make rows sit right next to each other now that row has a smaller size */
 			memmove(&entry->data[blk_offset], row, row_new_size);
