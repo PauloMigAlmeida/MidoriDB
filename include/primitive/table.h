@@ -159,7 +159,6 @@ size_t table_calc_row_data_size(struct table *table);
  * table_calc_row_size - calculate row size (header + data/payload).
  *
  * @table: table reference
- *
  */
 size_t table_calc_row_size(struct table *table);
 
@@ -171,6 +170,13 @@ size_t table_calc_row_size(struct table *table);
  * This function returns true if column has variable precision, false otherwise
  */
 bool table_check_var_column(struct column *column);
+
+/**
+ * table_calc_column_space - calculate how much space a given column takes up within the row
+ *
+ * @column: column reference
+ */
+size_t table_calc_column_space(struct column *column);
 
 /**
  * table_datablock_init - initialise datablock for a given table

@@ -80,10 +80,8 @@ static void free_var_precision_content(struct table *table, struct datablock *bl
 			if (table_check_var_column(column)) {
 				void **ptr = (void**)(row->data + pos);
 				free(*ptr);
-				pos += sizeof(uintptr_t);
-			} else {
-				pos += column->precision;
 			}
+			pos += table_calc_column_space(column);
 		}
 	}
 }

@@ -112,11 +112,10 @@ bool check_row_data(struct table *table, size_t row_num, void *expected)
 			void **ptr_1 = (void**)(row->data + pos);
 			void **ptr_2 = (void**)((char*)expected + pos);
 			ret = ret && memcmp(*ptr_1, *ptr_2, column->precision) == 0;
-			pos += sizeof(uintptr_t);
 		} else {
 			ret = ret && memcmp(row->data + pos, (char*)expected + pos, column->precision) == 0;
-			pos += column->precision;
 		}
+		pos += table_calc_column_space(column);
 	}
 	return ret;
 }

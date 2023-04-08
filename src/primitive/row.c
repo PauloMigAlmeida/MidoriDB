@@ -10,11 +10,7 @@ size_t table_calc_row_data_size(struct table *table)
 {
 	size_t size = 0;
 	for (int i = 0; i < table->column_count; i++) {
-		/* for variable length column we store a pointer to the data */
-		if (table_check_var_column(&table->columns[i]))
-			size += sizeof(uintptr_t);
-		else
-			size += table->columns[i].precision;
+		size += table_calc_column_space(&table->columns[i]);
 	}
 
 	return size;
@@ -84,17 +80,17 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 			 * So far my thought is the following:
 			 *	-> it is expected that the engine would ensure that the ptr
 			 *		copied here has the same length as the column->precision
-			 */ 
+			 */
 			memcpy(ptr, *((char**)((char*)row->data + pos)), column->precision);
 
 			uintptr_t *col_idx_ptr = (uintptr_t*)&new_row->data[pos];
 			*col_idx_ptr = (uintptr_t)ptr;
 
-			pos += sizeof(uintptr_t);
 		} else {
 			memcpy(new_row->data + pos, ((char*)row->data) + pos, column->precision);
-			pos += column->precision;
 		}
+
+		pos += table_calc_column_space(column);
 
 	}
 
@@ -116,12 +112,10 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 	for (int i = 0; i < column_idx; i++) {
 		struct column *column = &table->columns[column_idx];
 		if (table_check_var_column(column)) {
-			uintptr_t **col_idx_ptr = (uintptr_t**)&new_row->data[pos];
+			void **col_idx_ptr = (void**)&new_row->data[pos];
 			free(*col_idx_ptr);
-			pos += sizeof(uintptr_t);
-		} else {
-			pos += column->precision;
 		}
+		pos += table_calc_column_space(column);
 	}
 
 	memzero(new_row->data, table_calc_row_size(table));
@@ -166,11 +160,10 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 		if (table_check_var_column(column)) {
 			void **ptr = (void**)&upd_row->data[pos];
 			memcpy(*ptr, *((char**)((char*)row->data + pos)), column->precision);
-			pos += sizeof(uintptr_t);
 		} else {
 			memcpy(upd_row->data + pos, ((char*)row->data) + pos, column->precision);
-			pos += column->precision;
 		}
+		pos += table_calc_column_space(column);
 	}
 
 	return true;

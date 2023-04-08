@@ -179,7 +179,7 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 
 	head = table->datablock_head;
 	column = &table->columns[col_idx];
-	col_prec = table_check_var_column(column) ? sizeof(uintptr_t) : (size_t)column->precision;
+	col_prec = table_calc_column_space(column);
 	row_cur_size = table_calc_row_size(table);
 	row_new_size = row_cur_size - col_prec;
 	row_data_size = table_calc_row_data_size(table);
@@ -187,10 +187,7 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 	entry = NULL;
 
 	for (size_t i = 0; i < col_idx; i++) {
-		if (table_check_var_column(&table->columns[i]))
-			data_offset += sizeof(uintptr_t);
-		else
-			data_offset += table->columns[i].precision;
+		data_offset += table_calc_column_space(&table->columns[i]);
 	}
 
 	list_for_each(pos, head)
@@ -208,9 +205,9 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 
 			/* if that held a var precision column, we need to free it */
 			if (table_check_var_column(column)) {
-				uintptr_t **var_ptr = (uintptr_t**)&row->data[data_offset];
+				void **var_ptr = (void**)&row->data[data_offset];
 				free(*var_ptr);
-				memzero(var_ptr, sizeof(uintptr_t));
+				memzero(var_ptr, sizeof(*var_ptr));
 			}
 
 			/* remove column data */
@@ -297,4 +294,14 @@ bool table_rem_column(struct table *table, struct column *column)
 bool table_check_var_column(struct column *column)
 {
 	return column->type == VARCHAR;
+}
+
+size_t table_calc_column_space(struct column *column)
+{
+	BUG_ON(!column);
+	/* for variable length column we store a pointer to the data */
+	if (table_check_var_column(column))
+		return sizeof(uintptr_t);
+	else
+		return (size_t)column->precision;
 }
