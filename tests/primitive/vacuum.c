@@ -223,4 +223,49 @@ void test_table_vacuum(void)
 
 	CU_ASSERT(table_destroy(&table));
 	free(row);
+
+	/*
+	 * vacuum table with 10 datablocks but only the last datablock will contain valid data
+	 * leaving the table with a single datablock after the vacuuming process
+	 */
+	create_test_table_fixed_precision_columns(&table, 3);
+
+	int data6[] = {1, 2, 3};
+	row = build_row(data6, sizeof(data6), NULL, 0);
+	row_size = table_calc_row_size(table);
+	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_bkl * 9 + 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+
+		if (i < fit_in_bkl * 9) {
+			size_t blk_idx = i / fit_in_bkl;
+			size_t offset = (i % fit_in_bkl) * row_size;
+			table_delete_row(table, fetch_datablock(table, blk_idx), offset);
+		}
+
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 10);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	for (int i = 0; i < fit_in_bkl; i++) {
+		if (i < 10) {
+			CU_ASSERT(check_row(table, i, &header_used, row));
+		} else {
+			CU_ASSERT(check_row_flags(table, i, &header_empty));
+		}
+	}
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, 10, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 11 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
 }

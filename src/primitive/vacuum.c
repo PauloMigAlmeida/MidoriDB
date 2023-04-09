@@ -10,11 +10,12 @@
 bool table_vacuum(struct table *table)
 {
 	struct list_head *dst_pos, *src_pos, *src_tmp_pos;
-	struct datablock *dst_entry = NULL, *src_entry;
-	size_t dst_blk_offset = 0, dst_blk_idx;
+	struct datablock *dst_entry, *src_entry;
+	size_t dst_blk_offset, dst_blk_idx;
 	size_t src_blk_offset, src_blk_idx;
 	struct row *row;
 	size_t row_size;
+	bool dst_full;
 
 	/* sanity checks */
 	if (!table)
@@ -23,11 +24,12 @@ bool table_vacuum(struct table *table)
 	if (pthread_mutex_lock(&table->mutex))
 		return false;
 
-	bool dst_full;
 	dst_blk_idx = 0;
 	src_blk_idx = 0;
-
+	dst_blk_offset = 0;
 	src_blk_offset = 0;
+	dst_entry = NULL;
+	src_entry = NULL;
 	row_size = table_calc_row_size(table);
 
 	list_for_each(dst_pos, table->datablock_head)
