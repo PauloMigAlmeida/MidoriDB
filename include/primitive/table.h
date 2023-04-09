@@ -146,6 +146,13 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
 bool table_update_row(struct table *table, struct datablock *blk, size_t offset, struct row *row, size_t len);
 
 /**
+ * table_vacuum - perform table vaccum on existing datablocks
+ *
+ * @table: table reference
+ */
+bool table_vacuum(struct table *table);
+
+/**
  * table_calc_row_data_size - calculate payload size per row for a given table.
  *
  * @table: table reference
@@ -182,8 +189,9 @@ size_t table_calc_column_space(struct column *column);
  * table_datablock_init - initialise datablock for a given table
  *
  * @table: table reference
+ * @offset: row offset
  * @row_size: size of each row
  */
-void table_datablock_init(struct datablock *block, size_t row_size);
+void table_datablock_init(struct datablock *block, size_t offset, size_t row_size);
 
 #endif /* INCLUDE_PRIMITIVE_TABLE_H_ */

@@ -31,6 +31,7 @@ endif
 
 
 CCFLAGS			:= -std=gnu11 -I$(DIR_INCLUDE) \
+					-lm \
 					-g \
 					-O2 \
 					-fpic \

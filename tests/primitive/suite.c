@@ -18,6 +18,7 @@ bool primitive_init_suite(void)
 	ADD_UNITTEST(suite, test_table_insert_row);
 	ADD_UNITTEST(suite, test_table_delete_row);
 	ADD_UNITTEST(suite, test_table_update_row);
+	ADD_UNITTEST(suite, test_table_vacuum);
 
 	return false;
 }

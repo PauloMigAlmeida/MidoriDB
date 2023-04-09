@@ -116,11 +116,12 @@ bool table_destroy(struct table **table)
 	return true;
 }
 
-void table_datablock_init(struct datablock *block, size_t row_size)
+void table_datablock_init(struct datablock *block, size_t offset, size_t row_size)
 {
-	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
-		struct row *row = (struct row*)&block->data[row_size * i];
+	for (size_t i = offset / row_size; i < DATABLOCK_PAGE_SIZE / row_size; i++) {
+		struct row *row = (struct row*)&block->data[i * row_size];
 		row->flags.empty = true;
 		row->flags.deleted = false;
+		memzero((char*)row + sizeof(row->flags), row_size - offsetof(typeof(*row), null_bitmap));
 	}
 }

@@ -76,7 +76,7 @@ static bool datablock_add_column(struct table *table, size_t row_cur_size, size_
 				if (!new_entry)
 					goto err_free;
 
-				table_datablock_init(new_entry, row_nxt_size);
+				table_datablock_init(new_entry, 0, row_nxt_size);
 				blk_offset = 0;
 			}
 
@@ -174,7 +174,7 @@ static void datablock_rem_column(struct table *table, size_t col_idx)
 	struct column *column;
 	struct row *row;
 	size_t row_cur_size, row_new_size, row_data_size;
-	size_t data_offset, blk_offset;
+	size_t data_offset, blk_offset = 0;
 	size_t col_prec;
 
 	head = table->datablock_head;

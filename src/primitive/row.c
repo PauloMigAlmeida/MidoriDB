@@ -44,7 +44,7 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 		if (!(block = datablock_alloc(table->datablock_head)))
 			return false;
 
-		table_datablock_init(block, len);
+		table_datablock_init(block, 0, len);
 		table->free_dtbkl_offset = 0;
 	} else {
 		// since it's a circular linked list then getting the head->prev is the same

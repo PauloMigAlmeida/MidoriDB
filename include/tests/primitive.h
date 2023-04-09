@@ -20,6 +20,7 @@ void test_table_rem_column(void);
 void test_table_insert_row(void);
 void test_table_delete_row(void);
 void test_table_update_row(void);
+void test_table_vacuum(void);
 
 /* utility functions used across mm test suites */
 size_t count_datablocks(struct table *table);
