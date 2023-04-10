@@ -12,6 +12,21 @@
 #include <primitive/table.h>
 #include <primitive/datablock.h>
 
+struct row_header_flags {
+	/* is this row empty? */
+	bool empty;
+	/* was this row deleted? */
+	bool deleted;
+};
+
+struct row {
+	struct row_header_flags flags;
+	/* is value on column <bit> set to NULL ? */
+	char null_bitmap[(TABLE_MAX_COLUMNS / CHAR_BIT)];
+	/* actual row data - aligned for x86-64 arch */
+	__x86_64_align char data[];
+};
+
 /**
  * table_insert_row - insert row into a table
  *
@@ -57,5 +72,13 @@ size_t table_calc_row_data_size(struct table *table);
  * @table: table reference
  */
 size_t table_calc_row_size(struct table *table);
+
+/**
+ * table_free_row_content - free row's content
+ *
+ * @table: table reference
+ * @row: row reference
+ */
+void table_free_row_content(struct table *table, struct row *row);
 
 #endif /* INCLUDE_PRIMITIVE_ROW_H_ */

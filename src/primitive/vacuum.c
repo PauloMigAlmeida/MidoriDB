@@ -9,26 +9,6 @@
 #include <primitive/column.h>
 #include <primitive/row.h>
 
-static __force_inline void free_old_row_res(struct table *table, struct row *row)
-{
-	struct column *column;
-	char *data = row->data;
-
-	/* only deleted rows can have heap allocation */
-	if (!row->flags.deleted)
-		return;
-
-	for (int i = 0; i < table->column_count; i++) {
-		column = &table->columns[i];
-
-		if (table_check_var_column(column)) {
-			free(*((uintptr_t**)data));
-		}
-
-		data += table_calc_column_space(column);
-	}
-}
-
 bool table_vacuum(struct table *table)
 {
 	struct list_head *dst_pos, *src_pos, *src_tmp_pos;
@@ -92,7 +72,7 @@ bool table_vacuum(struct table *table)
 					}
 
 					/* free any variable precision resources in old row. (if any) */
-					free_old_row_res(table, (struct row*)&dst_entry->data[dst_blk_offset]);
+					table_free_row_content(table, (struct row*)&dst_entry->data[dst_blk_offset]);
 
 					/* good to go :) */
 					memmove(&dst_entry->data[dst_blk_offset], row, row_size);
@@ -130,7 +110,7 @@ bool table_vacuum(struct table *table)
 
 	/* turn remaining space of last non-free datablock into empty rows */
 	for (size_t i = dst_blk_offset / row_size; i < DATABLOCK_PAGE_SIZE / row_size; i++) {
-		free_old_row_res(table, (struct row*)&dst_entry->data[i * row_size]);
+		table_free_row_content(table, (struct row*)&dst_entry->data[i * row_size]);
 	}
 	table_datablock_init(dst_entry, dst_blk_offset, row_size);
 
@@ -148,7 +128,7 @@ bool table_vacuum(struct table *table)
 
 		/* free any variable precision resources in old rows. (if any) */
 		for (size_t i = 0; i < DATABLOCK_PAGE_SIZE / row_size; i++) {
-			free_old_row_res(table, (struct row*)&src_entry->data[i * row_size]);
+			table_free_row_content(table, (struct row*)&src_entry->data[i * row_size]);
 		}
 
 		datablock_free(src_entry);

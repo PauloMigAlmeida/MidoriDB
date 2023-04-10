@@ -9,7 +9,32 @@
 #define INCLUDE_PRIMITIVE_COLUMN_H_
 
 #include <compiler/common.h>
-#include <primitive/table.h>
+
+#define TABLE_MAX_COLUMN_NAME		127
+
+struct table;
+
+enum COLUMN_TYPE {
+	VARCHAR,
+	INTEGER,
+	DOUBLE,
+	DATE,
+// Add more in the future
+};
+
+struct column {
+	/* NUL-terminated string */
+	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+
+	/* type of value meant to be stored */
+	enum COLUMN_TYPE type;
+
+	/* how much space it takes up in memory */
+	int precision;
+
+	/* is this column indexed ? */
+	bool indexed;
+};
 
 /**
  * table_add_column - add column to a table
