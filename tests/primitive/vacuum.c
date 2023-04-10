@@ -63,14 +63,14 @@ void test_table_vacuum(void)
 {
 	struct table *table;
 	struct row *row;
-	int row_size, no_rows, fit_in_bkl;
+	int row_size, no_rows, fit_in_blk;
 
 	/* vacuum table with single data block */
 	create_test_table_fixed_precision_columns(&table, 3);
 
 	int data1[] = {1, 2, 3};
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
 	row = build_row(data1, sizeof(data1), NULL, 0);
 	no_rows = 10;
 
@@ -78,7 +78,7 @@ void test_table_vacuum(void)
 		CU_ASSERT(table_insert_row(table, row, row_size));
 		CU_ASSERT(check_row(table, i, &header_used, row));
 	}
-	CU_ASSERT_EQUAL(table->free_dtbkl_offset, (no_rows % fit_in_bkl) * row_size);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, (no_rows % fit_in_blk) * row_size);
 
 	delete_even_rows(table, no_rows);
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
@@ -100,8 +100,8 @@ void test_table_vacuum(void)
 	int data2[] = {1, 2, 3};
 	row = build_row(data2, sizeof(data2), NULL, 0);
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
-	no_rows = fit_in_bkl + 10;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk + 10;
 
 	for (int i = 0; i < no_rows; i++) {
 		CU_ASSERT(table_insert_row(table, row, row_size));
@@ -132,8 +132,8 @@ void test_table_vacuum(void)
 	int data3[] = {1, 2, 3};
 	row = build_row(data3, sizeof(data3), NULL, 0);
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
-	no_rows = fit_in_bkl * 2 + 10;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 2 + 10;
 
 	for (int i = 0; i < no_rows; i++) {
 		CU_ASSERT(table_insert_row(table, row, row_size));
@@ -164,8 +164,8 @@ void test_table_vacuum(void)
 	int data4[] = {1, 2, 3};
 	row = build_row(data4, sizeof(data4), NULL, 0);
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
-	no_rows = fit_in_bkl * 3 + 10;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 3 + 10;
 
 	for (int i = 0; i < no_rows; i++) {
 		CU_ASSERT(table_insert_row(table, row, row_size));
@@ -197,8 +197,8 @@ void test_table_vacuum(void)
 	int data5[] = {1, 2, 3};
 	row = build_row(data5, sizeof(data5), NULL, 0);
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
-	no_rows = fit_in_bkl * 9 + 10;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 9 + 10;
 
 	for (int i = 0; i < no_rows; i++) {
 		CU_ASSERT(table_insert_row(table, row, row_size));
@@ -233,16 +233,16 @@ void test_table_vacuum(void)
 	int data6[] = {1, 2, 3};
 	row = build_row(data6, sizeof(data6), NULL, 0);
 	row_size = table_calc_row_size(table);
-	fit_in_bkl = DATABLOCK_PAGE_SIZE / row_size;
-	no_rows = fit_in_bkl * 9 + 10;
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 9 + 10;
 
 	for (int i = 0; i < no_rows; i++) {
 		CU_ASSERT(table_insert_row(table, row, row_size));
 		CU_ASSERT(check_row(table, i, &header_used, row));
 
-		if (i < fit_in_bkl * 9) {
-			size_t blk_idx = i / fit_in_bkl;
-			size_t offset = (i % fit_in_bkl) * row_size;
+		if (i < fit_in_blk * 9) {
+			size_t blk_idx = i / fit_in_blk;
+			size_t offset = (i % fit_in_blk) * row_size;
 			table_delete_row(table, fetch_datablock(table, blk_idx), offset);
 		}
 
@@ -254,7 +254,7 @@ void test_table_vacuum(void)
 
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
-	for (int i = 0; i < fit_in_bkl; i++) {
+	for (int i = 0; i < fit_in_blk; i++) {
 		if (i < 10) {
 			CU_ASSERT(check_row(table, i, &header_used, row));
 		} else {
@@ -268,4 +268,169 @@ void test_table_vacuum(void)
 
 	CU_ASSERT(table_destroy(&table));
 	free(row);
+
+	/*
+	 * vacuum table with 3 datablocks but we delete all data from
+	 * second datablock. After the vacuuming process, there should
+	 * be 2 datablocks left
+	 */
+	create_test_table_fixed_precision_columns(&table, 3);
+
+	int data7[] = {1, 2, 3};
+	row = build_row(data7, sizeof(data7), NULL, 0);
+	row_size = table_calc_row_size(table);
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 2 + 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+
+		if (i >= fit_in_blk && i < fit_in_blk * 2) {
+			size_t blk_idx = i / fit_in_blk;
+			size_t offset = (i % fit_in_blk) * row_size;
+			table_delete_row(table, fetch_datablock(table, blk_idx), offset);
+		}
+
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 3);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 2);
+	for (int i = 0; i < fit_in_blk * 2; i++) {
+		if (i < fit_in_blk + 10) {
+			CU_ASSERT(check_row(table, i, &header_used, row));
+		} else {
+			CU_ASSERT(check_row_flags(table, i, &header_empty));
+		}
+	}
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, fit_in_blk + 10, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 11 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
+
+	/*
+	 * vacuum table with single datablock but in this case,
+	 * there is nothing to be reclaimed.. so everything
+	 * should remain as before the vacuum process
+	 */
+	create_test_table_fixed_precision_columns(&table, 3);
+
+	int data8[] = {1, 2, 3};
+	row = build_row(data8, sizeof(data8), NULL, 0);
+	row_size = table_calc_row_size(table);
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 1);
+	for (int i = 0; i <= no_rows; i++) {
+		if (i < no_rows) {
+			CU_ASSERT(check_row(table, i, &header_used, row));
+		} else {
+			CU_ASSERT(check_row_flags(table, i, &header_empty));
+		}
+	}
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, 10, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 11 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
+
+	/*
+	 * vacuum table with 5 datablocks but nothing to be reclaimed.
+	 * Things should remain exactly as before
+	 */
+	create_test_table_fixed_precision_columns(&table, 3);
+
+	int data9[] = {1, 2, 3};
+	row = build_row(data9, sizeof(data9), NULL, 0);
+	row_size = table_calc_row_size(table);
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 4 + 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 5);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size); // int((113*4+10) % 113)
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 5);
+	for (int i = 0; i < fit_in_blk * 5; i++) {
+		if (i < no_rows) {
+			CU_ASSERT(check_row(table, i, &header_used, row));
+		} else {
+			CU_ASSERT(check_row_flags(table, i, &header_empty));
+		}
+	}
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, no_rows, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 11 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
+
+	/*
+	 * vacuum table with 4 datablocks which after vacuum becomes 2 datablock.
+	 * this time we are using var precision columns to make sure that we are
+	 * messing the heap pointers
+	 */
+	create_test_table_var_precision_columns(&table, 6, 3);
+
+	char *data10_1 = "test1";
+	char *data10_2 = "test2";
+	char *data10_3 = "test3";
+	uintptr_t data10[] = {(uintptr_t)data10_1, (uintptr_t)data10_2, (uintptr_t)data10_3};
+	row = build_row(data10, sizeof(data10), NULL, 0);
+	row_size = table_calc_row_size(table);
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 3 + 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 4);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+
+	delete_even_rows(table, no_rows);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 4);
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 47 * row_size); // (int((85*3+10)/2) % 85)
+	CU_ASSERT_EQUAL(count_datablocks(table), 2);
+	CU_ASSERT(check_rows_after_vacuum(table, no_rows, row));
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, fit_in_blk * 1 + 47, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 48 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
+
+	//TODO add case with var-precision + NULL fields.. I am not sure vacuum is ready for this scenario yet
 }
