@@ -432,5 +432,44 @@ void test_table_vacuum(void)
 	CU_ASSERT(table_destroy(&table));
 	free(row);
 
-	//TODO add case with var-precision + NULL fields.. I am not sure vacuum is ready for this scenario yet
+	/*
+	 * vacuum table with 4 datablocks which after vacuum becomes 2 datablock.
+	 * var precision columns  + NULL columns
+	 */
+	create_test_table_var_precision_columns(&table, 6, 3);
+
+	char *data11_1 = "test1";
+	char *data11_2 = "00000";
+	char *data11_3 = "test3";
+	uintptr_t data11[] = {(uintptr_t)data11_1, (uintptr_t)data11_2, (uintptr_t)data11_3};
+	int data11_null_fds[] = {1};
+	row = build_row(data11, sizeof(data11), data11_null_fds, ARR_SIZE(data11_null_fds));
+	row_size = table_calc_row_size(table);
+	fit_in_blk = DATABLOCK_PAGE_SIZE / row_size;
+	no_rows = fit_in_blk * 3 + 10;
+
+	for (int i = 0; i < no_rows; i++) {
+		CU_ASSERT(table_insert_row(table, row, row_size));
+		CU_ASSERT(check_row(table, i, &header_used, row));
+	}
+	CU_ASSERT_EQUAL(count_datablocks(table), 4);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+
+	delete_even_rows(table, no_rows);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 10 * row_size);
+	CU_ASSERT_EQUAL(count_datablocks(table), 4);
+
+	CU_ASSERT(table_vacuum(table));
+
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 47 * row_size); // (int((85*3+10)/2) % 85)
+	CU_ASSERT_EQUAL(count_datablocks(table), 2);
+	CU_ASSERT(check_rows_after_vacuum(table, no_rows, row));
+
+	CU_ASSERT(table_insert_row(table, row, row_size));
+	CU_ASSERT(check_row(table, fit_in_blk * 1 + 47, &header_used, row));
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 48 * row_size);
+
+	CU_ASSERT(table_destroy(&table));
+	free(row);
+
 }

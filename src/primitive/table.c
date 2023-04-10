@@ -6,6 +6,8 @@
  */
 
 #include <primitive/table.h>
+#include <primitive/column.h>
+#include <primitive/row.h>
 
 static inline bool __valid_name(char *name, size_t max_size)
 {
@@ -72,7 +74,7 @@ static void free_var_precision_content(struct table *table, struct datablock *bl
 		struct row *row = (struct row*)&block->data[row_size * i];
 
 		if (row->flags.empty) /* end of the line */
-			break;
+			continue;
 
 		size_t pos = 0;
 		for (int j = 0; j < table->column_count; j++) {

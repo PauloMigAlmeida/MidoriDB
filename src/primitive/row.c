@@ -5,6 +5,8 @@
  *      Author: paulo
  */
 #include <primitive/table.h>
+#include <primitive/column.h>
+#include <primitive/row.h>
 
 size_t table_calc_row_data_size(struct table *table)
 {

@@ -2,7 +2,9 @@
 #define TESTS_MM_H
 
 #include <primitive/table.h>
-#include "tests/unittest.h"
+#include <primitive/column.h>
+#include <primitive/row.h>
+#include <tests/unittest.h>
 
 /* test suites */
 bool primitive_init_suite(void);

@@ -6,8 +6,10 @@
  */
 
 #include <primitive/table.h>
+#include <primitive/column.h>
+#include <primitive/row.h>
 
-static void free_old_row_res(struct table *table, struct row *row)
+static __force_inline void free_old_row_res(struct table *table, struct row *row)
 {
 	struct column *column;
 	char *data = row->data;
@@ -18,10 +20,11 @@ static void free_old_row_res(struct table *table, struct row *row)
 
 	for (int i = 0; i < table->column_count; i++) {
 		column = &table->columns[i];
-		//TODO check if column is null...
+
 		if (table_check_var_column(column)) {
 			free(*((uintptr_t**)data));
 		}
+
 		data += table_calc_column_space(column);
 	}
 }
@@ -95,8 +98,10 @@ bool table_vacuum(struct table *table)
 					memmove(&dst_entry->data[dst_blk_offset], row, row_size);
 					dst_blk_offset += row_size;
 
-					//TODO I'm using this mechanism to ensure that I don't double free... I need to create a different flag for that
+					/* zero-out row content so we keep things tidy */
+					memzero(row, row_size);
 					row->flags.empty = true;
+					row->flags.deleted = false;
 				}
 
 				src_blk_offset += row_size;
@@ -123,7 +128,7 @@ bool table_vacuum(struct table *table)
 	/* adjust offset to next available row */
 	table->free_dtbkl_offset = dst_blk_offset;
 
-	/* turn remaining space into empty rows */
+	/* turn remaining space of last non-free datablock into empty rows */
 	for (size_t i = dst_blk_offset / row_size; i < DATABLOCK_PAGE_SIZE / row_size; i++) {
 		free_old_row_res(table, (struct row*)&dst_entry->data[i * row_size]);
 	}

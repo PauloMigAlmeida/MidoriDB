@@ -6,6 +6,8 @@
  */
 
 #include <primitive/table.h>
+#include <primitive/column.h>
+#include <primitive/row.h>
 
 static inline bool __valid_name(char *name, size_t max_size)
 {
