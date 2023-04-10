@@ -1,4 +1,6 @@
 # MidoriDB
+[![Unit Tests](https://github.com/PauloMigAlmeida/MidoriDB/actions/workflows/tests.yml/badge.svg)](https://github.com/PauloMigAlmeida/MidoriDB/actions/workflows/tests.yml)
+
 In-memory database written in C from scratch
 
 ## Wishlist
