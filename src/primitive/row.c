@@ -170,23 +170,3 @@ bool table_update_row(struct table *table, struct datablock *blk, size_t offset,
 
 	return true;
 }
-
-void table_free_row_content(struct table *table, struct row *row)
-{
-	struct column *column;
-	char *data = row->data;
-
-	/* only deleted rows can have heap-allocated content */
-	if (!row->flags.deleted)
-		return;
-
-	for (int i = 0; i < table->column_count; i++) {
-		column = &table->columns[i];
-
-		if (table_check_var_column(column)) {
-			free(*((uintptr_t**)data));
-		}
-
-		data += table_calc_column_space(column);
-	}
-}

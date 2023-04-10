@@ -9,16 +9,53 @@
 #define INCLUDE_PRIMITIVE_TABLE_H_
 
 #include <primitive/datablock.h>
-#include <primitive/column.h>
 #include <compiler/common.h>
 #include <lib/bit.h>
 
 #define TABLE_MAX_COLUMNS		128
+#define TABLE_MAX_COLUMN_NAME		127
 #define TABLE_MAX_NAME			127
 
 /* sanity checks */
 BUILD_BUG(TABLE_MAX_COLUMNS > 8, "TABLE_MAX_COLUMNS has to be greater than 8")
 BUILD_BUG(IS_POWER_OF_2(TABLE_MAX_COLUMNS), "TABLE_MAX_COLUMNS must be a power of 2")
+
+struct row_header_flags {
+	/* is this row empty? */
+	bool empty;
+	/* was this row deleted? */
+	bool deleted;
+};
+
+struct row {
+	struct row_header_flags flags;
+	/* is value on column <bit> set to NULL ? */
+	char null_bitmap[(TABLE_MAX_COLUMNS / CHAR_BIT)];
+	/* actual row data - aligned for x86-64 arch */
+	__x86_64_align char data[];
+};
+
+enum COLUMN_TYPE {
+	VARCHAR,
+	INTEGER,
+	DOUBLE,
+	DATE,
+// Add more in the future
+};
+
+struct column {
+	/* NUL-terminated string */
+	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+
+	/* type of value meant to be stored */
+	enum COLUMN_TYPE type;
+
+	/* how much space it takes up in memory */
+	int precision;
+
+	/* is this column indexed ? */
+	bool indexed;
+};
 
 struct table {
 

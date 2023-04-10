@@ -67,11 +67,24 @@ struct table* __must_check table_init(char *name)
 	return NULL;
 }
 
-static void __free_datablock_content(struct table *table, struct datablock *block)
+static void free_var_precision_content(struct table *table, struct datablock *block)
 {
 	size_t row_size = table_calc_row_size(table);
 	for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
-		table_free_row_content(table, (struct row*)&block->data[row_size * i]);
+		struct row *row = (struct row*)&block->data[row_size * i];
+
+		if (row->flags.empty) /* end of the line */
+			continue;
+
+		size_t pos = 0;
+		for (int j = 0; j < table->column_count; j++) {
+			struct column *column = &table->columns[j];
+			if (table_check_var_column(column)) {
+				void **ptr = (void**)(row->data + pos);
+				free(*ptr);
+			}
+			pos += table_calc_column_space(column);
+		}
 	}
 }
 
@@ -92,10 +105,8 @@ bool table_destroy(struct table **table)
 	list_for_each_safe(pos, tmp_pos, (*table)->datablock_head)
 	{
 		entry = list_entry(pos, typeof(*entry), head);
-
 		/* free variable precision value as they are alloc'ed separately */
-		__free_datablock_content(*table, entry);
-
+		free_var_precision_content(*table, entry);
 		datablock_free(entry);
 	}
 	free((*table)->datablock_head);
@@ -113,6 +124,6 @@ void table_datablock_init(struct datablock *block, size_t offset, size_t row_siz
 		struct row *row = (struct row*)&block->data[i * row_size];
 		row->flags.empty = true;
 		row->flags.deleted = false;
-		memzero((char* )row + sizeof(row->flags), row_size - offsetof(typeof(*row), null_bitmap));
+		memzero((char*)row + sizeof(row->flags), row_size - offsetof(typeof(*row), null_bitmap));
 	}
 }
