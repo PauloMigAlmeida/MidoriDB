@@ -10,8 +10,8 @@ TABLE	{ return TABLE; }
 INTEGER	{ return INTEGER; }
 
 [A-Za-z][A-Za-z0-9_]*   { 
-							yylval.strval = strdup(yytext);
-							return NAME;
-						}
+				yylval.strval = strdup(yytext);
+				return NAME;
+			}
 %%
 

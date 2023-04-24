@@ -26,20 +26,20 @@ stmt_list: stmt ';'
 		 ;
 
 stmt: create_table_stmt
-	;
+    ;
 
 create_table_stmt: CREATE TABLE NAME '(' create_col_list ')'
-				 ;
+		 ;
 
 create_col_list: create_definition
-			   | create_col_list ',' create_definition
-			   ;
+	       | create_col_list ',' create_definition
+	       ;
 
 create_definition: NAME data_type
-				 ;
+		 ;
 
 data_type: INTEGER
-		 ;
+	 ;
 
 %%
 

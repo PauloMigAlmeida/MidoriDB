@@ -39,10 +39,10 @@ build: clean compile link
 .PHONY: link
 link:
 	@echo "[linker] linking all object files"
-	@$(CC) $(CFLAGS) 										\
-		-shared 											\
-		-o $(DIR_BUILD_LIB)/$(LIB_DYN_NAME) 				\
-		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o") \
+	@$(CC) $(CFLAGS)						\
+		-shared							\
+		-o $(DIR_BUILD_LIB)/$(LIB_DYN_NAME)			\
+		$(shell find $(DIR_BUILD_LIB)/ -type f -name "*.o")	\
 		$(LDFLAGS)
 
 .PHONY: $(DIR_SRC_TESTS_SUBSYSTEMS)
@@ -56,17 +56,17 @@ test_compile: $(DIR_SRC_TESTS_SUBSYSTEMS)
 test: test_compile
 	@echo "[test/linker] linking all object files"
 
-	@for f in "$(DIR_BUILD_TESTS)/main/*.o"; 					\
-	do															\
-		$(CC) $(CCFLAGS) 										\
-	        	-L$(DIR_BUILD_LIB) 								\
-				-lmidoridb 										\
-				-Wl,-rpath $(DIR_BUILD_LIB)						\
-	            -o $(DIR_BUILD_TESTS)/$$(basename $$f '.o') 	\
-				$$f												\
-				$(shell find $(DIR_BUILD_TESTS) -name '*.o'		\
-			  		-not -path '$(DIR_BUILD_TESTS)/main/*')  	\
-			  	$(TEST_LDFLAGS) ; \
+	@for f in "$(DIR_BUILD_TESTS)/main/*.o";				\
+	do									\
+		$(CC) $(CCFLAGS)						\
+			-L$(DIR_BUILD_LIB)					\
+			-lmidoridb						\
+			-Wl,-rpath $(DIR_BUILD_LIB)				\
+			-o $(DIR_BUILD_TESTS)/$$(basename $$f '.o')		\
+			$$f							\
+			$(shell find $(DIR_BUILD_TESTS) -name '*.o'		\
+				-not -path '$(DIR_BUILD_TESTS)/main/*')		\
+			$(TEST_LDFLAGS) ;					\
 	done
 
 .PHONY: cscope
