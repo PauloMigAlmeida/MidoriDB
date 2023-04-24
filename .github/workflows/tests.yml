@@ -21,6 +21,7 @@ jobs:
                  libcunit1-doc \
                  libcunit1-dev \
                  flex \
+                 libfl-dev \
                  bison
     - name: make all
       run: make all
