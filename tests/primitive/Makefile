@@ -1,17 +1,17 @@
 #----------------------------------------------------------------------------
-# mm program makefile
+# primitive program makefile
 #----------------------------------------------------------------------------
 
 DIR_ROOT	:= $(CURDIR)/../../
 
 include $(DIR_ROOT)/scripts/config.mk
 
-DIR_TARGET	:= $(DIR_BUILD_TESTS)/mm
+DIR_TARGET	:= $(DIR_BUILD_TESTS)/primitive
 
 SRC_C_FILES	:= $(wildcard *.c)
 BIN_C_FILES	:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
 
-TAG 		:= [tests/mm]
+TAG 		:= [tests/primitive]
 
 all: mkdir compile
 	@echo "$(TAG) Compiled successfully"
