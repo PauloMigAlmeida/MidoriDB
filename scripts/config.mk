@@ -30,8 +30,7 @@ else
 endif
 
 
-CCFLAGS			:= -std=gnu11 -I$(DIR_INCLUDE) \
-					-lm \
+CCFLAGS			:= -std=gnu11 \
 					-g \
 					-O2 \
 					-fpic \
@@ -44,4 +43,6 @@ CCFLAGS			:= -std=gnu11 -I$(DIR_INCLUDE) \
 			       	-Wvla \
 			       	-Wimplicit-fallthrough 
 
+LDFLAGS			:= -lm -lfl
+TEST_LDFLAGS	:= $(LDFLAGS) -lcunit
 MAKE_FLAGS  	:= --quiet --no-print-directory
