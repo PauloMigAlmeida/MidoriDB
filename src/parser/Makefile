@@ -16,8 +16,8 @@ SRC_BISON_FILES	:= $(wildcard *.y)
 INT_BISON_FILES	:= $(SRC_BISON_FILES:%.y=$(DIR_TARGET)/%.tab.c)
 BIN_BISON_FILES	:= $(INT_BISON_FILES:%.c=%.o)
 
-SRC_C_FILES		:= $(wildcard *.c)
-BIN_C_FILES		:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
+SRC_C_FILES	:= $(wildcard *.c)
+BIN_C_FILES	:= $(SRC_C_FILES:%.c=$(DIR_TARGET)/%.o)
 
 TAG 		:= [parser]
 
@@ -50,10 +50,9 @@ $(INT_BISON_FILES): $(SRC_BISON_FILES)
 # compile correctly.
 define compile_lexpar_common
 	@echo "$(TAG) Compiling $(notdir $<)"
-	@$(CC) $(CCFLAGS) 			\
-		-Wno-unused-function 	\
-		-I$(DIR_INCLUDE) 		\
-		-I$(DIR_TARGET) 		\
+	@$(CC) $(CCFLAGS)		\
+		-I$(DIR_INCLUDE)	\
+		-I$(DIR_TARGET)		\
 		-c $< -o $@
 endef
 
@@ -64,11 +63,10 @@ $(BIN_BISON_FILES): $(INT_BISON_FILES)
 	$(compile_lexpar_common)
 
 .PHONY: compile
-compile: $(BIN_C_FILES) $(BIN_BISON_FILES) $(BIN_LEX_FILES)
+compile: $(BIN_BISON_FILES) $(BIN_LEX_FILES) $(BIN_C_FILES)
 
 $(BIN_C_FILES): $(SRC_C_FILES)
-	@echo "$(TAG) Compiling $<"
-	@$(CC) $(CCFLAGS) -I$(DIR_INCLUDE) -c $< -o $@
+	$(compile_lexpar_common)
 
 		
 
