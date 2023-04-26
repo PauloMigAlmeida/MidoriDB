@@ -1,6 +1,7 @@
-#include <tests/primitive.h>
 #include <tests/unittest.h>
 #include <tests/datastructure.h>
+#include <tests/primitive.h>
+#include <tests/parser.h>
 #include <tests/lib.h>
 
 int main(void)
@@ -15,6 +16,8 @@ int main(void)
 	if (primitive_init_suite())
 		return CU_get_error();
 	if (lib_init_suite())
+		return CU_get_error();
+	if (parser_init_suite())
 		return CU_get_error();
 
 	/* Run all tests using the basic interface */

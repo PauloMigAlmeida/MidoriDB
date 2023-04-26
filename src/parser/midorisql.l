@@ -1,5 +1,8 @@
+%option noyywrap nodefault yylineno case-insensitive nounput noinput
+
 %{
 #include "midorisql.tab.h"
+void yyerror(char *s, ...);
 %}
 
 %%
@@ -13,5 +16,20 @@ INTEGER	{ return INTEGER; }
 				yylval.strval = strdup(yytext);
 				return NAME;
 			}
+			
+	/* operators */
+[-+&~|^/%*(),.;!]   	{ return yytext[0]; }
+
+	/* everything else */
+[ \t\n]         	/* white space */
+.               	{ yyerror("mystery character '%c'", *yytext); }
 %%
 
+
+void set_input_string(const char* in) {
+  yy_scan_string(in);
+}
+
+void end_lexical_scan(void) {
+  yy_delete_buffer(YY_CURRENT_BUFFER);
+}

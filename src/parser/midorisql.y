@@ -1,7 +1,12 @@
 %{ 
 #include <stdio.h>
-void yyerror(char *s);
+#include <stdlib.h>
+#include <stdarg.h>
+
+void yyerror(char *s, ...);
 int yylex(void);
+void set_input_string(const char* in);
+void end_lexical_scan(void);
 %}
 
 %union {
@@ -21,8 +26,6 @@ int yylex(void);
 
 stmt_list: stmt ';'
 		 | stmt_list stmt ';'
-		 | error ';'
-		 | stmt_list error ';'
 		 ;
 
 stmt: create_table_stmt
@@ -43,7 +46,23 @@ data_type: INTEGER
 
 %%
 
-void yyerror(char *s)
+void yyerror(char *s, ...)
 {
-	fprintf(stderr, "error: %s\n",s);
+  extern int yylineno;
+
+  va_list ap;
+  va_start(ap, s);
+
+  fprintf(stderr, "%d: error: ", yylineno);
+  vfprintf(stderr, s, ap);
+  fprintf(stderr, "\n");
 }
+
+int parse_string(const char* in) {
+  set_input_string(in);
+  int rv = yyparse();
+  end_lexical_scan();
+  return rv;
+}
+
+
