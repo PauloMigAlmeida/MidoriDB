@@ -10,7 +10,7 @@
 
 #include <compiler/common.h>
 
-int parse_string(const char* in);
+extern int bison_parse_string(const char* in);
 
 int syntax_parse(char *stmt);
 

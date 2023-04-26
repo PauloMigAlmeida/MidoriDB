@@ -10,7 +10,9 @@
 
 void test_parser_create(void)
 {
-	/* valid tests */
+	/*
+	 * valid tests
+	 */
 
 	// single column definition
 	CU_ASSERT_EQUAL(syntax_parse("CREATE TABLE A(field INTEGER);"), 0);
@@ -19,7 +21,9 @@ void test_parser_create(void)
 	// case insensitive
 	CU_ASSERT_EQUAL(syntax_parse("create table a(field integer);"), 0);
 
-	/* invalid tests */
+	/*
+	 * invalid tests
+	 */
 
 	// no column definition
 	CU_ASSERT_NOT_EQUAL(syntax_parse("CREATE TABLE NAME;"), 0);
@@ -27,4 +31,6 @@ void test_parser_create(void)
 	CU_ASSERT_NOT_EQUAL(syntax_parse("CREATE TABLE 1NAME;"), 0);
 	// missing semi-colon
 	CU_ASSERT_NOT_EQUAL(syntax_parse("create table a(field integer)"), 0);
+	// invalid column type
+	CU_ASSERT_NOT_EQUAL(syntax_parse("create table a(field bla);"), 0);
 }

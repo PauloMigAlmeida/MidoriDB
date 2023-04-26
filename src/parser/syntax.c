@@ -6,9 +6,8 @@
  */
 
 #include <parser/syntax.h>
-#include <midorisql.tab.h>
 
 int syntax_parse(char *stmt)
 {
-	return parse_string(stmt);
+	return bison_parse_string(stmt);
 }

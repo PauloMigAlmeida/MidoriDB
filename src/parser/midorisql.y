@@ -5,8 +5,8 @@
 
 void yyerror(char *s, ...);
 int yylex(void);
-void set_input_string(const char* in);
-void end_lexical_scan(void);
+void flex_scan_string(const char* in);
+void flex_delete_buffer(void);
 %}
 
 %union {
@@ -58,10 +58,10 @@ void yyerror(char *s, ...)
   fprintf(stderr, "\n");
 }
 
-int parse_string(const char* in) {
-  set_input_string(in);
+int bison_parse_string(const char* in) {
+  flex_scan_string(in);
   int rv = yyparse();
-  end_lexical_scan();
+  flex_delete_buffer();
   return rv;
 }
 

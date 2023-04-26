@@ -26,10 +26,15 @@ INTEGER	{ return INTEGER; }
 %%
 
 
-void set_input_string(const char* in) {
+/*
+ in the docs, it explicitly says no to rely on functions that start with
+ yy_ as their signature can change at any moment. So I'm creating this 
+ wrapper to account for some of those issue (not all)
+*/
+void flex_scan_string(const char* in) {
   yy_scan_string(in);
 }
 
-void end_lexical_scan(void) {
+void flex_delete_buffer(void) {
   yy_delete_buffer(YY_CURRENT_BUFFER);
 }
