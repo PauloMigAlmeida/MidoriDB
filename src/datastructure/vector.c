@@ -13,12 +13,11 @@ bool vector_init(struct vector *vec)
 	if (!vec)
 		return false;
 
-	vec->data = zalloc(VECTOR_DEFAULT_INITAL_SIZE);
-
+	vec->data = calloc(VECTOR_DEFAULT_INITAL_SIZE, sizeof(vec->data[0]));
 	if (!vec->data)
 		return false;
 
-	vec->capacity = VECTOR_DEFAULT_INITAL_SIZE;
+	vec->capacity = VECTOR_DEFAULT_INITAL_SIZE * sizeof(vec->data[0]);
 	vec->len = 0;
 
 	return true;
@@ -36,6 +35,7 @@ bool vector_push(struct vector *vec, void *data, size_t len)
 	if (vec->len + len > vec->capacity / 2) {
 		new_cap = (vec->len + len) * 3;
 		vec->data = realloc(vec->data, new_cap);
+		memzero(vec->data + vec->len, new_cap - vec->len);
 
 		if (!vec->data)
 			return false;
