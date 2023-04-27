@@ -9,8 +9,9 @@
 #define INCLUDE_PARSER_SYNTAX_H_
 
 #include <compiler/common.h>
+#include <datastructure/vector.h>
 
-extern int bison_parse_string(const char* in);
+extern int bison_parse_string(const char* in, struct vector *out);
 
 int syntax_parse(char *stmt);
 

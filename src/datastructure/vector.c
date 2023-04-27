@@ -60,3 +60,11 @@ void vector_free(struct vector *vec)
 	free(vec->data);
 	vec->data = NULL;
 }
+
+void vector_clear(struct vector *vec)
+{
+	/* sanity checks */
+	BUG_ON(!vec);
+	vec->len = 0;
+	memzero(vec->data, vec->capacity);
+}

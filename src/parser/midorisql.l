@@ -12,6 +12,7 @@ CREATE	{ return CREATE; }
 TABLE	{ return TABLE; }
 INTEGER	{ return INTEGER; }
 
+
 [A-Za-z][A-Za-z0-9_]*   { 
 				yylval.strval = strdup(yytext);
 				return NAME;
@@ -22,7 +23,7 @@ INTEGER	{ return INTEGER; }
 
 	/* everything else */
 [ \t\n]         	/* white space */
-.               	{ yyerror("mystery character '%c'", *yytext); }
+.               	{ yyerror(NULL, "mystery character '%c'", *yytext); }
 %%
 
 

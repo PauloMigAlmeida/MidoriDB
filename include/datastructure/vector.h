@@ -45,4 +45,10 @@ bool vector_push(struct vector *vec, void *data, size_t len);
  */
 void vector_free(struct vector *vec);
 
+/**
+ * vector_clear - clear vector content
+ * @vec: vector reference
+ */
+void vector_clear(struct vector *vec);
+
 #endif /* INCLUDE_DATASTRUCTURE_VECTOR_H_ */

@@ -9,5 +9,13 @@
 
 int syntax_parse(char *stmt)
 {
-	return bison_parse_string(stmt);
+	//TODO implement this correctly later
+	int ret;
+	struct vector vec = {0};
+	vector_init(&vec);
+	ret = bison_parse_string(stmt, &vec);
+
+	printf("syntax_parse output: %s\n", vec.data);
+	vector_free(&vec);
+	return ret;
 }
