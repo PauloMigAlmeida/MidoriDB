@@ -1,4 +1,4 @@
-#include "tests/datastructure.h"
+#include <tests/datastructure.h>
 
 bool datastructure_init_suite(void) {
 	CU_pSuite suite = NULL;
@@ -19,6 +19,10 @@ bool datastructure_init_suite(void) {
 	ADD_UNITTEST(suite, test_btree_insert__increase_height);
 	ADD_UNITTEST(suite, test_btree_update);
 	ADD_UNITTEST(suite, test_btree_remove);
+	/* vector */
+	ADD_UNITTEST(suite, test_vector_init);
+	ADD_UNITTEST(suite, test_vector_push);
+	ADD_UNITTEST(suite, test_vector_free);
 
 	return false;
 }
