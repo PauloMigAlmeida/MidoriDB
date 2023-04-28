@@ -222,7 +222,6 @@ void flex_delete_buffer(void);
 %token RETURN
 %token REVOKE
 %token RIGHT
-%token ROLLUP
 %token SCHEMA
 %token SCHEMAS
 %token SECOND_MICROSECOND
@@ -278,7 +277,6 @@ void flex_delete_buffer(void);
 %token WHEN
 %token WHERE
 %token WHILE
-%token WITH
 %token WRITE
 %token XOR
 %token YEAR
@@ -293,7 +291,7 @@ void flex_delete_buffer(void);
 
 %type <intval> select_opts select_expr_list
 %type <intval> val_list opt_val_list case_list
-%type <intval> groupby_list opt_with_rollup opt_asc_desc
+%type <intval> groupby_list opt_asc_desc
 %type <intval> table_references opt_inner_cross opt_outer
 %type <intval> left_or_right opt_left_or_right_outer column_list
 %type <intval> index_list opt_for_join
@@ -329,8 +327,7 @@ opt_where: /* nil */
    | WHERE expr { emit(result, "WHERE"); };
 
 opt_groupby: /* nil */ 
-   | GROUP BY groupby_list opt_with_rollup
-                             { emit(result, "GROUPBYLIST %d %d", $3, $4); }
+   | GROUP BY groupby_list	{ emit(result, "GROUPBYLIST %d", $3); }
 ;
 
 groupby_list: expr opt_asc_desc
@@ -343,10 +340,6 @@ opt_asc_desc: /* nil */ { $$ = 0; }
    | ASC                { $$ = 0; }
    | DESC               { $$ = 1; }
     ;
-
-opt_with_rollup: /* nil */  { $$ = 0; }
-   | WITH ROLLUP  { $$ = 1; }
-   ;
 
 opt_having: /* nil */ | HAVING expr { emit(result, "HAVING"); };
 

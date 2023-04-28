@@ -173,7 +173,6 @@ RESTRICT	{ return RESTRICT; }
 RETURN	{ return RETURN; }
 REVOKE	{ return REVOKE; }
 RIGHT	{ return RIGHT; }
-ROLLUP	{ return ROLLUP; }
 SCHEMA	{ return SCHEMA; }
 SCHEMAS	{ return SCHEMAS; }
 SECOND_MICROSECOND	{ return SECOND_MICROSECOND; }
@@ -228,7 +227,6 @@ VARYING	{ return VARYING; }
 WHEN	{ return WHEN; }
 WHERE	{ return WHERE; }
 WHILE	{ return WHILE; }
-WITH	{ return WITH; }
 WRITE	{ return WRITE; }
 XOR	{ return XOR; }
 YEAR	{ return YEAR; }
