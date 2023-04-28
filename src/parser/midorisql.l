@@ -70,7 +70,6 @@ DESC	{ return DESC; }
 DESCRIBE	{ return DESCRIBE; }
 DETERMINISTIC	{ return DETERMINISTIC; }
 DISTINCT	{ return DISTINCT; }
-DISTINCTROW	{ return DISTINCTROW; }
 DIV	{ return DIV; }
 FLOAT8|DOUBLE	{ return DOUBLE; }
 DROP	{ return DROP; }

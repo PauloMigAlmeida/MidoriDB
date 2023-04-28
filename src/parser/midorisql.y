@@ -361,7 +361,6 @@ column_list: NAME { emit(result, "COLUMN %s", $1); free($1); $$ = 1; }
 select_opts:                          { $$ = 0; }
 | select_opts ALL                 { if($$ & 01) yyerror(result, "duplicate ALL option"); $$ = $1 | 01; }
 | select_opts DISTINCT            { if($$ & 02) yyerror(result, "duplicate DISTINCT option"); $$ = $1 | 02; }
-| select_opts DISTINCTROW         { if($$ & 04) yyerror(result, "duplicate DISTINCTROW option"); $$ = $1 | 04; }
 | select_opts HIGH_PRIORITY       { if($$ & 010) yyerror(result, "duplicate HIGH_PRIORITY option"); $$ = $1 | 010; }
 | select_opts STRAIGHT_JOIN       { if($$ & 020) yyerror(result, "duplicate STRAIGHT_JOIN option"); $$ = $1 | 020; }
 | select_opts SQL_SMALL_RESULT    { if($$ & 040) yyerror(result, "duplicate SQL_SMALL_RESULT option"); $$ = $1 | 040; }
