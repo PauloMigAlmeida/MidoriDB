@@ -1,8 +1,8 @@
-%option noyywrap nodefault yylineno case-insensitive
+%option noyywrap nodefault yylineno case-insensitive reentrant bison-bridge
 
 %{
 #include "midorisql.tab.h"
-void yyerror(char *s, ...);
+void yyerror(void*, char *s, ...);
 int oldstate;
 %}
 
@@ -41,8 +41,8 @@ DISTINCT	{ return DISTINCT; }
 FLOAT8|DOUBLE	{ return DOUBLE; }
 ELSE	{ return ELSE; }
 END	{ return END; }
-EXISTS	{ yylval.subtok = 0; return EXISTS; }
-NOT[ \t\n]+EXISTS	{ yylval.subtok = 1; return EXISTS; }
+EXISTS	{ yylval->subtok = 0; return EXISTS; }
+NOT[ \t\n]+EXISTS	{ yylval->subtok = 1; return EXISTS; }
 EXPLAIN	{ return EXPLAIN; }
 FLOAT4?	{ return FLOAT; }
 FROM	{ return FROM; }
@@ -86,35 +86,35 @@ XOR	{ return XOR; }
 
    /* numbers */
 
--?[0-9]+	        { yylval.intval = atoi(yytext); return INTNUM; } 
+-?[0-9]+	        { yylval->intval = atoi(yytext); return INTNUM; } 
 
 -?[0-9]+"."[0-9]* |
 -?"."[0-9]+	|
 -?[0-9]+E[-+]?[0-9]+	|
 -?[0-9]+"."[0-9]*E[-+]?[0-9]+ |
--?"."[0-9]*E[-+]?[0-9]+	{ yylval.floatval = atof(yytext) ;
+-?"."[0-9]*E[-+]?[0-9]+	{ yylval->floatval = atof(yytext) ;
                                   return APPROXNUM; }
     /* booleans */
-TRUE	{ yylval.intval = 1; return BOOL; }
-UNKNOWN	{ yylval.intval = -1; return BOOL; }
-FALSE	{ yylval.intval = 0; return BOOL; }
+TRUE	{ yylval->intval = 1; return BOOL; }
+UNKNOWN	{ yylval->intval = -1; return BOOL; }
+FALSE	{ yylval->intval = 0; return BOOL; }
 
    /* strings */
 
 '(\\.|''|[^'\n])*'	|
-\"(\\.|\"\"|[^"\n])*\"  { yylval.strval = strdup(yytext); return STRING; }
+\"(\\.|\"\"|[^"\n])*\"  { yylval->strval = strdup(yytext); return STRING; }
 
-'(\\.|[^'\n])*$	        { yyerror("Unterminated string %s", yytext); }
-\"(\\.|[^"\n])*$	{ yyerror("Unterminated string %s", yytext); }
+'(\\.|[^'\n])*$	        { yyerror(NULL, "Unterminated string %s", yytext); }
+\"(\\.|[^"\n])*$	{ yyerror(NULL, "Unterminated string %s", yytext); }
 
    /* hex strings */
 X'[0-9A-F]+' |  
-0X[0-9A-F]+  { yylval.strval = strdup(yytext); return STRING; }
+0X[0-9A-F]+  { yylval->strval = strdup(yytext); return STRING; }
 
    /* bit strings */
 
 0B[01]+      |
-B'[01]+'     { yylval.strval = strdup(yytext); return STRING; }
+B'[01]+'     { yylval->strval = strdup(yytext); return STRING; }
 
 
    /* operators */
@@ -123,17 +123,17 @@ B'[01]+'     { yylval.strval = strdup(yytext); return STRING; }
 "&&"		{ return ANDOP; }
 "||"            { return OR; }
 
-"="	{ yylval.subtok = 4; return COMPARISON; }
-"<=>"	{ yylval.subtok = 12; return COMPARISON; }
-">="	{ yylval.subtok = 6; return COMPARISON; }
-">"	{ yylval.subtok = 2; return COMPARISON; }
-"<="	{ yylval.subtok = 5; return COMPARISON; }
-"<"	{ yylval.subtok = 1; return COMPARISON; }
+"="	{ yylval->subtok = 4; return COMPARISON; }
+"<=>"	{ yylval->subtok = 12; return COMPARISON; }
+">="	{ yylval->subtok = 6; return COMPARISON; }
+">"	{ yylval->subtok = 2; return COMPARISON; }
+"<="	{ yylval->subtok = 5; return COMPARISON; }
+"<"	{ yylval->subtok = 1; return COMPARISON; }
 "!="	|
-"<>"	{ yylval.subtok = 3; return COMPARISON; }
+"<>"	{ yylval->subtok = 3; return COMPARISON; }
 
-"<<"	{ yylval.subtok = 1; return SHIFT; }
-">>"	{ yylval.subtok = 2; return SHIFT; }
+"<<"	{ yylval->subtok = 1; return SHIFT; }
+">>"	{ yylval->subtok = 2; return SHIFT; }
 
         /* functions */
 
@@ -141,18 +141,18 @@ B'[01]+'     { yylval.strval = strdup(yytext); return STRING; }
 	/* 
          * peek ahead and return function if name(
          */
-COUNT    { int c = input(); unput(c);
+COUNT    { int c = input(yylval); unput(c);
            if(c == '(') return FCOUNT;
-           yylval.strval = strdup(yytext);
+           yylval->strval = strdup(yytext);
            return NAME; }
 
-[A-Za-z][A-Za-z0-9_]*	{ yylval.strval = strdup(yytext);
+[A-Za-z][A-Za-z0-9_]*	{ yylval->strval = strdup(yytext);
                           return NAME; }
-`[^`/\\.\n]+`           { yylval.strval = strdup(yytext+1);
-                          yylval.strval[yyleng-2] = 0;
+`[^`/\\.\n]+`           { yylval->strval = strdup(yytext+1);
+                          yylval->strval[yyleng-2] = 0;
                           return NAME; }
 
-`[^`\n]*$               { yyerror("unterminated quoted name %s", yytext); }
+`[^`\n]*$               { yyerror(NULL, "unterminated quoted name %s", yytext); }
 
 
 	/* comments */   
@@ -162,23 +162,10 @@ COUNT    { int c = input(); unput(c);
 "/*"            { oldstate = YY_START; BEGIN COMMENT; }
 <COMMENT>"*/"   { BEGIN oldstate; }
 <COMMENT>.|\n   ;
-<COMMENT><<EOF>> { yyerror("unclosed comment"); }
+<COMMENT><<EOF>> { yyerror(NULL, "unclosed comment"); }
 
 	/* everything else */
 [ \t\n]         /* white space */
-.               { yyerror("mystery character '%c'", *yytext); }
+.               { yyerror(NULL, "mystery character '%c'", *yytext); }
 
 %%
-
-/*
- in the docs, it explicitly says no to rely on functions that start with
- yy_ as their signature can change at any moment. So I'm creating this 
- wrapper to account for some of those issue (not all)
-*/
-void flex_scan_string(const char* in) {
-  yy_scan_string(in);
-}
-
-void flex_delete_buffer(void) {
-  yy_delete_buffer(YY_CURRENT_BUFFER);
-}

@@ -34,7 +34,7 @@ clean:
 
 $(INT_LEX_FILES): $(SRC_LEX_FILES)
 	@echo "$(TAG) Generating flex analyser from $<"
-	@flex -o $@ $< 
+	@flex --header-file=$(basename $@).h -o $@ $< 
 
 $(INT_BISON_FILES): $(SRC_BISON_FILES)
 	@echo "$(TAG) Generating bison parser from $<"

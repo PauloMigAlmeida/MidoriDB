@@ -11,8 +11,6 @@
 #include <compiler/common.h>
 #include <datastructure/vector.h>
 
-extern int bison_parse_string(const char* in, struct vector *out);
-
 int syntax_parse(char *stmt);
 
 #endif /* INCLUDE_PARSER_SYNTAX_H_ */

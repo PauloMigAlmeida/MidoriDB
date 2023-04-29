@@ -2,14 +2,14 @@
    uninformative string "syntax error" */
 %define parse.error verbose
 
+%define api.pure true
+
 %{
 #include <datastructure/vector.h>
 
 void yyerror(struct vector *vec, const char *s, ...);
 bool emit(struct vector *vec, char *s, ...);
-int yylex(void);
-void flex_scan_string(const char* in);
-void flex_delete_buffer(void);
+int yylex(void*, void*);
 %}
 
 %code requires { 
@@ -24,8 +24,10 @@ void flex_delete_buffer(void);
    return value is already reserved as an int, with
    0=success, 1=error, 2=nomem
 */
-
 %parse-param {struct vector *result}
+
+/* add lexer parameter so it becomes reentrant (thread-safe) */
+%param {void *scanner}
 
 %union {
 	int intval;
@@ -34,7 +36,7 @@ void flex_delete_buffer(void);
 	int subtok;
 }
 
-	/* names and literal values */
+/* names and literal values */
 
 %token <strval> NAME
 %token <strval> STRING
@@ -42,7 +44,7 @@ void flex_delete_buffer(void);
 %token <intval> BOOL
 %token <floatval> APPROXNUM
 
-       /* operators and precedence levels */
+/* operators and precedence levels */
 
 %right ASSIGN
 %left OR
@@ -127,7 +129,7 @@ void flex_delete_buffer(void);
 %token WHERE
 %token XOR
 
- /* functions with special syntax */
+/* functions with special syntax */
 %token FCOUNT
 
 %type <intval> select_opts select_expr_list
@@ -485,56 +487,47 @@ expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
 
 void yyerror(struct vector *vec, const char *s, ...)
 {
-  char buf[256];
-  va_list ap;
-  
-  memzero(buf, sizeof(buf));
-  va_start(ap, s);
-  
-  /* if the error happened at the lexical phase then 
-     we print it to stderr as there is no vector ref yet */
-  if(!vec){
-  	vfprintf(stderr, s, ap);  
-  	fprintf(stderr, "\n");
-  }else {
-  	sprintf(buf, s, ap);
-  	
-  	vector_clear(vec);
-  
-  	/* although unlikely, if we fail to push content to the vector
-	   so other program can read the error message, then we fail 
-	   over to the stderr */
-  	if(!vector_push(vec, buf, strlen(buf))){
-  		vfprintf(stderr, s, ap);  
-  		fprintf(stderr, "\n");
-  	}
-  }
-  
-  va_end(ap);
+	char buf[256];
+	va_list ap;
+	
+	memzero(buf, sizeof(buf));
+	va_start(ap, s);
+	
+	/* if the error happened at the lexical phase then 
+	we print it to stderr as there is no vector ref yet */
+	if(!vec){
+		vfprintf(stderr, s, ap);  
+		fprintf(stderr, "\n");
+	}else {
+		sprintf(buf, s, ap);
+	
+		vector_clear(vec);
+	
+		/* although unlikely, if we fail to push content to the vector
+		   so other program can read the error message, then we fail 
+		   over to the stderr */
+		if(!vector_push(vec, buf, strlen(buf))){
+			vfprintf(stderr, s, ap);  
+			fprintf(stderr, "\n");
+		}
+	}
+	
+	va_end(ap);
 }
 
 bool emit(struct vector *vec, char *s, ...)
 {
-  char buf[256];
-  char space = ' ';
-  va_list ap;
-  bool ret;
-  
-  memzero(buf, sizeof(buf));
-  va_start(ap, s);
-  vsnprintf(buf,sizeof(buf), s, ap);
-  va_end(ap);
-  
-  ret = vector_push(vec, buf, strlen(buf));
-  ret = ret && vector_push(vec, &space, sizeof(space));
-  return ret;
+	char buf[256];
+	char space = ' ';
+	va_list ap;
+	bool ret;
+	
+	memzero(buf, sizeof(buf));
+	va_start(ap, s);
+	vsnprintf(buf,sizeof(buf), s, ap);
+	va_end(ap);
+	
+	ret = vector_push(vec, buf, strlen(buf));
+	ret = ret && vector_push(vec, &space, sizeof(space));
+	return ret;
 }
-
-int bison_parse_string(const char* in, struct vector *out) {
-  flex_scan_string(in);
-  int rv = yyparse(out);
-  flex_delete_buffer();
-  return rv;
-}
-
-
