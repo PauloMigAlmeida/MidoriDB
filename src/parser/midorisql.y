@@ -143,6 +143,8 @@ void flex_delete_buffer(void);
 
 %start stmt_list
 
+%destructor { free($$); } <strval>
+
 %%
 
 stmt_list: stmt ';'
