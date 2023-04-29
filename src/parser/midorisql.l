@@ -2,7 +2,7 @@
 
 %{
 #include "midorisql.tab.h"
-void yyerror(void*, char *s, ...);
+void yyerror(void*, void*, char *s, ...);
 int oldstate;
 %}
 
@@ -104,8 +104,8 @@ FALSE	{ yylval->intval = 0; return BOOL; }
 '(\\.|''|[^'\n])*'	|
 \"(\\.|\"\"|[^"\n])*\"  { yylval->strval = strdup(yytext); return STRING; }
 
-'(\\.|[^'\n])*$	        { yyerror(NULL, "Unterminated string %s", yytext); }
-\"(\\.|[^"\n])*$	{ yyerror(NULL, "Unterminated string %s", yytext); }
+'(\\.|[^'\n])*$	        { yyerror(NULL, NULL, "Unterminated string %s", yytext); }
+\"(\\.|[^"\n])*$	{ yyerror(NULL, NULL, "Unterminated string %s", yytext); }
 
    /* hex strings */
 X'[0-9A-F]+' |  
@@ -152,7 +152,7 @@ COUNT    { int c = input(yylval); unput(c);
                           yylval->strval[yyleng-2] = 0;
                           return NAME; }
 
-`[^`\n]*$               { yyerror(NULL, "unterminated quoted name %s", yytext); }
+`[^`\n]*$               { yyerror(NULL, NULL, "unterminated quoted name %s", yytext); }
 
 
 	/* comments */   
@@ -162,10 +162,10 @@ COUNT    { int c = input(yylval); unput(c);
 "/*"            { oldstate = YY_START; BEGIN COMMENT; }
 <COMMENT>"*/"   { BEGIN oldstate; }
 <COMMENT>.|\n   ;
-<COMMENT><<EOF>> { yyerror(NULL, "unclosed comment"); }
+<COMMENT><<EOF>> { yyerror(NULL, NULL, "unclosed comment"); }
 
 	/* everything else */
 [ \t\n]         /* white space */
-.               { yyerror(NULL, "mystery character '%c'", *yytext); }
+.               { yyerror(NULL, NULL, "mystery character '%c'", *yytext); }
 
 %%

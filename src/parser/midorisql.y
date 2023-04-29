@@ -7,7 +7,7 @@
 %{
 #include <datastructure/vector.h>
 
-void yyerror(struct vector *vec, const char *s, ...);
+void yyerror(struct vector*, void*, const char *, ...);
 bool emit(struct vector *vec, char *s, ...);
 int yylex(void*, void*);
 %}
@@ -202,8 +202,8 @@ column_list: NAME { emit(result, "COLUMN %s", $1); free($1); $$ = 1; }
   ;
 
 select_opts:                          { $$ = 0; }
-| select_opts ALL                 { if($$ & 01) yyerror(result, "duplicate ALL option"); $$ = $1 | 01; }
-| select_opts DISTINCT            { if($$ & 02) yyerror(result, "duplicate DISTINCT option"); $$ = $1 | 02; }
+| select_opts ALL                 { if($$ & 01) yyerror(result, scanner, "duplicate ALL option"); $$ = $1 | 01; }
+| select_opts DISTINCT            { if($$ & 02) yyerror(result, scanner, "duplicate DISTINCT option"); $$ = $1 | 02; }
     ;
 
 select_expr_list: select_expr { $$ = 1; }
@@ -321,16 +321,16 @@ opt_limit { emit(result, "UPDATE %d %d", $2, $4); }
 
 update_asgn_list:
      NAME COMPARISON expr 
-       { if ($2 != 4) yyerror(result, "bad insert assignment to %s", $1);
+       { if ($2 != 4) yyerror(result, scanner, "bad insert assignment to %s", $1);
 	 emit(result, "ASSIGN %s", $1); free($1); $$ = 1; }
    | NAME '.' NAME COMPARISON expr 
-       { if ($4 != 4) yyerror(result, "bad insert assignment to %s", $1);
+       { if ($4 != 4) yyerror(result, scanner, "bad insert assignment to %s", $1);
 	 emit(result, "ASSIGN %s.%s", $1, $3); free($1); free($3); $$ = 1; }
    | update_asgn_list ',' NAME COMPARISON expr
-       { if ($4 != 4) yyerror(result, "bad insert assignment to %s", $3);
+       { if ($4 != 4) yyerror(result, scanner, "bad insert assignment to %s", $3);
 	 emit(result, "ASSIGN %s.%s", $3); free($3); $$ = $1 + 1; }
    | update_asgn_list ',' NAME '.' NAME COMPARISON expr
-       { if ($6 != 4) yyerror(result, "bad insert assignment to %s.$s", $3, $5);
+       { if ($6 != 4) yyerror(result, scanner, "bad insert assignment to %s.$s", $3, $5);
 	 emit(result, "ASSIGN %s.%s", $3, $5); free($3); free($5); $$ = 1; }
    ;
 
@@ -338,7 +338,7 @@ update_asgn_list:
    /** create table **/
 
 opt_if_not_exists:  /* nil */ { $$ = 0; }
-   | IF EXISTS           { if(!$2) yyerror(result, "IF EXISTS doesn't exist");
+   | IF EXISTS           { if(!$2) yyerror(result, scanner, "IF EXISTS doesn't exist");
                         $$ = $2; /* NOT EXISTS hack */ }
    ;
 
@@ -485,8 +485,9 @@ expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
 
 %%
 
-void yyerror(struct vector *vec, const char *s, ...)
+void yyerror(struct vector *vec, void* scanner, const char *s, ...)
 {
+	(void)scanner;
 	char buf[256];
 	va_list ap;
 	
