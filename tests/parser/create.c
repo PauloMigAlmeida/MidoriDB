@@ -14,12 +14,24 @@ void test_parser_create(void)
 	 * valid tests
 	 */
 
+	printf("\n\n");
 	// single column definition
 	CU_ASSERT_EQUAL(syntax_parse("CREATE TABLE A(field INTEGER);"), 0);
 	// multiple column definition
 	CU_ASSERT_EQUAL(syntax_parse("CREATE TABLE A(f1 INTEGER, f2 INTEGER);"), 0);
 	// case insensitive
 	CU_ASSERT_EQUAL(syntax_parse("create table a(field integer);"), 0);
+	// Conditional creation
+	CU_ASSERT_EQUAL(syntax_parse("CREATE TABLE IF NOT EXISTS A(f1 INTEGER, f2 INTEGER);"), 0);
+	// Column attributes - 1
+	CU_ASSERT_EQUAL(syntax_parse("CREATE TABLE IF NOT EXISTS A ("
+					"  f1 INTEGER PRIMARY KEY AUTO_INCREMENT, "
+					"  f2 INT UNIQUE, "
+					"  f3 DOUBLE NOT NULL, "
+					"  f4 FLOAT NULL, "
+					"  f5 VARCHAR(10) NULL DEFAULT 'oi' "
+					");"),
+			0);
 
 	/*
 	 * invalid tests
@@ -33,4 +45,7 @@ void test_parser_create(void)
 	CU_ASSERT_NOT_EQUAL(syntax_parse("create table a(field integer)"), 0);
 	// invalid column type
 	CU_ASSERT_NOT_EQUAL(syntax_parse("create table a(field bla);"), 0);
+	// temporary table isn't supported
+	CU_ASSERT_NOT_EQUAL(syntax_parse("create temporary table a(field integer);"), 0);
+
 }

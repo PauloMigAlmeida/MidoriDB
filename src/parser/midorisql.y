@@ -374,8 +374,8 @@ column_atts: /* nil */ { $$ = 0; }
     | column_atts DEFAULT APPROXNUM     { emit(result, "ATTR DEFAULT FLOAT %g", $3); $$ = $1 + 1; }
     | column_atts DEFAULT BOOL          { emit(result, "ATTR DEFAULT BOOL %d", $3); $$ = $1 + 1; }
     | column_atts AUTO_INCREMENT        { emit(result, "ATTR AUTOINC"); $$ = $1 + 1; }
+    | column_atts UNIQUE { emit(result, "ATTR UNIQUEKEY"); $$ = $1 + 1; }
     | column_atts UNIQUE '(' column_list ')' { emit(result, "ATTR UNIQUEKEY %d", $4); $$ = $1 + 1; }
-    | column_atts UNIQUE KEY { emit(result, "ATTR UNIQUEKEY"); $$ = $1 + 1; }
     | column_atts PRIMARY KEY { emit(result, "ATTR PRIKEY"); $$ = $1 + 1; }
     | column_atts KEY { emit(result, "ATTR PRIKEY"); $$ = $1 + 1; }
     ;
