@@ -26,4 +26,9 @@ void test_vector_init(void);
 void test_vector_push(void);
 void test_vector_free(void);
 
+void test_stack_init(void);
+void test_stack_push(void);
+void test_stack_pop(void);
+void test_stack_free(void);
+
 #endif /* TESTS_DATASTRUCTURE_H */

@@ -9,7 +9,6 @@
 #define INCLUDE_PARSER_SYNTAX_H_
 
 #include <compiler/common.h>
-#include <datastructure/vector.h>
 
 int syntax_parse(char *stmt);
 

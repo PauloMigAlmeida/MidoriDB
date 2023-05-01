@@ -5,16 +5,16 @@
 %define api.pure true
 
 %{
-#include <datastructure/vector.h>
+#include <datastructure/stack.h>
 
-void yyerror(struct vector*, void*, const char *, ...);
-bool emit(struct vector *vec, char *s, ...);
+void yyerror(struct stack*, void*, const char *, ...);
+bool emit(struct stack *st, char *s, ...);
 int yylex(void*, void*);
 %}
 
 %code requires { 
 #include <compiler/common.h>
-#include <datastructure/vector.h>
+#include <datastructure/stack.h>
 }
 
 /* 
@@ -24,7 +24,7 @@ int yylex(void*, void*);
    return value is already reserved as an int, with
    0=success, 1=error, 2=nomem
 */
-%parse-param {struct vector *result}
+%parse-param {struct stack *result}
 
 /* add lexer parameter so it becomes reentrant (thread-safe) */
 %param {void *scanner}
@@ -485,7 +485,7 @@ expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
 
 %%
 
-void yyerror(struct vector *vec, void* scanner, const char *s, ...)
+void yyerror(struct stack *st, void* scanner, const char *s, ...)
 {
 	(void)scanner;
 	char buf[256];
@@ -495,19 +495,17 @@ void yyerror(struct vector *vec, void* scanner, const char *s, ...)
 	va_start(ap, s);
 	
 	/* if the error happened at the lexical phase then 
-	we print it to stderr as there is no vector ref yet */
-	if(!vec){
+	we print it to stderr as there is no stack ref yet */
+	if(!st){
 		vfprintf(stderr, s, ap);  
 		fprintf(stderr, "\n");
 	}else {
 		sprintf(buf, s, ap);
 	
-		vector_clear(vec);
-	
-		/* although unlikely, if we fail to push content to the vector
+		/* although unlikely, if we fail to push content to the stack
 		   so other program can read the error message, then we fail 
 		   over to the stderr */
-		if(!vector_push(vec, buf, strlen(buf))){
+		if(!stack_push(st, buf, strlen(buf) + 1)){
 			vfprintf(stderr, s, ap);  
 			fprintf(stderr, "\n");
 		}
@@ -516,19 +514,15 @@ void yyerror(struct vector *vec, void* scanner, const char *s, ...)
 	va_end(ap);
 }
 
-bool emit(struct vector *vec, char *s, ...)
+bool emit(struct stack *st, char *s, ...)
 {
 	char buf[256];
-	char space = ' ';
 	va_list ap;
-	bool ret;
 	
 	memzero(buf, sizeof(buf));
 	va_start(ap, s);
 	vsnprintf(buf,sizeof(buf), s, ap);
 	va_end(ap);
-	
-	ret = vector_push(vec, buf, strlen(buf));
-	ret = ret && vector_push(vec, &space, sizeof(space));
-	return ret;
+
+	return stack_push(st, buf, strlen(buf) + 1);
 }

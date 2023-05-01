@@ -1,6 +1,7 @@
 #include <tests/datastructure.h>
 
-bool datastructure_init_suite(void) {
+bool datastructure_init_suite(void)
+{
 	CU_pSuite suite = NULL;
 
 	ADD_SUITE(suite, "datastructure");
@@ -23,8 +24,12 @@ bool datastructure_init_suite(void) {
 	ADD_UNITTEST(suite, test_vector_init);
 	ADD_UNITTEST(suite, test_vector_push);
 	ADD_UNITTEST(suite, test_vector_free);
+	/* stack */
+	ADD_UNITTEST(suite, test_stack_init);
+	ADD_UNITTEST(suite, test_stack_push);
+	ADD_UNITTEST(suite, test_stack_pop);
+	ADD_UNITTEST(suite, test_stack_free);
 
 	return false;
 }
-
 
