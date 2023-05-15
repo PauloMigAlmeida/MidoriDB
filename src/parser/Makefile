@@ -50,7 +50,8 @@ $(INT_BISON_FILES): $(SRC_BISON_FILES)
 # compile correctly.
 define compile_lexpar_common
 	@echo "$(TAG) Compiling $(notdir $<)"
-	@$(CC) $(CCFLAGS)		\
+	@$(CC) $(CCFLAGS) 		\
+		-Wno-unused-function	\
 		-I$(DIR_INCLUDE)	\
 		-I$(DIR_TARGET)		\
 		-c $< -o $@
