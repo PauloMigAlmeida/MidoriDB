@@ -14,6 +14,7 @@
 bool parser_init_suite(void);
 
 /* test cases */
-void test_parser_create(void);
+void test_syntax_parse(void);
+void test_ast_build_tree(void);
 
 #endif /* INCLUDE_TESTS_PARSER_H_ */

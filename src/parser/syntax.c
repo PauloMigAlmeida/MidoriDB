@@ -6,7 +6,6 @@
  */
 
 #include <parser/syntax.h>
-#include <datastructure/stack.h>
 #include <midorisql.tab.h>
 #include <midorisql.yy.h>
 #include <errno.h>

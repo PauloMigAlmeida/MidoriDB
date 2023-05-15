@@ -66,7 +66,7 @@ $(BIN_BISON_FILES): $(INT_BISON_FILES)
 .PHONY: compile
 compile: $(BIN_BISON_FILES) $(BIN_LEX_FILES) $(BIN_C_FILES)
 
-$(BIN_C_FILES): $(SRC_C_FILES)
+$(BIN_C_FILES): $(DIR_TARGET)/%.o: %.c
 	$(compile_lexpar_common)
 
 		

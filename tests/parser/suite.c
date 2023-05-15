@@ -7,9 +7,8 @@ bool parser_init_suite(void)
 	ADD_SUITE(suite, "parser");
 
 	/* create stmt */
-	ADD_UNITTEST(suite, test_parser_create);
-
-
+	ADD_UNITTEST(suite, test_syntax_parse);
+	ADD_UNITTEST(suite, test_ast_build_tree);
 
 	return false;
 }
