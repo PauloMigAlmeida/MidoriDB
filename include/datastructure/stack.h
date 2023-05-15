@@ -58,4 +58,10 @@ bool stack_push(struct stack *stack, void *data, size_t len);
  */
 uintptr_t* stack_pop(struct stack *stack);
 
+/**
+ * stack_peel - peek at content from stack without removing it
+ * @stack: stack reference
+ */
+uintptr_t* stack_peek(struct stack *stack);
+
 #endif /* INCLUDE_DATASTRUCTURE_STACK_H_ */

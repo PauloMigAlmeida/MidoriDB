@@ -89,3 +89,12 @@ uintptr_t* stack_pop(struct stack *stack)
 
 	return ptr;
 }
+
+uintptr_t* stack_peek(struct stack *stack)
+{
+	/* sanity checks */
+	BUG_ON(!stack || stack_empty(stack));
+
+	return *((uintptr_t**)(stack->arr->data + stack->idx * sizeof(uintptr_t)));
+}
+
