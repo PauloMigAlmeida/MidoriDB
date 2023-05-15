@@ -15,10 +15,10 @@
 struct table;
 
 enum COLUMN_TYPE {
-	VARCHAR,
-	INTEGER,
-	DOUBLE,
-	DATE,
+	CT_VARCHAR,
+	CT_INTEGER,
+	CT_DOUBLE,
+	CT_DATE,
 // Add more in the future
 };
 

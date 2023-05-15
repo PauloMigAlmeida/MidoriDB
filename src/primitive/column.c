@@ -295,7 +295,7 @@ bool table_rem_column(struct table *table, struct column *column)
 
 bool table_check_var_column(struct column *column)
 {
-	return column->type == VARCHAR;
+	return column->type == CT_VARCHAR;
 }
 
 size_t table_calc_column_space(struct column *column)

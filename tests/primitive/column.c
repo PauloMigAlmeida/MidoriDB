@@ -35,7 +35,7 @@ void test_table_add_column(void)
 		column.name[i] = 'a';
 	}
 	column.name[ARR_SIZE(column.name) - 1] = '\0';
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(int);
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 1);
@@ -45,7 +45,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "!@#$%");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	CU_ASSERT(table_destroy(&table));
@@ -54,7 +54,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "1column");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	CU_ASSERT(table_destroy(&table));
@@ -63,7 +63,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "_column");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	CU_ASSERT(table_destroy(&table));
@@ -72,7 +72,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	CU_ASSERT(table_destroy(&table));
@@ -81,7 +81,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "oi");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 0;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 0);
@@ -91,7 +91,7 @@ void test_table_add_column(void)
 	table = table_init("test");
 	CU_ASSERT_EQUAL(table->column_count, 0);
 	strcpy(column.name, "oi");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = 0;
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 0);
@@ -100,7 +100,7 @@ void test_table_add_column(void)
 	/* testing maximum number of columns per table */
 	create_test_table_fixed_precision_columns(&table, TABLE_MAX_COLUMNS);
 	strcpy(column.name, "one_too_much");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(int);
 	CU_ASSERT_FALSE(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, TABLE_MAX_COLUMNS);
@@ -125,7 +125,7 @@ void test_table_add_column(void)
 	CU_ASSERT(check_row_flags(table, 2, &header_empty));
 
 	strcpy(column.name, "new_column");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(fp_data1_before[0]);
 	CU_ASSERT(table_add_column(table, &column));
 
@@ -168,7 +168,7 @@ void test_table_add_column(void)
 	CU_ASSERT(check_row_flags(table, 2, &header_empty));
 
 	strcpy(column.name, "new_column");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(vp_data1_after[3]);
 	CU_ASSERT(table_add_column(table, &column));
 
@@ -209,7 +209,7 @@ void test_table_add_column(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	strcpy(column.name, "new_column");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(fp_data2_before[0]);
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, (no_rows - (DATABLOCK_PAGE_SIZE / row_after_size)) * row_after_size);
@@ -263,7 +263,7 @@ void test_table_add_column(void)
 	CU_ASSERT_EQUAL(count_datablocks(table), 1);
 
 	strcpy(column.name, "new_column");
-	column.type = INTEGER;
+	column.type = CT_INTEGER;
 	column.precision = sizeof(vp_data2_after[3]);
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->free_dtbkl_offset, (no_rows - (DATABLOCK_PAGE_SIZE / row_after_size)) * row_after_size);
@@ -312,7 +312,7 @@ void test_table_rem_column(void)
 	/* valid case - normal case */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT(table_rem_column(table, &column));
@@ -323,7 +323,7 @@ void test_table_rem_column(void)
 	table = table_init("test");
 	for (int i = 0; i < 3; i++) {
 		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);
-		column.type = VARCHAR;
+		column.type = CT_VARCHAR;
 		column.precision = 10;
 		CU_ASSERT(table_add_column(table, &column));
 		CU_ASSERT_EQUAL(table->column_count, i + 1);
@@ -339,7 +339,7 @@ void test_table_rem_column(void)
 	table = table_init("test");
 	for (int i = 0; i < 3; i++) {
 		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);
-		column.type = VARCHAR;
+		column.type = CT_VARCHAR;
 		column.precision = 10;
 		CU_ASSERT(table_add_column(table, &column));
 		CU_ASSERT_EQUAL(table->column_count, i + 1);
@@ -355,7 +355,7 @@ void test_table_rem_column(void)
 	table = table_init("test");
 	for (int i = 0; i < 3; i++) {
 		snprintf(column.name, TABLE_MAX_COLUMN_NAME, "column_%d", i);
-		column.type = VARCHAR;
+		column.type = CT_VARCHAR;
 		column.precision = 10;
 		CU_ASSERT(table_add_column(table, &column));
 		CU_ASSERT_EQUAL(table->column_count, i + 1);
@@ -370,7 +370,7 @@ void test_table_rem_column(void)
 	/* invalid case - column that doesn't exist */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	strcpy(column.name, "column_1234"); // fake column
@@ -381,7 +381,7 @@ void test_table_rem_column(void)
 	/* invalid case - name starts with number */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	strcpy(column.name, "1column"); // fake column
@@ -392,7 +392,7 @@ void test_table_rem_column(void)
 	/* invalid case - name starts with underscore */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	CU_ASSERT_EQUAL(table->column_count, 1);
@@ -404,7 +404,7 @@ void test_table_rem_column(void)
 	/* invalid case - empty name */
 	table = table_init("test");
 	strcpy(column.name, "column_123");
-	column.type = VARCHAR;
+	column.type = CT_VARCHAR;
 	column.precision = 10;
 	CU_ASSERT(table_add_column(table, &column));
 	strcpy(column.name, ""); // fake column

@@ -35,7 +35,7 @@ void create_test_table_fixed_precision_columns(struct table **out, size_t column
 	enum COLUMN_TYPE *arr = malloc(sizeof(*arr) * column_count);
 
 	for (size_t i = 0; i < column_count; i++)
-		arr[i] = INTEGER;
+		arr[i] = CT_INTEGER;
 
 	create_test_table(out, arr, sizeof(int), column_count);
 
@@ -47,7 +47,7 @@ void create_test_table_var_precision_columns(struct table **out, size_t column_p
 	enum COLUMN_TYPE *arr = malloc(sizeof(*arr) * column_count);
 
 	for (size_t i = 0; i < column_count; i++)
-		arr[i] = VARCHAR;
+		arr[i] = CT_VARCHAR;
 
 	create_test_table(out, arr, column_precision, column_count);
 
@@ -59,7 +59,7 @@ void create_test_table_mixed_precision_columns(struct table **out, size_t column
 	enum COLUMN_TYPE *arr = malloc(sizeof(*arr) * column_count);
 
 	for (size_t i = 0; i < column_count; i++)
-		arr[i] = i % 2 ? VARCHAR : INTEGER;
+		arr[i] = i % 2 ? CT_VARCHAR : CT_INTEGER;
 
 	create_test_table(out, arr, column_precision, column_count);
 
