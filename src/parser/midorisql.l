@@ -4,6 +4,8 @@
 #include "midorisql.tab.h"
 void yyerror(void*, void*, char *s, ...);
 int oldstate;
+
+#define YY_FATAL_ERROR(msg) yyerror(NULL, NULL, msg)
 %}
 
 %x COMMENT
