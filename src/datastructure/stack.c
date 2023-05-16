@@ -98,3 +98,11 @@ uintptr_t* stack_peek(struct stack *stack)
 	return *((uintptr_t**)(stack->arr->data + stack->idx * sizeof(uintptr_t)));
 }
 
+uintptr_t* stack_peek_pos(struct stack *stack, int pos)
+{
+	/* sanity checks */
+	BUG_ON(!stack || stack_empty(stack) || pos < 0 || pos > stack->idx);
+
+	return *((uintptr_t**)(stack->arr->data + pos * sizeof(uintptr_t)));
+}
+

@@ -62,3 +62,40 @@ void test_stack_free(void)
 	CU_ASSERT_EQUAL(st.idx, -1);
 }
 
+void test_stack_peek(void)
+{
+	struct stack st = {0};
+	
+	CU_ASSERT(stack_init(&st));
+	
+	for (int i = 0; i < 3; i++) {
+		CU_ASSERT(stack_push(&st, &i, sizeof(int)));
+		CU_ASSERT_EQUAL(st.idx, i);
+	}
+
+	CU_ASSERT_EQUAL(*(int*)stack_peek(&st), 2);
+	CU_ASSERT_EQUAL(st.idx, 2);
+
+	stack_free(&st);
+	CU_ASSERT_EQUAL(st.idx, -1);
+}
+
+void test_stack_peek_pos(void)
+{
+	struct stack st = {0};
+	
+	CU_ASSERT(stack_init(&st));
+	
+	for (int i = 0; i < 3; i++) {
+		CU_ASSERT(stack_push(&st, &i, sizeof(int)));
+		CU_ASSERT_EQUAL(st.idx, i);
+	}
+
+	CU_ASSERT_EQUAL(*(int*)stack_peek_pos(&st, 0), 0);
+	CU_ASSERT_EQUAL(*(int*)stack_peek_pos(&st, 1), 1);
+	CU_ASSERT_EQUAL(*(int*)stack_peek_pos(&st, 2), 2);
+	CU_ASSERT_EQUAL(st.idx, 2);
+
+	stack_free(&st);
+	CU_ASSERT_EQUAL(st.idx, -1);
+}

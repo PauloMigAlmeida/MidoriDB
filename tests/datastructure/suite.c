@@ -29,6 +29,8 @@ bool datastructure_init_suite(void)
 	ADD_UNITTEST(suite, test_stack_push);
 	ADD_UNITTEST(suite, test_stack_pop);
 	ADD_UNITTEST(suite, test_stack_free);
+	ADD_UNITTEST(suite, test_stack_peek);
+	ADD_UNITTEST(suite, test_stack_peek_pos);
 
 	return false;
 }
