@@ -76,6 +76,18 @@ bool stack_push(struct stack *stack, void *data, size_t len)
 	return false;
 }
 
+bool stack_unsafe_push(struct stack *stack, void *data)
+{
+	/* sanity checks */
+	BUG_ON(!stack || !data);
+
+	if (!vector_push(stack->arr, &data, sizeof(uintptr_t)))
+		return false;
+
+	stack->idx++;
+	return true;
+}
+
 uintptr_t* stack_pop(struct stack *stack)
 {
 	uintptr_t *ptr;

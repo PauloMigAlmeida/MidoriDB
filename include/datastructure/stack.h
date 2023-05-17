@@ -50,6 +50,17 @@ bool stack_empty(struct stack *stack);
 bool stack_push(struct stack *stack, void *data, size_t len);
 
 /**
+ * stack_unsafe_push - push content into stack without making a copy
+ * @stack: stack reference
+ * @data: data to be pushed
+ *
+ * this function returns true if data could be inserted into stack, false otherwise
+ *
+ * note: this function is meant to be used in very specific occasions. Use it with caution
+ */
+bool stack_unsafe_push(struct stack *stack, void *data);
+
+/**
  * stack_pop - pop content from stack
  * @stack: stack reference
  *
