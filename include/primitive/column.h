@@ -19,6 +19,7 @@ enum COLUMN_TYPE {
 	CT_INTEGER,
 	CT_DOUBLE,
 	CT_DATE,
+	CT_DATETIME,
 // Add more in the future
 };
 

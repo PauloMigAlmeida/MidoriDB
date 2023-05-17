@@ -39,6 +39,7 @@ struct ast_column_def_node {
 	struct list_head *node_children_head;
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
 	enum COLUMN_TYPE type;
+	size_t precision;
 	bool attr_null;
 	bool attr_not_null;
 	bool attr_uniq_key;

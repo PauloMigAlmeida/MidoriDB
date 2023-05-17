@@ -45,6 +45,9 @@ static bool regex_helper(const char *text, const char *exp, struct stack *out)
 		free(match);
 	}
 
+	/* post sanity check */
+	BUG_ON((size_t)out->idx != regex.re_nsub - 1);
+
 	regfree(&regex);
 	free(matches);
 
@@ -88,28 +91,134 @@ static bool __must_check create_table_ast(struct stack *out, struct ast_node **r
 	return false;
 }
 
-struct ast_node* ast_build_tree(struct stack *out)
+static void parse_bison_data_type(char* str, struct ast_column_def_node *node)
+{
+	int val = atoi(str);
+	int type = val / 10000;
+	int precision = val % 10000; 
+
+	switch (type) {
+		case 4:
+		case 5:
+			node->type = CT_INTEGER;
+			node->precision = sizeof(uint64_t);
+			break;
+		case 8:
+			node->type = CT_DOUBLE;
+			node->precision = sizeof(double);
+			break;
+		//TODO figure out the right sizeof for DATE and DATETIME
+		case 10:
+			node->type = CT_DATE;
+			node->precision = sizeof(uint64_t);
+			break;
+		case 11:
+			node->type = CT_DATETIME;
+			node->precision = sizeof(uint64_t);
+			break;
+		case 13:
+			node->type = CT_VARCHAR;
+			node->precision = precision;
+			break;
+	}
+}
+
+
+static struct ast_column_def_node* create_column_ast(struct stack *parser, int *i)
+{
+	struct ast_column_def_node *node;
+	char *str;
+	bool done;
+	struct stack tmp_st = {0};
+
+	/* discard "STARTCOL" as it's irrelevant now */
+	*i += 1;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err;
+
+	node->node_type = AST_TYPE_COLUMNDEF;
+	/* unless specified otherwise, columns are nullable */
+	node->attr_null = true;
+
+	done = false;
+
+	for( ; *i < parser->idx; *i += 1) {
+		str = (char*)stack_pop(parser);
+		
+		if (strstarts(str, "ATTR PRIKEY")) {
+			node->attr_prim_key = true;
+			node->attr_null = false;
+			node->attr_not_null = true;
+			node->attr_uniq_key = true;
+		} else if (strstarts(str, "ATTR AUTOINC")) {
+			node->attr_auto_inc = true;
+		} else if (strstarts(str, "ATTR UNIQUEKEY")) {
+			node->attr_uniq_key = true;
+		} else if (strstarts(str, "ATTR NOTNULL")) {
+			node->attr_null = false;
+			node->attr_not_null = true;
+		} else {
+			done = true;
+			stack_init(&tmp_st);
+			regex_helper(str, "COLUMNDEF ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &tmp_st);
+			strncpy(node->name, (char*)stack_peek_pos(&tmp_st, 0), strlen((char*)stack_peek_pos(&tmp_st, 0) + 1)); 
+			parse_bison_data_type((char*)stack_peek_pos(&tmp_st, 1), node);
+			stack_free(&tmp_st);
+		}
+
+		free(str);
+
+		if (done)
+			break;
+	}
+
+	return node;
+
+err:
+	return NULL;
+}	
+
+struct ast_node* ast_build_tree(struct stack *parser)
 {
 	struct ast_node *root = NULL;
+	char *str;
+	struct stack st = {0};
 
 	/* sanity checks */
-	BUG_ON(!out || stack_empty(out));
-	BUG_ON(!strstarts((char* )stack_peek(out), "STMT"));
+	BUG_ON(!parser || stack_empty(parser));
+	BUG_ON(!strstarts((char*)stack_peek(parser), "STMT"));
 
-	/* free STMT */
-	free(stack_pop(out));
+	root = NULL;
+	stack_init(&st);
 
-	if (strstarts((char*)stack_peek(out), "CREATE")) {
-		if (create_table_ast(out, &root))
-			goto err;
-	} else {
-		fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", (char*)stack_peek(out));
-		exit(1);
+	for (int i=0; i < parser->idx; i++) {
+		str = (char*)stack_peek_pos(parser, i);
+
+		if (strstarts(str, "STARTCOL")) {
+			struct ast_column_def_node* node = create_column_ast(parser, &i);
+			if (!node)
+				goto err;
+			
+			if (!stack_push(&st, &node, sizeof(*node)))
+				goto err;
+
+		} else if(strstarts(str, "CREATE")){
+		
+		} else {
+			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", (char*)stack_peek(parser));
+			exit(1);
+		}
 	}
+	
+
+	stack_free(&st);
 
 	return root;
 
 	err:
+	stack_free(&st);
 	//TODO implement free ast routine recursively
 	free(root);
 

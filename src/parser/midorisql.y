@@ -383,12 +383,8 @@ data_type:
      INT opt_length { $$ = 40000 + $2; }
    | INTEGER opt_length { $$ = 50000 + $2; }
    | DOUBLE opt_length { $$ = 80000 + $2; }
-   | FLOAT opt_length { $$ = 90000 + $2; }
-   | DATE { $$ = 100001; }
-   | TIME { $$ = 100002; }
-   | TIMESTAMP { $$ = 100003; }
-   | DATETIME { $$ = 100004; }
-   | CHAR opt_length { $$ = 120000 + $2; }
+   | DATE { $$ = 100000; }
+   | DATETIME { $$ = 110000; }
    | VARCHAR '(' INTNUM ')' { $$ = 130000 + $3; }
    ;
 
