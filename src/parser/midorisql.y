@@ -88,7 +88,6 @@ int yylex(void*, void*);
 %token END
 %token <subtok> EXISTS
 %token EXPLAIN
-%token FLOAT
 %token FROM
 %token GROUP
 %token HAVING

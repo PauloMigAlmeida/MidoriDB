@@ -55,7 +55,6 @@ void test_syntax_parse(void)
 					"  f1 INTEGER PRIMARY KEY AUTO_INCREMENT, "
 					"  f2 INT UNIQUE, "
 					"  f3 DOUBLE NOT NULL, "
-					"  f4 FLOAT NULL, "
 					"  f5 VARCHAR(10) NULL"
 					");"
 					),

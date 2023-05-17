@@ -32,21 +32,18 @@ COMMENT	{ return COMMENT; }
 CREATE	{ return CREATE; }
 CROSS	{ return CROSS; }
 CURRENT_DATE	{ return CURRENT_DATE; }
-CURRENT_TIME	{ return CURRENT_TIME; }
-CURRENT_TIMESTAMP	{ return CURRENT_TIMESTAMP; }
 DATE	{ return DATE; }
 DATETIME	{ return DATETIME; }
 DEFAULT	{ return DEFAULT; }
 DELETE	{ return DELETE; }
 DESC	{ return DESC; }
 DISTINCT	{ return DISTINCT; }
-FLOAT8|DOUBLE	{ return DOUBLE; }
+DOUBLE	{ return DOUBLE; }
 ELSE	{ return ELSE; }
 END	{ return END; }
 EXISTS	{ yylval->subtok = 0; return EXISTS; }
 NOT[ \t\n]+EXISTS	{ yylval->subtok = 1; return EXISTS; }
 EXPLAIN	{ return EXPLAIN; }
-FLOAT4?	{ return FLOAT; }
 FROM	{ return FROM; }
 GROUP	{ return GROUP; }
 HAVING	{ return HAVING; }
@@ -76,8 +73,6 @@ SELECT	{ return SELECT; }
 SET	{ return SET; }
 TABLE	{ return TABLE; }
 THEN	{ return THEN; }
-TIME	{ return TIME; }
-TIMESTAMP	{ return TIMESTAMP; }
 UNIQUE	{ return UNIQUE; }
 UPDATE	{ return UPDATE; }
 VALUES?	{ return VALUES; }
