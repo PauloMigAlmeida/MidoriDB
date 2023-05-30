@@ -53,7 +53,7 @@ static bool __must_check regex_helper(const char *text, const char *exp, struct 
 	regfree(&regex);
 	free(matches);
 
-	return false;
+	return true;
 
 	err_stack:
 	free(match);
@@ -62,46 +62,7 @@ static bool __must_check regex_helper(const char *text, const char *exp, struct 
 	regfree(&regex);
 	free(matches);
 	err:
-	return true;
-}
-
-static struct ast_create_node* __must_check create_table_ast(struct stack *parser, int *i, struct stack *tmp_st)
-{
-
-	struct ast_create_node *node;
-	char *content;
-	struct stack reg_pars = {0};
-
-	/* sanity checks */
-	BUG_ON(stack_empty(parser));
-
-	stack_init(&reg_pars);
-	content = (char*)stack_peek_pos(parser, *i);
-
-	if (!(node = zalloc(sizeof(*node))))
-		goto err;
-
-	node->node_type = AST_TYPE_CREATE;
-
-	regex_helper(content, "CREATE ([0-9]+) ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &reg_pars);
-
-	node->if_not_exists = atoi((char*)stack_peek_pos(tmp_st, 0)) == 1;
-	node->column_count = atoi((char*)stack_peek_pos(tmp_st, 1));
-	strncpy(node->table_name,
-		(char*)stack_peek_pos(tmp_st, 2),
-		strlen((char*)stack_peek_pos(tmp_st, 2)) + 1);
-
-	//TODO for tomorrow Add columns to node's children
-
-	/* cleanup */
-	stack_free(&reg_pars);
-
-	return node;
-
-	err:
-	stack_free(&reg_pars);
-	return NULL;
-
+	return false;
 }
 
 static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
@@ -150,6 +111,7 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 		goto err;
 
 	node->node_type = AST_TYPE_COLUMNDEF;
+	node->node_children_head = NULL;
 	/* unless specified otherwise, columns are nullable */
 	node->attr_null = true;
 
@@ -174,7 +136,7 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 			parse_bison_data_type((char*)stack_peek_pos(&tmp_st, 0), node);
 			strncpy(node->name,
 				(char*)stack_peek_pos(&tmp_st, 1),
-				strlen((char*)stack_peek_pos(&tmp_st, 1)) + 1);
+				strlen((char*)stack_peek_pos(&tmp_st, 1)));
 			stack_free(&tmp_st);
 			break;
 		}
@@ -182,6 +144,54 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 
 	return node;
 
+	err:
+	return NULL;
+}
+
+static struct ast_create_node* __must_check create_table_ast(struct stack *parser, int *i, struct stack *tmp_st)
+{
+	struct ast_create_node *node;
+	char *str;
+	struct stack reg_pars = {0};
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_CREATE;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(node->node_children_head);
+
+	str = (char*)stack_peek_pos(parser, *i);
+
+	if (!regex_helper(str, "CREATE ([0-9]+) ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &reg_pars))
+		goto err_regex;
+
+	node->if_not_exists = atoi((char*)stack_peek_pos(&reg_pars, 0));
+	node->column_count = atoi((char*)stack_peek_pos(&reg_pars, 1));
+	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), strlen((char*)stack_peek_pos(&reg_pars, 2)));
+	stack_free(&reg_pars);
+
+	for (int i = 0; i < node->column_count; i++) {
+		struct ast_column_def_node *col = (struct ast_column_def_node*)stack_pop(tmp_st);
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		list_add(&col->head, node->node_children_head);
+	}
+
+	return node;
+
+	err_regex:
+	free(node->node_children_head);
+	err_head:
+	free(node);
+	err_node:
+	stack_free(&reg_pars);
 	err:
 	return NULL;
 }
@@ -199,8 +209,9 @@ struct ast_node* ast_build_tree(struct stack *parser)
 	root = NULL;
 	stack_init(&st);
 
-	for (int i = 0; i < parser->idx; i++) {
+	for (int i = 0; i < parser->idx + 1; i++) {
 		str = (char*)stack_peek_pos(parser, i);
+		printf("i: %d current str: %s\n", i, str);
 
 		if (strstarts(str, "STARTCOL")) {
 			struct ast_column_def_node *node = create_column_ast(parser, &i);
@@ -211,12 +222,29 @@ struct ast_node* ast_build_tree(struct stack *parser)
 				goto err;
 
 		} else if (strstarts(str, "CREATE")) {
+			struct ast_create_node *node = create_table_ast(parser, &i, &st);
+			if (!node)
+				goto err;
 
+			if (!stack_unsafe_push(&st, node))
+				goto err;
+
+		} else if (strstarts(str, "STMT")) {
+			/*
+			 * Notes to my future self:
+			 *
+			 * right now I'm just parsing a single statement but should I need to parse multiple
+			 * statements then this logic has to change
+			 */
+			root = (struct ast_node*)stack_pop(&st);
 		} else {
 			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", (char*)stack_peek(parser));
 			exit(1);
 		}
 	}
+
+	/* something went terribly wrong is this is not empty */
+	BUG_ON(!stack_empty(&st));
 
 	stack_free(&st);
 
@@ -224,8 +252,5 @@ struct ast_node* ast_build_tree(struct stack *parser)
 
 	err:
 	stack_free(&st);
-	//TODO implement free ast routine recursively
-	free(root);
-
 	return NULL;
 }

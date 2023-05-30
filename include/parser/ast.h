@@ -37,6 +37,7 @@ struct ast_create_node {
 struct ast_column_def_node {
 	enum ast_node_type node_type;
 	struct list_head *node_children_head;
+	struct list_head head; /* doubly-linked list head */
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
 	enum COLUMN_TYPE type;
 	size_t precision;
