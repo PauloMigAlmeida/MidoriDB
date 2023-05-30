@@ -25,7 +25,7 @@ struct stack {
  *
  * this function returns true if stack could be initialised, false otherwise
  */
-bool stack_init(struct stack *stack);
+bool __must_check stack_init(struct stack *stack);
 
 /**
  * stack_free - free stack
@@ -47,7 +47,7 @@ bool stack_empty(struct stack *stack);
  *
  * this function returns true if data could be inserted into stack, false otherwise
  */
-bool stack_push(struct stack *stack, void *data, size_t len);
+bool __must_check stack_push(struct stack *stack, void *data, size_t len);
 
 /**
  * stack_unsafe_push - push content into stack without making a copy
@@ -58,16 +58,16 @@ bool stack_push(struct stack *stack, void *data, size_t len);
  *
  * note: this function is meant to be used in very specific occasions. Use it with caution
  */
-bool stack_unsafe_push(struct stack *stack, void *data);
+bool __must_check stack_unsafe_push(struct stack *stack, void *data);
 
 /**
  * stack_pop - pop content from stack
  * @stack: stack reference
  *
  * this function returns a pointer or NULL if stack is empty. Also, as soon as the
- * pointer is out of the stack, it's the callers responsability to free it
+ * pointer is out of the stack, it's the callers responsibility to free it
  */
-uintptr_t* stack_pop(struct stack *stack);
+uintptr_t* __must_check stack_pop(struct stack *stack);
 
 /**
  * stack_peek - peek at top of stack without removing it
