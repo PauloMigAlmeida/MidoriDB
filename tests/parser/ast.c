@@ -13,7 +13,7 @@ static void print_stack_content(struct stack *st)
 {
 	for (int i = st->idx; i >= 0; i--) {
 		char *ptr = *((char**)(st->arr->data + i * sizeof(uintptr_t)));
-		printf("%d: %s\n", i, ptr);
+		printf("stack pos: %d, content: %s\n", i, ptr);
 	}
 	printf("\n");
 }
@@ -24,6 +24,26 @@ static void build_stack(char *stmt, struct stack *out)
 	CU_ASSERT_EQUAL(syntax_parse(stmt, out), 0);
 	printf("\n\n");
 	print_stack_content(out);
+}
+
+static void ast_free(struct ast_node *root)
+{
+	struct list_head *pos = NULL;
+	struct list_head *tmp_pos = NULL;
+	struct ast_node *entry = NULL;
+
+	if (root->node_children_head) {
+
+		list_for_each_safe(pos,tmp_pos, root->node_children_head)
+		{
+			entry = list_entry(pos, typeof(*entry), head);
+			ast_free(entry);
+		}
+
+		free(root->node_children_head);
+	}
+
+	free(root);
 }
 
 void test_ast_build_tree(void)
@@ -47,11 +67,11 @@ void test_ast_build_tree(void)
 	 *
 	 * Things to fix: 30/05/2023
 	 *
-	 * - root node is returned however we don't have a recursive free routine yet - so mem leak
 	 * - tweak ast_build_tree so it can parse multiple STMTs in the future.
 	 * - make ast_build_tree routine better... this looks hacky as fuck
 	 * - fix all the __must_check warnings... I've been sloppy lately with that
 	 */
 
 	stack_free(&st);
+	ast_free(root);
 }

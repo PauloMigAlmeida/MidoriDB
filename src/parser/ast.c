@@ -211,7 +211,6 @@ struct ast_node* ast_build_tree(struct stack *parser)
 
 	for (int i = 0; i < parser->idx + 1; i++) {
 		str = (char*)stack_peek_pos(parser, i);
-		printf("i: %d current str: %s\n", i, str);
 
 		if (strstarts(str, "STARTCOL")) {
 			struct ast_column_def_node *node = create_column_ast(parser, &i);
@@ -237,6 +236,7 @@ struct ast_node* ast_build_tree(struct stack *parser)
 			 * statements then this logic has to change
 			 */
 			root = (struct ast_node*)stack_pop(&st);
+			break;
 		} else {
 			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", (char*)stack_peek(parser));
 			exit(1);

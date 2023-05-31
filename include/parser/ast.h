@@ -23,12 +23,14 @@ enum ast_node_type {
 struct ast_node {
 	enum ast_node_type node_type;
 	struct list_head *node_children_head;
+	struct list_head head; /* doubly-linked list head */
 };
 
 /* Create Statements - start */
 struct ast_create_node {
 	enum ast_node_type node_type;
 	struct list_head *node_children_head;
+	struct list_head head; /* doubly-linked list head */
 	char table_name[TABLE_MAX_NAME + 1 /*NUL char */]; //TODO add tests to check array bounds during parse-to-AST
 	bool if_not_exists;
 	int column_count;
