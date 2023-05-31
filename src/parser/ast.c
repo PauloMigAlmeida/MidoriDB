@@ -111,6 +111,7 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 		goto err;
 
 	node->node_type = AST_TYPE_COLUMNDEF;
+	list_head_init(&node->head);
 	node->node_children_head = NULL;
 	/* unless specified otherwise, columns are nullable */
 	node->attr_null = true;
@@ -162,6 +163,7 @@ static struct ast_create_node* __must_check create_table_ast(struct stack *parse
 		goto err_node;
 
 	node->node_type = AST_TYPE_CREATE;
+	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;

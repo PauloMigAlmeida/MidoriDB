@@ -21,25 +21,36 @@ enum ast_node_type {
 };
 
 struct ast_node {
+	/* type of node */
 	enum ast_node_type node_type;
+	/* children if applicable */
 	struct list_head *node_children_head;
-	struct list_head head; /* doubly-linked list head */
+	/* doubly-linked list head */
+	struct list_head head;
 };
 
 /* Create Statements - start */
 struct ast_create_node {
+	/* type of node */
 	enum ast_node_type node_type;
+	/* children if applicable */
 	struct list_head *node_children_head;
-	struct list_head head; /* doubly-linked list head */
+	/* doubly-linked list head */
+	struct list_head head;
+
 	char table_name[TABLE_MAX_NAME + 1 /*NUL char */]; //TODO add tests to check array bounds during parse-to-AST
 	bool if_not_exists;
 	int column_count;
 };
 
 struct ast_column_def_node {
+	/* type of node */
 	enum ast_node_type node_type;
+	/* children if applicable */
 	struct list_head *node_children_head;
-	struct list_head head; /* doubly-linked list head */
+	/* doubly-linked list head */
+	struct list_head head;
+
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
 	enum COLUMN_TYPE type;
 	size_t precision;
