@@ -63,5 +63,7 @@ struct ast_column_def_node {
 /* Create Statements - end */
 
 struct ast_node* ast_build_tree(struct stack *out);
+void ast_free(struct ast_node *node);
+
 
 #endif /* INCLUDE_PARSER_AST_H_ */

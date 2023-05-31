@@ -132,8 +132,12 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 			node->attr_null = false;
 			node->attr_not_null = true;
 		} else {
-			stack_init(&tmp_st);
-			regex_helper(str, "COLUMNDEF ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &tmp_st);
+			if (!stack_init(&tmp_st))
+				goto err_stack_init;
+
+			if (!regex_helper(str, "COLUMNDEF ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &tmp_st))
+				goto err_regex;
+
 			parse_bison_data_type((char*)stack_peek_pos(&tmp_st, 0), node);
 			strncpy(node->name,
 				(char*)stack_peek_pos(&tmp_st, 1),
@@ -145,6 +149,10 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 
 	return node;
 
+	err_regex:
+	stack_free(&tmp_st);
+	err_stack_init:
+	free(node);
 	err:
 	return NULL;
 }
@@ -209,7 +217,8 @@ struct ast_node* ast_build_tree(struct stack *parser)
 	BUG_ON(!strstarts((char* )stack_peek(parser), "STMT"));
 
 	root = NULL;
-	stack_init(&st);
+	if (!stack_init(&st))
+		goto err_stack_init;
 
 	for (int i = 0; i < parser->idx + 1; i++) {
 		str = (char*)stack_peek_pos(parser, i);
@@ -217,18 +226,22 @@ struct ast_node* ast_build_tree(struct stack *parser)
 		if (strstarts(str, "STARTCOL")) {
 			struct ast_column_def_node *node = create_column_ast(parser, &i);
 			if (!node)
-				goto err;
+				goto err_alloc_node;
 
-			if (!stack_unsafe_push(&st, node))
-				goto err;
+			if (!stack_unsafe_push(&st, node)) {
+				ast_free((struct ast_node*)node);
+				goto err_push_node;
+			}
 
 		} else if (strstarts(str, "CREATE")) {
 			struct ast_create_node *node = create_table_ast(parser, &i, &st);
 			if (!node)
-				goto err;
+				goto err_alloc_node;
 
-			if (!stack_unsafe_push(&st, node))
-				goto err;
+			if (!stack_unsafe_push(&st, node)) {
+				ast_free((struct ast_node*)node);
+				goto err_push_node;
+			}
 
 		} else if (strstarts(str, "STMT")) {
 			/*
@@ -252,7 +265,32 @@ struct ast_node* ast_build_tree(struct stack *parser)
 
 	return root;
 
-	err:
+	err_push_node:
+	while (!stack_empty(&st)) {
+		ast_free((struct ast_node*)stack_pop(&st));
+	}
+	err_alloc_node:
 	stack_free(&st);
+	err_stack_init:
 	return NULL;
+}
+
+void ast_free(struct ast_node *node)
+{
+	struct list_head *pos = NULL;
+	struct list_head *tmp_pos = NULL;
+	struct ast_node *entry = NULL;
+
+	if (node->node_children_head) {
+
+		list_for_each_safe(pos,tmp_pos, node->node_children_head)
+		{
+			entry = list_entry(pos, typeof(*entry), head);
+			ast_free(entry);
+		}
+
+		free(node->node_children_head);
+	}
+
+	free(node);
 }
