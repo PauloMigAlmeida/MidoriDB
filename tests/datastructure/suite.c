@@ -31,6 +31,13 @@ bool datastructure_init_suite(void)
 	ADD_UNITTEST(suite, test_stack_free);
 	ADD_UNITTEST(suite, test_stack_peek);
 	ADD_UNITTEST(suite, test_stack_peek_pos);
+	/* queue */
+	ADD_UNITTEST(suite, test_queue_init);
+	ADD_UNITTEST(suite, test_queue_offer);
+	ADD_UNITTEST(suite, test_queue_poll);
+	ADD_UNITTEST(suite, test_queue_free);
+	ADD_UNITTEST(suite, test_queue_peek);
+	ADD_UNITTEST(suite, test_queue_peek_pos);
 
 	return false;
 }

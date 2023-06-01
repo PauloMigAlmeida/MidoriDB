@@ -33,4 +33,11 @@ void test_stack_free(void);
 void test_stack_peek(void);
 void test_stack_peek_pos(void);
 
+void test_queue_init(void);
+void test_queue_offer(void);
+void test_queue_poll(void);
+void test_queue_free(void);
+void test_queue_peek(void);
+void test_queue_peek_pos(void);
+
 #endif /* TESTS_DATASTRUCTURE_H */
