@@ -74,5 +74,11 @@ void* __must_check queue_peek(struct queue *queue);
  */
 void* __must_check queue_peek_pos(struct queue *queue, size_t pos);
 
+/**
+ * queue_length - get number of items of queue
+ * @queue - queue reference
+ */
+size_t queue_length(struct queue *queue);
+
 
 #endif /* INCLUDE_DATASTRUCTURE_QUEUE_H_ */

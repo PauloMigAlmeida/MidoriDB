@@ -106,7 +106,15 @@ void* __must_check queue_peek(struct queue *queue)
 void* __must_check queue_peek_pos(struct queue *queue, size_t pos)
 {
 	/* sanity checks */
-	BUG_ON(!queue || pos > queue->arr->len / sizeof(uintptr_t));
+	BUG_ON(!queue || queue_empty(queue) || pos > queue_length(queue) - 1);
 
 	return *((uintptr_t**)(queue->arr->data + pos * sizeof(uintptr_t)));
+}
+
+size_t queue_length(struct queue *queue)
+{
+	/* sanity checks */
+	BUG_ON(!queue);
+
+	return queue->arr->len / sizeof(uintptr_t);
 }
