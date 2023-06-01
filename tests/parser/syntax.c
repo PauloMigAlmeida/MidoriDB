@@ -10,7 +10,7 @@
 
 static void print_queue(struct queue *ct)
 {
-	for (size_t i = 0; i <= (ct->arr->len / sizeof(uintptr_t)); i++) {
+	for (size_t i = 0; i < queue_length(ct); i++) {
 		printf("stack pos: %lu, content: %s\n", i, (char*)queue_peek_pos(ct, i));
 	}
 	printf("\n");

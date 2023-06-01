@@ -18,6 +18,8 @@ enum ast_node_type {
 	AST_TYPE_STMT,
 	AST_TYPE_CREATE,
 	AST_TYPE_COLUMNDEF,
+	AST_TYPE_INDEXDEF,
+	AST_TYPE_INDEXCOL,
 };
 
 struct ast_node {
@@ -60,10 +62,34 @@ struct ast_column_def_node {
 	bool attr_auto_inc;
 	bool attr_prim_key;
 };
+
+/* Indexes -> Index || Primary Keys */
+struct ast_index_def_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+
+	bool is_pk;
+	bool is_index;
+};
+
+/* Columns referenced when creating index as the last few lines of a CREATE statement */
+struct ast_index_column_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+
+	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
+};
 /* Create Statements - end */
 
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
-
 
 #endif /* INCLUDE_PARSER_AST_H_ */

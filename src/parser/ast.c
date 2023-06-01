@@ -98,7 +98,7 @@ static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
 	}
 }
 
-static struct ast_column_def_node* __must_check create_column_ast(struct queue *parser)
+static struct ast_column_def_node* __must_check create_columndef_ast(struct queue *parser)
 {
 	struct ast_column_def_node *node;
 	char *str = NULL;
@@ -169,6 +169,7 @@ static struct ast_create_node* __must_check create_table_ast(struct queue *parse
 	struct ast_create_node *node;
 	char *str;
 	struct stack reg_pars = {0};
+	int count;
 
 	if (!stack_init(&reg_pars))
 		goto err;
@@ -191,10 +192,10 @@ static struct ast_create_node* __must_check create_table_ast(struct queue *parse
 		goto err_regex;
 
 	node->if_not_exists = atoi((char*)stack_peek_pos(&reg_pars, 0));
-	node->column_count = atoi((char*)stack_peek_pos(&reg_pars, 1));
+	count = atoi((char*)stack_peek_pos(&reg_pars, 1));
 	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), strlen((char*)stack_peek_pos(&reg_pars, 2)));
 
-	for (int i = 0; i < node->column_count; i++) {
+	for (int i = 0; i < count; i++) {
 		struct ast_column_def_node *col = (struct ast_column_def_node*)stack_pop(tmp_st);
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		list_add(&col->head, node->node_children_head);
@@ -216,15 +217,104 @@ static struct ast_create_node* __must_check create_table_ast(struct queue *parse
 	return NULL;
 }
 
-struct ast_node* ast_build_tree(struct queue *parser)
+static struct ast_index_column_node* __must_check create_indexcol_ast(struct queue *parser)
+{
+	struct ast_index_column_node *node;
+	char *str = NULL;
+	struct stack reg_pars = {0};
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err;
+
+	node->node_type = AST_TYPE_INDEXCOL;
+	list_head_init(&node->head);
+	node->node_children_head = NULL;
+
+	str = (char*)queue_poll(parser);
+
+	if (!stack_init(&reg_pars))
+		goto err_stack_init;
+
+	if (!regex_helper(str, "COLUMN ([A-Za-z][A-Za-z0-9_]*)", &reg_pars))
+		goto err_regex;
+
+	strncpy(node->name,
+		(char*)stack_peek_pos(&reg_pars, 0),
+		strlen((char*)stack_peek_pos(&reg_pars, 0)));
+	stack_free(&reg_pars);
+	free(str);
+
+	return node;
+
+	err_regex:
+	stack_free(&reg_pars);
+	err_stack_init:
+	free(str);
+	free(node);
+	err:
+	return NULL;
+}
+
+static struct ast_index_def_node* __must_check create_indexdef_ast(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_index_def_node *node;
+	char *str;
+	struct stack reg_pars = {0};
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INDEXDEF;
+	list_head_init(&node->head);
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_helper(str, "PRIKEY ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->is_pk = true;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		struct ast_index_column_node *col = (struct ast_index_column_node*)stack_pop(tmp_st);
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		list_add(&col->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+	err_regex:
+	free(str);
+	free(node->node_children_head);
+	err_head:
+	free(node);
+	err_node:
+	stack_free(&reg_pars);
+	err:
+	return NULL;
+}
+
+struct ast_node* __create_build_tree(struct queue *parser)
 {
 	struct ast_node *root = NULL;
+	struct ast_node *curr = NULL;
 	char *str = NULL;
 	struct stack st = {0};
-
-	/* sanity checks */
-	BUG_ON(!parser || queue_empty(parser));
-//	BUG_ON(!strstarts((char* stack_peek(parser), "STMT")); //TODO adapt this for queue
 
 	root = NULL;
 	if (!stack_init(&st))
@@ -234,37 +324,27 @@ struct ast_node* ast_build_tree(struct queue *parser)
 		str = (char*)queue_peek(parser);
 
 		if (strstarts(str, "STARTCOL")) {
-			struct ast_column_def_node *node = create_column_ast(parser);
-			if (!node)
-				goto err_push_node;
-
-			if (!stack_unsafe_push(&st, node)) {
-				ast_free((struct ast_node*)node);
-				goto err_push_node;
-			}
-
+			curr = (struct ast_node*)create_columndef_ast(parser);
 		} else if (strstarts(str, "CREATE")) {
-			struct ast_create_node *node = create_table_ast(parser, &st);
-			if (!node)
-				goto err_push_node;
-
-			if (!stack_unsafe_push(&st, node)) {
-				ast_free((struct ast_node*)node);
-				goto err_push_node;
-			}
-
+			curr = (struct ast_node*)create_table_ast(parser, &st);
+		} else if (strstarts(str, "COLUMN")) {
+			curr = (struct ast_node*)create_indexcol_ast(parser);
+		} else if (strstarts(str, "PRIKEY")) {
+			curr = (struct ast_node*)create_indexdef_ast(parser, &st);
 		} else if (strstarts(str, "STMT")) {
-			/*
-			 * Notes to my future self:
-			 *
-			 * right now I'm just parsing a single statement but should I need to parse multiple
-			 * statements then this logic has to change
-			 */
 			root = (struct ast_node*)stack_pop(&st);
 			break;
 		} else {
-			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", str);
+			fprintf(stderr, "%s: %s handler not implement yet\n", __func__, str);
 			exit(1);
+		}
+
+		if (!curr)
+			goto err_push_node;
+
+		if (!stack_unsafe_push(&st, curr)) {
+			ast_free(curr);
+			goto err_push_node;
 		}
 
 	}
@@ -282,6 +362,46 @@ struct ast_node* ast_build_tree(struct queue *parser)
 	stack_free(&st);
 	err_stack_init:
 	return NULL;
+}
+
+struct ast_node* ast_build_tree(struct queue *parser)
+{
+	char *str = NULL;
+	size_t pos = 0;
+	bool found = false;
+
+	/* sanity checks */
+	BUG_ON(!parser || queue_empty(parser));
+//	BUG_ON(!strstarts((char* stack_peek(parser), "STMT")); //TODO adapt this for queue
+
+	/* walk to STMT */
+	while (pos < queue_length(parser)) {
+		if (strstarts((char*)queue_peek_pos(parser, pos), "STMT")) {
+			found = true;
+			break;
+		}
+		pos++;
+	}
+
+	/* something terribly wrong if this is true */
+	BUG_ON(!found);
+
+	/*
+	 * Notes to my future self:
+	 *
+	 * right now I'm just parsing a single statement but should I need to parse multiple
+	 * statements then this logic has to change
+	 */
+
+	/* decide which routine to best parse its contents based on the operation type */
+	pos--;
+	str = (char*)queue_peek_pos(parser, pos);
+	if (strstarts(str, "CREATE")) {
+		return __create_build_tree(parser);
+	} else {
+		fprintf(stderr, "%s: %s handler not implement yet\n", __func__, str);
+		exit(1);
+	}
 }
 
 void ast_free(struct ast_node *node)
