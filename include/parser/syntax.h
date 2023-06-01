@@ -9,8 +9,8 @@
 #define INCLUDE_PARSER_SYNTAX_H_
 
 #include <compiler/common.h>
-#include <datastructure/stack.h>
+#include <datastructure/queue.h>
 
-int syntax_parse(char *in, struct stack *out);
+int syntax_parse(char *in, struct queue *out);
 
 #endif /* INCLUDE_PARSER_SYNTAX_H_ */

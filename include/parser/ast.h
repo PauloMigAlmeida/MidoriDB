@@ -12,7 +12,7 @@
 #include <primitive/table.h>
 #include <primitive/column.h>
 #include <datastructure/linkedlist.h>
-#include <datastructure/stack.h>
+#include <datastructure/queue.h>
 
 enum ast_node_type {
 	AST_TYPE_STMT,
@@ -62,7 +62,7 @@ struct ast_column_def_node {
 };
 /* Create Statements - end */
 
-struct ast_node* ast_build_tree(struct stack *out);
+struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
 
 

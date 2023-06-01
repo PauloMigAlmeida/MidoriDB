@@ -11,7 +11,7 @@
 #include <errno.h>
 
 
-int syntax_parse(char *in, struct stack *out)
+int syntax_parse(char *in, struct queue *out)
 {
 	yyscan_t sc;
 	YY_BUFFER_STATE bs;
@@ -22,7 +22,7 @@ int syntax_parse(char *in, struct stack *out)
 
 	if (yylex_init(&sc)) {
 		res = errno;
-		if(!stack_push(out, strerror(res), strlen(strerror(res))))
+		if(!queue_offer(out, strerror(res), strlen(strerror(res))))
 			fprintf(stderr, "error while gathering parser error \n");
 		return res;
 	}

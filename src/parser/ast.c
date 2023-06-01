@@ -6,6 +6,7 @@
  */
 
 #include <parser/ast.h>
+#include <datastructure/stack.h>
 
 static inline bool strstarts(const char *str, const char *prefix)
 {
@@ -97,14 +98,14 @@ static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
 	}
 }
 
-static struct ast_column_def_node* __must_check create_column_ast(struct stack *parser, int *i)
+static struct ast_column_def_node* __must_check create_column_ast(struct queue *parser)
 {
 	struct ast_column_def_node *node;
-	char *str;
+	char *str = NULL;
 	struct stack tmp_st = {0};
 
 	/* discard "STARTCOL" as it's irrelevant now */
-	*i += 1;
+	free(queue_poll(parser));
 
 	node = zalloc(sizeof(*node));
 	if (!node)
@@ -116,8 +117,8 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 	/* unless specified otherwise, columns are nullable */
 	node->attr_null = true;
 
-	for (; *i < parser->idx; *i += 1) {
-		str = (char*)stack_peek_pos(parser, *i);
+	while (!queue_empty(parser)) {
+		str = (char*)queue_poll(parser);
 
 		if (strstarts(str, "ATTR PRIKEY")) {
 			node->attr_prim_key = true;
@@ -143,8 +144,12 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 				(char*)stack_peek_pos(&tmp_st, 1),
 				strlen((char*)stack_peek_pos(&tmp_st, 1)));
 			stack_free(&tmp_st);
+			free(str);
 			break;
 		}
+
+		free(str);
+		str = NULL;
 	}
 
 	return node;
@@ -153,11 +158,13 @@ static struct ast_column_def_node* __must_check create_column_ast(struct stack *
 	stack_free(&tmp_st);
 	err_stack_init:
 	free(node);
+	if (!str)
+		free(str);
 	err:
 	return NULL;
 }
 
-static struct ast_create_node* __must_check create_table_ast(struct stack *parser, int *i, struct stack *tmp_st)
+static struct ast_create_node* __must_check create_table_ast(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_create_node *node;
 	char *str;
@@ -178,7 +185,7 @@ static struct ast_create_node* __must_check create_table_ast(struct stack *parse
 
 	list_head_init(node->node_children_head);
 
-	str = (char*)stack_peek_pos(parser, *i);
+	str = (char*)queue_poll(parser);
 
 	if (!regex_helper(str, "CREATE ([0-9]+) ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
@@ -186,7 +193,6 @@ static struct ast_create_node* __must_check create_table_ast(struct stack *parse
 	node->if_not_exists = atoi((char*)stack_peek_pos(&reg_pars, 0));
 	node->column_count = atoi((char*)stack_peek_pos(&reg_pars, 1));
 	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), strlen((char*)stack_peek_pos(&reg_pars, 2)));
-	stack_free(&reg_pars);
 
 	for (int i = 0; i < node->column_count; i++) {
 		struct ast_column_def_node *col = (struct ast_column_def_node*)stack_pop(tmp_st);
@@ -194,9 +200,13 @@ static struct ast_create_node* __must_check create_table_ast(struct stack *parse
 		list_add(&col->head, node->node_children_head);
 	}
 
+	stack_free(&reg_pars);
+	free(str);
+
 	return node;
 
 	err_regex:
+	free(str);
 	free(node->node_children_head);
 	err_head:
 	free(node);
@@ -206,27 +216,27 @@ static struct ast_create_node* __must_check create_table_ast(struct stack *parse
 	return NULL;
 }
 
-struct ast_node* ast_build_tree(struct stack *parser)
+struct ast_node* ast_build_tree(struct queue *parser)
 {
 	struct ast_node *root = NULL;
-	char *str;
+	char *str = NULL;
 	struct stack st = {0};
 
 	/* sanity checks */
-	BUG_ON(!parser || stack_empty(parser));
-	BUG_ON(!strstarts((char* )stack_peek(parser), "STMT"));
+	BUG_ON(!parser || queue_empty(parser));
+//	BUG_ON(!strstarts((char* stack_peek(parser), "STMT")); //TODO adapt this for queue
 
 	root = NULL;
 	if (!stack_init(&st))
 		goto err_stack_init;
 
-	for (int i = 0; i < parser->idx + 1; i++) {
-		str = (char*)stack_peek_pos(parser, i);
+	while (!queue_empty(parser)) {
+		str = (char*)queue_peek(parser);
 
 		if (strstarts(str, "STARTCOL")) {
-			struct ast_column_def_node *node = create_column_ast(parser, &i);
+			struct ast_column_def_node *node = create_column_ast(parser);
 			if (!node)
-				goto err_alloc_node;
+				goto err_push_node;
 
 			if (!stack_unsafe_push(&st, node)) {
 				ast_free((struct ast_node*)node);
@@ -234,9 +244,9 @@ struct ast_node* ast_build_tree(struct stack *parser)
 			}
 
 		} else if (strstarts(str, "CREATE")) {
-			struct ast_create_node *node = create_table_ast(parser, &i, &st);
+			struct ast_create_node *node = create_table_ast(parser, &st);
 			if (!node)
-				goto err_alloc_node;
+				goto err_push_node;
 
 			if (!stack_unsafe_push(&st, node)) {
 				ast_free((struct ast_node*)node);
@@ -253,14 +263,14 @@ struct ast_node* ast_build_tree(struct stack *parser)
 			root = (struct ast_node*)stack_pop(&st);
 			break;
 		} else {
-			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", (char*)stack_peek(parser));
+			fprintf(stderr, "ast_build_tree: %s handler not implement yet\n", str);
 			exit(1);
 		}
+
 	}
 
 	/* something went terribly wrong is this is not empty */
 	BUG_ON(!stack_empty(&st));
-
 	stack_free(&st);
 
 	return root;
@@ -269,7 +279,6 @@ struct ast_node* ast_build_tree(struct stack *parser)
 	while (!stack_empty(&st)) {
 		ast_free((struct ast_node*)stack_pop(&st));
 	}
-	err_alloc_node:
 	stack_free(&st);
 	err_stack_init:
 	return NULL;

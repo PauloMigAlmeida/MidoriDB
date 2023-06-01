@@ -5,16 +5,16 @@
 %define api.pure true
 
 %{
-#include <datastructure/stack.h>
+#include <datastructure/queue.h>
 
-void yyerror(struct stack*, void*, const char *, ...);
-bool emit(struct stack *st, char *s, ...);
+void yyerror(struct queue*, void*, const char *, ...);
+bool emit(struct queue *q, char *s, ...);
 int yylex(void*, void*);
 %}
 
 %code requires { 
 #include <compiler/common.h>
-#include <datastructure/stack.h>
+#include <datastructure/queue.h>
 }
 
 /* 
@@ -24,7 +24,7 @@ int yylex(void*, void*);
    return value is already reserved as an int, with
    0=success, 1=error, 2=nomem
 */
-%parse-param {struct stack *result}
+%parse-param {struct queue *result}
 
 /* add lexer parameter so it becomes reentrant (thread-safe) */
 %param {void *scanner}
@@ -474,7 +474,7 @@ expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
 
 %%
 
-void yyerror(struct stack *st, void* scanner, const char *s, ...)
+void yyerror(struct queue *q, void* scanner, const char *s, ...)
 {
 	(void)scanner;
 	char buf[256];
@@ -485,7 +485,7 @@ void yyerror(struct stack *st, void* scanner, const char *s, ...)
 	
 	/* if the error happened at the lexical phase then 
 	we print it to stderr as there is no stack ref yet */
-	if(!st){
+	if(!q){
 		vfprintf(stderr, s, ap);  
 		fprintf(stderr, "\n");
 	}else {
@@ -494,7 +494,7 @@ void yyerror(struct stack *st, void* scanner, const char *s, ...)
 		/* although unlikely, if we fail to push content to the stack
 		   so other program can read the error message, then we fail 
 		   over to the stderr */
-		if(!stack_push(st, buf, strlen(buf) + 1)){
+		if(!queue_offer(q, buf, strlen(buf) + 1)){
 			vfprintf(stderr, s, ap);  
 			fprintf(stderr, "\n");
 		}
@@ -503,7 +503,7 @@ void yyerror(struct stack *st, void* scanner, const char *s, ...)
 	va_end(ap);
 }
 
-bool emit(struct stack *st, char *s, ...)
+bool emit(struct queue *q, char *s, ...)
 {
 	char buf[256];
 	va_list ap;
@@ -513,5 +513,5 @@ bool emit(struct stack *st, char *s, ...)
 	vsnprintf(buf,sizeof(buf), s, ap);
 	va_end(ap);
 
-	return stack_push(st, buf, strlen(buf) + 1);
+	return queue_offer(q, buf, strlen(buf) + 1);
 }

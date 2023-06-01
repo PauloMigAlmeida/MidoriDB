@@ -12,7 +12,7 @@
 #include <datastructure/vector.h>
 
 /*
- * Dynamic-size stack data structure
+ * Dynamic-sized stack data structure
  */
 struct stack {
 	struct vector *arr;

@@ -8,29 +8,28 @@
 #include <tests/parser.h>
 #include <parser/syntax.h>
 
-static void print_stack_content(struct stack *st)
+static void print_queue(struct queue *ct)
 {
-	for (int i = st->idx; i >= 0; i--) {
-		char *ptr = *((char**)(st->arr->data + i * sizeof(uintptr_t)));
-		printf("%s\n", ptr);
+	for (size_t i = 0; i <= (ct->arr->len / sizeof(uintptr_t)); i++) {
+		printf("stack pos: %lu, content: %s\n", i, (char*)queue_peek_pos(ct, i));
 	}
 	printf("\n");
 }
 
 static int parse_stmt(char *in)
 {
-	struct stack st = {0};
+	struct queue ct = {0};
 	int res;
 
-	CU_ASSERT(stack_init(&st));
+	CU_ASSERT(queue_init(&ct));
 
-	res = syntax_parse(in, &st);
+	res = syntax_parse(in, &ct);
 
-	// temporary
+//	 temporary
 	printf("%s\n", in);
-	print_stack_content(&st);
+	print_queue(&ct);
 
-	stack_free(&st);
+	queue_free(&ct);
 
 	return res;
 }
