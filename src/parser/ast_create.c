@@ -200,7 +200,7 @@ static struct ast_index_column_node* __must_check build_indexcol_node(struct que
 	return NULL;
 }
 
-static struct ast_index_def_node* __must_check build_indexdef_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_index_def_node* __must_check build_indexdef_pk_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_index_def_node *node;
 	char *str;
@@ -253,6 +253,59 @@ static struct ast_index_def_node* __must_check build_indexdef_node(struct queue 
 	return NULL;
 }
 
+static struct ast_index_def_node* __must_check build_indexdef_idx_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_index_def_node *node;
+	char *str;
+	struct stack reg_pars = {0};
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INDEXDEF;
+	list_head_init(&node->head);
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "KEY ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->is_index = true;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		struct ast_index_column_node *col = (struct ast_index_column_node*)stack_pop(tmp_st);
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		list_add(&col->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+	err_regex:
+	free(str);
+	free(node->node_children_head);
+	err_head:
+	free(node);
+	err_node:
+	stack_free(&reg_pars);
+	err:
+	return NULL;
+}
+
 struct ast_node* ast_create_build_tree(struct queue *parser)
 {
 	struct ast_node *root = NULL;
@@ -274,7 +327,9 @@ struct ast_node* ast_create_build_tree(struct queue *parser)
 		} else if (strstarts(str, "COLUMN")) {
 			curr = (struct ast_node*)build_indexcol_node(parser);
 		} else if (strstarts(str, "PRIKEY")) {
-			curr = (struct ast_node*)build_indexdef_node(parser, &st);
+			curr = (struct ast_node*)build_indexdef_pk_node(parser, &st);
+		} else if (strstarts(str, "KEY")) {
+			curr = (struct ast_node*)build_indexdef_idx_node(parser, &st);
 		} else if (strstarts(str, "STMT")) {
 			root = (struct ast_node*)stack_pop(&st);
 			break;

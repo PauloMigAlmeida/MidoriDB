@@ -139,7 +139,6 @@ int yylex(void*, void*);
 
 %type <intval> insert_vals insert_vals_list
 %type <intval> opt_if_not_exists update_asgn_list
-%type <intval> opt_length
 %type <intval> column_atts data_type create_col_list
 
 %start stmt_list
@@ -361,7 +360,6 @@ create_definition: { emit(result, "STARTCOL"); } NAME data_type column_atts
                    { emit(result, "COLUMNDEF %d %s", $3, $2); free($2); }
 
     | PRIMARY KEY '(' column_list ')'    { emit(result, "PRIKEY %d", $4); }
-    | KEY '(' column_list ')'            { emit(result, "KEY %d", $3); }
     | INDEX '(' column_list ')'          { emit(result, "KEY %d", $3); }
     ;
 
@@ -369,19 +367,14 @@ column_atts: /* nil */ { $$ = 0; }
     | column_atts NOT NULLX             { emit(result, "ATTR NOTNULL"); $$ = $1 + 1; }
     | column_atts NULLX
     | column_atts AUTO_INCREMENT        { emit(result, "ATTR AUTOINC"); $$ = $1 + 1; }
-    | column_atts UNIQUE { emit(result, "ATTR UNIQUEKEY"); $$ = $1 + 1; }
-    | column_atts PRIMARY KEY { emit(result, "ATTR PRIKEY"); $$ = $1 + 1; }
+    | column_atts UNIQUE 		{ emit(result, "ATTR UNIQUEKEY"); $$ = $1 + 1; }
+    | column_atts PRIMARY KEY 		{ emit(result, "ATTR PRIKEY"); $$ = $1 + 1; }
     ;
 
-opt_length: /* nil */ { $$ = 0; }
-   | '(' INTNUM ')' { $$ = $2; }
-   | '(' INTNUM ',' INTNUM ')' { $$ = $2 + 1000*$4; }
-   ;
-
 data_type:
-     INT opt_length { $$ = 40000 + $2; }
-   | INTEGER opt_length { $$ = 50000 + $2; }
-   | DOUBLE opt_length { $$ = 80000 + $2; }
+     INT { $$ = 40000; }
+   | INTEGER { $$ = 50000; }
+   | DOUBLE { $$ = 80000; }
    | DATE { $$ = 100000; }
    | DATETIME { $$ = 110000; }
    | VARCHAR '(' INTNUM ')' { $$ = 130000 + $3; }

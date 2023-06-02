@@ -49,13 +49,14 @@ GROUP	{ return GROUP; }
 HAVING	{ return HAVING; }
 IF	{ return IF; }
 IN	{ return IN; }
+INDEX	{ return INDEX; }
 INNER	{ return INNER; }
 INSERT	{ return INSERT; }
 INT4?|INTEGER	{ return INTEGER; }
 INTO	{ return INTO; }
 IS	{ return IS; }
 JOIN	{ return JOIN; }
-INDEX|KEY	{ return KEY; }
+KEY	{ return KEY; }
 LEFT	{ return LEFT; }
 LIKE	{ return LIKE; }
 LIMIT	{ return LIMIT; }
