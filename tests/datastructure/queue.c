@@ -1,5 +1,4 @@
 #include <tests/datastructure.h>
-#include <datastructure/stack.h>
 #include <datastructure/queue.h>
 
 void test_queue_init(void)
