@@ -2,7 +2,7 @@
 #include <lib/string.h>
 
 void test_strrand(void) {
-    char str[10];
+    char str[11];
     strrand(str, 10);
     CU_ASSERT(strlen(str) == 10);
 }
