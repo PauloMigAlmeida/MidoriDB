@@ -10,6 +10,11 @@ bool lib_init_suite(void)
 	ADD_UNITTEST(suite, test_bit_set);
 	ADD_UNITTEST(suite, test_bit_clear);
 	ADD_UNITTEST(suite, test_bit_toggle);
+	/* string */
+	ADD_UNITTEST(suite, test_strstarts);
+	ADD_UNITTEST(suite, test_strrand);
+	/* regex */
+	ADD_UNITTEST(suite, test_regex_ext_match_grp);
 
 	return false;
 }

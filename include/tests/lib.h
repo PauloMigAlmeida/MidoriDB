@@ -12,4 +12,9 @@ void test_bit_set(void);
 void test_bit_clear(void);
 void test_bit_toggle(void);
 
+void test_strstarts(void);
+void test_strrand(void);
+
+void test_regex_ext_match_grp(void);
+
 #endif /* TESTS_LIB_H */

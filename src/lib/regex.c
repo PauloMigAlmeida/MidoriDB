@@ -7,7 +7,7 @@
 
 #include <lib/regex.h>
 
-bool __must_check regex_ext_match_grp(const char *text, const char *exp, struct stack *out)
+bool regex_ext_match_grp(const char *text, const char *exp, struct stack *out)
 {
 
 	regex_t regex;
