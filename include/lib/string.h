@@ -12,4 +12,6 @@
 
 bool strstarts(const char *str, const char *prefix);
 
+void strrand(char *str, size_t len);
+
 #endif /* INCLUDE_LIB_STRING_H_ */
