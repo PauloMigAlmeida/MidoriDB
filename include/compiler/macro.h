@@ -14,4 +14,7 @@
 #define unlikely(x)           __builtin_expect(!!(x), 0)
 #define likely(x)            __builtin_expect(!!(x), 1)
 
+/* ignore unused variable warnings - to be used in very specific occasions */
+#define UNUSED(x)		(void)x
+
 #endif /* COMPILER_MACRO_H */

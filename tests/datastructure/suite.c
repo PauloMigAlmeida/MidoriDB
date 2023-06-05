@@ -38,6 +38,14 @@ bool datastructure_init_suite(void)
 	ADD_UNITTEST(suite, test_queue_free);
 	ADD_UNITTEST(suite, test_queue_peek);
 	ADD_UNITTEST(suite, test_queue_peek_pos);
+	
+	/* hashtable */
+	ADD_UNITTEST(suite, test_hashtable_init);
+	ADD_UNITTEST(suite, test_hashtable_free);
+	ADD_UNITTEST(suite, test_hashtable_put);
+	ADD_UNITTEST(suite, test_hashtable_get);
+	ADD_UNITTEST(suite, test_hashtable_remove);
+	ADD_UNITTEST(suite, test_hashtable_iterate);
 
 	return false;
 }

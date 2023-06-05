@@ -40,4 +40,11 @@ void test_queue_free(void);
 void test_queue_peek(void);
 void test_queue_peek_pos(void);
 
+void test_hashtable_init(void);
+void test_hashtable_free(void);
+void test_hashtable_put(void);
+void test_hashtable_get(void);
+void test_hashtable_remove(void);
+void test_hashtable_iterate(void);
+
 #endif /* TESTS_DATASTRUCTURE_H */
