@@ -103,8 +103,10 @@ static void hashtable_resize(struct hashtable *hashtable)
 	if (!new_array)
 		return;
 
-	if (!array_init(new_array, new_capacity))
-		goto err_arr_init;
+	if (!array_init(new_array, new_capacity)) {
+		free(new_array);
+		return;
+	}
 
 	for (size_t i = 0; i < hashtable->capacity; i++) {
 		ptr_old = (struct list_head**)(hashtable->array + i * sizeof(uintptr_t));
@@ -124,8 +126,6 @@ static void hashtable_resize(struct hashtable *hashtable)
 	hashtable->array = new_array;
 	hashtable->capacity = new_capacity;
 
-	err_arr_init:
-	free(new_array);
 }
 
 bool hashtable_put(struct hashtable *hashtable, const void *key, size_t key_len, const void *value, size_t value_len)
