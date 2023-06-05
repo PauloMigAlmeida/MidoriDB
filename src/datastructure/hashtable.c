@@ -81,7 +81,7 @@ void hashtable_free(struct hashtable *hashtable)
 	hashtable->array = NULL;
 }
 
-static bool hashtable_resize(struct hashtable *hashtable)
+static void hashtable_resize(struct hashtable *hashtable)
 {
 	char *new_array;
 	double load_factor;
@@ -96,12 +96,12 @@ static bool hashtable_resize(struct hashtable *hashtable)
 	load_factor = (double)hashtable->count / (double)hashtable->capacity;
 
 	if (load_factor < HASHTABLE_LOAD_FACTOR)
-		return true;
+		return;
 
 	new_capacity = hashtable->capacity * 2;
 	new_array = zalloc(sizeof(struct hashtable_entry*) * new_capacity);
 	if (!new_array)
-		goto err;
+		return;
 
 	if (!array_init(new_array, new_capacity))
 		goto err_arr_init;
@@ -124,12 +124,8 @@ static bool hashtable_resize(struct hashtable *hashtable)
 	hashtable->array = new_array;
 	hashtable->capacity = new_capacity;
 
-	return true;
-
 	err_arr_init:
 	free(new_array);
-	err:
-	return false;
 }
 
 bool hashtable_put(struct hashtable *hashtable, const void *key, size_t key_len, const void *value, size_t value_len)
