@@ -10,22 +10,6 @@
 #include <parser/ast.h>
 #include <datastructure/linkedlist.h>
 
-static void print_queue(struct queue *ct)
-{
-	for (size_t i = 0; i < queue_length(ct); i++) {
-		printf("pos: %lu, content: %s\n", i, (char*)queue_peek_pos(ct, i));
-	}
-	printf("\n");
-}
-
-static void build_stack(char *stmt, struct queue *out)
-{
-	CU_ASSERT(queue_init(out));
-	CU_ASSERT_EQUAL(syntax_parse(stmt, out), 0);
-	printf("\n\n");
-	print_queue(out);
-}
-
 static void create_table_case_1(void)
 {
 	struct queue ct = {0};
@@ -35,7 +19,7 @@ static void create_table_case_1(void)
 	struct ast_column_def_node *entry = NULL;
 	int i = 0;
 
-	build_stack("CREATE TABLE IF NOT EXISTS A ("
+	parse_stmt("CREATE TABLE IF NOT EXISTS A ("
 			"f1 INTEGER PRIMARY KEY AUTO_INCREMENT,"
 			"f2 INT UNIQUE,"
 			"f3 DOUBLE NOT NULL);",
@@ -106,7 +90,7 @@ static void create_table_case_2(void)
 	struct ast_column_def_node *entry = NULL;
 	int i = 0;
 
-	build_stack("CREATE TABLE B ("
+	parse_stmt("CREATE TABLE B ("
 			"f1 INTEGER PRIMARY KEY AUTO_INCREMENT,"
 			"f2 DOUBLE NOT NULL);",
 			&ct);
@@ -170,7 +154,7 @@ static void create_table_case_3(void)
 	int i = 0;
 	int j = 0;
 
-	build_stack("CREATE TABLE C ("
+	parse_stmt("CREATE TABLE C ("
 			"f1 INTEGER NOT NULL,"
 			"f2 DOUBLE NOT NULL,"
 			"PRIMARY KEY (f1,f2)"
@@ -280,7 +264,7 @@ static void create_table_case_4(void)
 	struct list_head *pos1 = NULL, *pos2 = NULL;
 	int i = 0;
 
-	build_stack("CREATE TABLE D ("
+	parse_stmt("CREATE TABLE D ("
 			"f1 INTEGER NOT NULL,"
 			"f2 DOUBLE NOT NULL,"
 			"INDEX (f1)"
@@ -376,7 +360,7 @@ static void create_table_case_5(void)
 	struct list_head *pos1 = NULL, *pos2 = NULL;
 	int i = 0;
 
-	build_stack("CREATE TABLE E ("
+	parse_stmt("CREATE TABLE E ("
 			"f1 INTEGER NOT NULL,"
 			"f2 DOUBLE NOT NULL,"
 			"PRIMARY KEY (f1),"
