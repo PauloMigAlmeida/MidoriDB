@@ -9,6 +9,7 @@ bool parser_init_suite(void)
 	/* create stmt */
 	ADD_UNITTEST(suite, test_syntax_parse);
 	ADD_UNITTEST(suite, test_ast_build_tree);
+	ADD_UNITTEST(suite, test_semantic_analyze);
 
 	return false;
 }

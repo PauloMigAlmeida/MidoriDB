@@ -477,14 +477,14 @@ void yyerror(struct queue *q, void* scanner, const char *s, ...)
 	va_start(ap, s);
 	
 	/* if the error happened at the lexical phase then 
-	we print it to stderr as there is no stack ref yet */
+	we print it to stderr as there is no queue ref yet */
 	if(!q){
 		vfprintf(stderr, s, ap);  
 		fprintf(stderr, "\n");
 	}else {
 		sprintf(buf, s, ap);
 	
-		/* although unlikely, if we fail to push content to the stack
+		/* although unlikely, if we fail to push content to the queue
 		   so other program can read the error message, then we fail 
 		   over to the stderr */
 		if(!queue_offer(q, buf, strlen(buf) + 1)){
