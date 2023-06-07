@@ -75,4 +75,13 @@ bool table_vacuum(struct table *table);
  */
 void table_datablock_init(struct datablock *block, size_t offset, size_t row_size);
 
+/**
+ * table_validate_name - valida name of table
+ *
+ * @name: name of the table
+ *
+ * this function returns true if name is valid, false otherwise
+ */
+bool table_validate_name(char *name);
+
 #endif /* INCLUDE_PRIMITIVE_TABLE_H_ */

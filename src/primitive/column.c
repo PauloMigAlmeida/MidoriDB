@@ -27,9 +27,14 @@ static inline bool __valid_name(char *name, size_t max_size)
 	return true;
 }
 
+bool table_validate_column_name(char *name)
+{
+	return __valid_name(name, TABLE_MAX_COLUMN_NAME);
+}
+
 static bool table_validate_column(struct column *column)
 {
-	if (!__valid_name(column->name, TABLE_MAX_COLUMN_NAME))
+	if (!table_validate_column_name(column->name))
 		return false;
 
 	if (column->precision < 1)

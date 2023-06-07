@@ -75,4 +75,13 @@ bool table_check_var_column(struct column *column);
  */
 size_t table_calc_column_space(struct column *column);
 
+/*
+ * table_validate_column_name - validate column name
+ *
+ * @name: name of the column
+ *
+ * this function returns true if valid, false otherwise
+ */
+bool table_validate_column_name(char *name);
+
 #endif /* INCLUDE_PRIMITIVE_COLUMN_H_ */

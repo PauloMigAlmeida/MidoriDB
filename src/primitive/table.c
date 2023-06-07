@@ -27,7 +27,7 @@ static inline bool __valid_name(char *name, size_t max_size)
 	return true;
 }
 
-static bool table_validate_name(char *name)
+bool table_validate_name(char *name)
 {
 	return __valid_name(name, TABLE_MAX_NAME);
 }
