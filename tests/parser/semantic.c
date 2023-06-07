@@ -50,5 +50,34 @@ void test_semantic_analyze(void)
 		"INDEX(f1));",
 		false);
 
+	/* invalid case - invalid table name*/
+	helper("CREATE TABLE iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii (f1 INT);",
+		true);
 
+	/* invalid case - invalid column name*/
+	helper("CREATE TABLE A (iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii INT);",
+		true);
+
+	/* invalid case - column name duplicate */
+	helper("CREATE TABLE IF NOT EXISTS A ("
+		"f1 INTEGER AUTO_INCREMENT,"
+		"f1 INT UNIQUE,"
+		"INDEX(f1));",
+		true);
+
+	/* invalid case - PK after column definition points to invalid column name */
+	helper("CREATE TABLE IF NOT EXISTS A ("
+		"f1 INTEGER AUTO_INCREMENT,"
+		"PRIMARY KEY(f2));",
+		true);
+
+	/* invalid case - index after column definition points to invalid column name */
+	helper("CREATE TABLE IF NOT EXISTS A ("
+		"f1 INTEGER AUTO_INCREMENT,"
+		"INDEX(f2));",
+		true);
 }

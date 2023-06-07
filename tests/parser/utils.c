@@ -19,8 +19,8 @@ void print_queue(struct queue *ct)
 void parse_stmt(char *stmt, struct queue *out)
 {
 	CU_ASSERT_FATAL(queue_init(out));
-	CU_ASSERT_EQUAL_FATAL(syntax_parse(stmt, out), 0);
-	printf("\n\n");
+	CU_ASSERT_EQUAL(syntax_parse(stmt, out), 0);
+	printf("\n");
 	print_queue(out);
 }
 

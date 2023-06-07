@@ -46,7 +46,7 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 	create_node = (struct ast_create_node*)node;
 	if (!table_validate_name(create_node->table_name)) {
 		snprintf(out_err, out_err_len,
-				"semantic phase: table name '%s' is invalid\n",
+				"table name '%s' is invalid\n",
 				create_node->table_name);
 
 		goto err_table_name;
@@ -60,18 +60,12 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 			coldef_node = (struct ast_column_def_node*)tmp_entry;
 
 			if (hashtable_get(&ht, coldef_node->name, strlen(coldef_node->name) + 1)) {
-				snprintf(out_err, out_err_len,
-						"semantic phase: duplicate column name: '%s'\n",
-						coldef_node->name);
-
+				snprintf(out_err, out_err_len, "duplicate column name: '%s'\n", coldef_node->name);
 				goto err_dup_col_name;
 			}
 
 			if (!table_validate_column_name(coldef_node->name)) {
-				snprintf(out_err, out_err_len,
-						"semantic phase: column name '%s' is invalid\n",
-						coldef_node->name);
-
+				snprintf(out_err, out_err_len, "column name '%s' is invalid\n", coldef_node->name);
 				goto err_column_name;
 			}
 
@@ -82,7 +76,6 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 						strlen(coldef_node->name) + 1)) {
 
 				snprintf(out_err, out_err_len, "semantic phase: internal error\n");
-
 				goto err_ht_put_col;
 			}
 		}
@@ -107,11 +100,7 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 				idxcol_node = list_entry(pos2, typeof(*idxcol_node), head);
 
 				if (!hashtable_get(&ht, idxcol_node->name, strlen(idxcol_node->name) + 1)) {
-
-					snprintf(out_err, out_err_len,
-							"semantic phase: invalid column: '%s'\n",
-							idxcol_node->name);
-
+					snprintf(out_err, out_err_len, "invalid column: '%s'\n", idxcol_node->name);
 					goto err_idx_pk_col;
 				}
 			}
