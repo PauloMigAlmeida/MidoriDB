@@ -40,7 +40,7 @@ struct ast_create_node {
 	/* doubly-linked list head */
 	struct list_head head;
 
-	char table_name[TABLE_MAX_NAME + 1 /*NUL char */]; //TODO add tests to check array bounds during parse-to-AST
+	char table_name[255 + 1 /*NUL char */];
 	bool if_not_exists;
 	int column_count;
 };
@@ -53,7 +53,7 @@ struct ast_column_def_node {
 	/* doubly-linked list head */
 	struct list_head head;
 
-	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
+	char name[255 + 1 /*NUL char */];
 	enum COLUMN_TYPE type;
 	size_t precision;
 	bool attr_null;
@@ -85,7 +85,7 @@ struct ast_index_column_node {
 	/* doubly-linked list head */
 	struct list_head head;
 
-	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */]; //TODO check boundaries
+	char name[255 + 1 /*NUL char */];
 };
 /* Create Statements - end */
 

@@ -84,9 +84,7 @@ static struct ast_column_def_node* __must_check build_columndef_node(struct queu
 				goto err_regex;
 
 			parse_bison_data_type((char*)stack_peek_pos(&tmp_st, 0), node);
-			strncpy(node->name,
-				(char*)stack_peek_pos(&tmp_st, 1),
-				strlen((char*)stack_peek_pos(&tmp_st, 1)));
+			strncpy(node->name, (char*)stack_peek_pos(&tmp_st, 1), sizeof(node->name) - 1 /* NUL-char */);
 			stack_free(&tmp_st);
 			free(str);
 			break;
@@ -137,7 +135,7 @@ static struct ast_create_node* __must_check build_table_node(struct queue *parse
 
 	node->if_not_exists = atoi((char*)stack_peek_pos(&reg_pars, 0));
 	count = atoi((char*)stack_peek_pos(&reg_pars, 1));
-	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), strlen((char*)stack_peek_pos(&reg_pars, 2)));
+	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), sizeof(node->table_name) - 1 /* NUL-char */);
 
 	for (int i = 0; i < count; i++) {
 		struct ast_column_def_node *col = (struct ast_column_def_node*)stack_pop(tmp_st);
@@ -183,9 +181,7 @@ static struct ast_index_column_node* __must_check build_indexcol_node(struct que
 	if (!regex_ext_match_grp(str, "COLUMN ([A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
 
-	strncpy(node->name,
-		(char*)stack_peek_pos(&reg_pars, 0),
-		strlen((char*)stack_peek_pos(&reg_pars, 0)));
+	strncpy(node->name, (char*)stack_peek_pos(&reg_pars, 0), sizeof(node->name) - 1 /* NUL-char */);
 	stack_free(&reg_pars);
 	free(str);
 
