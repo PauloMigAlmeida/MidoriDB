@@ -80,7 +80,7 @@ static struct ast_column_def_node* __must_check build_columndef_node(struct queu
 			if (!stack_init(&tmp_st))
 				goto err_stack_init;
 
-			if (!regex_ext_match_grp(str, "COLUMNDEF ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &tmp_st))
+			if (!regex_ext_match_grp(str, "COLUMNDEF ([0-9]+) ([A-Za-z0-9_]*)", &tmp_st))
 				goto err_regex;
 
 			parse_bison_data_type((char*)stack_peek_pos(&tmp_st, 0), node);
@@ -132,7 +132,7 @@ static struct ast_create_node* __must_check build_table_node(struct queue *parse
 
 	str = (char*)queue_poll(parser);
 
-	if (!regex_ext_match_grp(str, "CREATE ([0-9]+) ([0-9]+) ([A-Za-z][A-Za-z0-9_]*)", &reg_pars))
+	if (!regex_ext_match_grp(str, "CREATE ([0-9]+) ([0-9]+) ([A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
 
 	node->if_not_exists = atoi((char*)stack_peek_pos(&reg_pars, 0));
@@ -180,7 +180,7 @@ static struct ast_index_column_node* __must_check build_indexcol_node(struct que
 	if (!stack_init(&reg_pars))
 		goto err_stack_init;
 
-	if (!regex_ext_match_grp(str, "COLUMN ([A-Za-z][A-Za-z0-9_]*)", &reg_pars))
+	if (!regex_ext_match_grp(str, "COLUMN ([A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
 
 	strncpy(node->name,
