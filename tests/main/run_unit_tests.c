@@ -19,6 +19,8 @@ int main(void)
 		return CU_get_error();
 	if (parser_init_suite())
 		return CU_get_error();
+	if (engine_init_suite())
+		return CU_get_error();
 
 	/* Run all tests using the basic interface */
 	CU_basic_set_mode(CU_BRM_VERBOSE);
