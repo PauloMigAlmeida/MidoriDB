@@ -263,9 +263,6 @@ bool hashtable_str_compare(const void *key1, size_t key1_len, const void *key2, 
 	/* sanity checks */
 	BUG_ON(!key1 || !key2 || key1_len == 0 || key2_len == 0);
 
-	if (key1_len != key2_len)
-		return false;
-
 	return strcmp(key1, key2) == 0;
 }
 
