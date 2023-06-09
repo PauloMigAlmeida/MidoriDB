@@ -1,20 +1,10 @@
 #include "tests/engine.h"
 
-void engine_setup(void)
-{
-	printf("setup called\n");
-}
-
-void engine_teardown(void)
-{
-	printf("teardown called\n");
-}
-
 bool engine_init_suite(void)
 {
 	CU_pSuite suite = NULL;
 
-	ADD_SUITE_WITH_SETUP_TEARDOWN(suite, "engine", &engine_setup, &engine_teardown);
+	ADD_SUITE(suite, "engine");
 	if (!suite) {
 		CU_cleanup_registry();
 		return true;
@@ -22,6 +12,10 @@ bool engine_init_suite(void)
 
 	/* executor */
 	ADD_UNITTEST(suite, test_executor_run);
+	/* midoridb */
+	ADD_UNITTEST(suite, test_database_open);
+	ADD_UNITTEST(suite, test_database_close);
+	ADD_UNITTEST(suite, test_database_add_table);
 
 	return false;
 }

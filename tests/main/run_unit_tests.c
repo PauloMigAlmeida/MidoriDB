@@ -3,6 +3,7 @@
 #include <tests/primitive.h>
 #include <tests/parser.h>
 #include <tests/lib.h>
+#include <tests/engine.h>
 
 int main(void)
 {
