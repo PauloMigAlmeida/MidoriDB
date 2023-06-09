@@ -27,14 +27,6 @@ bool database_open(struct database *db)
 	return false;
 }
 
-//TODO I've used this more than once... maybe it should be a hashtable.h utility function instead.
-static void free_entry(struct hashtable_entry *entry)
-{
-	free(entry->key.content);
-	free(entry->value.content);
-	free(entry);
-}
-
 int free_table(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
 {
 	struct hashtable_entry *entry = NULL;
@@ -45,7 +37,7 @@ int free_table(struct hashtable *hashtable, const void *key, size_t klen, const 
 	table_destroy((struct table**)value);
 
 	entry = hashtable_remove(hashtable, key, klen);
-	free_entry(entry);
+	hashtable_free_entry(entry);
 
 	return 0;
 }

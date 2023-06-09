@@ -279,3 +279,10 @@ size_t hashtable_str_hash(const void *key, size_t key_len)
 
 	return hash;
 }
+
+void hashtable_free_entry(struct hashtable_entry *entry)
+{
+	free(entry->key.content);
+	free(entry->value.content);
+	free(entry);
+}

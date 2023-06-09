@@ -122,4 +122,13 @@ bool hashtable_str_compare(const void *key1, size_t key1_len, const void *key2, 
  */
 size_t hashtable_str_hash(const void *key, size_t key_len);
 
+/**
+ * hashtable_free_entry - free hashtable entry
+ * @entry: entry to be freed
+ *
+ * Use this function with caution. You still responsible for freeing the content that either
+ * key or value pointed two if that's a complex type.
+ */
+void hashtable_free_entry(struct hashtable_entry* entry);
+
 #endif /* INCLUDE_DATASTRUCTURE_HASHTABLE_H_ */

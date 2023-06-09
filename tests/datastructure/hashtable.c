@@ -2,13 +2,6 @@
 #include <datastructure/hashtable.h>
 #include <lib/string.h>
 
-static void free_entry(struct hashtable_entry *entry)
-{
-	free(entry->key.content);
-	free(entry->value.content);
-	free(entry);
-}
-
 static int free_str_entries(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
 {
 	struct hashtable_entry *entry = NULL;
@@ -17,7 +10,7 @@ static int free_str_entries(struct hashtable *hashtable, const void *key, size_t
 	BUG_ON(!key || klen == 0 || !value || vlen == 0);
 	entry = hashtable_remove(hashtable, key, klen);
 	CU_ASSERT_PTR_NOT_NULL(entry);
-	free_entry(entry);
+	hashtable_free_entry(entry);
 
 	return 0;
 }
@@ -123,7 +116,7 @@ void test_hashtable_remove(void)
 	CU_ASSERT_STRING_EQUAL(entry->key.content, key1);
 	CU_ASSERT_STRING_EQUAL(entry->value.content, value1);
 	CU_ASSERT_EQUAL(ht.count, 0);
-	free_entry(entry);
+	hashtable_free_entry(entry);
 
 	/* item that doesn't exists */
 	CU_ASSERT(hashtable_put(&ht, key1, sizeof(key1), value1, sizeof(value1)));
