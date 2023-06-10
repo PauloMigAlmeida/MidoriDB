@@ -172,7 +172,7 @@ static int __must_check btree_node_copy(struct btree_head *head, struct btree_no
 	err_children: free(dst->keys);
 	err:
 	printf("error while allocating mem");
-	return -EMDNOMEM;
+	return -MIDORIDB_NOMEM;
 }
 
 static int __must_check btree_split_child(struct btree_head *head, struct btree_node *x, int i)
@@ -219,7 +219,7 @@ static int __must_check btree_split_child(struct btree_head *head, struct btree_
 	return 0;
 
 	err:
-	return -EMDNOMEM;
+	return -MIDORIDB_NOMEM;
 }
 
 static struct btree_node* __must_check btree_split_root(struct btree_head *head)
@@ -311,7 +311,7 @@ int btree_insert(struct btree_head *head, void *key, void *val)
 	}
 
 	err:
-	return -EMDNOMEM;
+	return -MIDORIDB_NOMEM;
 }
 
 static void btree_node_remove_from_leaf(struct btree_head *head, struct btree_node *node, int idx)
