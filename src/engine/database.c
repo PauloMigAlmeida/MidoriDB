@@ -7,7 +7,7 @@
 
 #include <engine/database.h>
 
-bool database_open(struct database *db)
+int database_open(struct database *db)
 {
 	/* sanity check */
 	BUG_ON(!db);
@@ -19,12 +19,12 @@ bool database_open(struct database *db)
 	if (!hashtable_init(db->tables, &hashtable_str_compare, &hashtable_str_hash))
 		goto err_ht_init;
 
-	return true;
+	return MIDORIDB_OK;
 
 	err_ht_init:
 	free(db->tables);
 	err:
-	return false;
+	return -MIDORIDB_ERROR;
 }
 
 int free_table(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
@@ -55,24 +55,42 @@ void database_close(struct database *db)
 	db->tables = NULL;
 }
 
-bool database_add_table(struct database *db, struct table *table)
+int database_add_table(struct database *db, struct table *table)
 {
-	bool ret;
+	int rc = MIDORIDB_OK;
+
 	/* sanity check */
 	BUG_ON(!db || !table);
 
-	if (pthread_mutex_lock(&db->mutex))
-		return false;
+	if (pthread_mutex_lock(&db->mutex)){
+		rc = -MIDORIDB_INTERNAL;
+		goto err;
+	}
 
 	/* check if table exists */
-	if (hashtable_get(db->tables, table->name, sizeof(table->name)))
-		return false;
+	if (hashtable_get(db->tables, table->name, sizeof(table->name))){
+		rc = -MIDORIDB_ERROR;
+		goto err_ht_dup;
+	}
 
-	ret = hashtable_put(db->tables, table->name, sizeof(table->name), &table, sizeof(uintptr_t));
+	if (!hashtable_put(db->tables, table->name, sizeof(table->name), &table, sizeof(uintptr_t))){
+		rc = -MIDORIDB_NOMEM;
+		goto err_ht_put;
+	}
 
-	if (pthread_mutex_unlock(&db->mutex))
-		return false;
+	if (pthread_mutex_unlock(&db->mutex)){
+		rc = -MIDORIDB_INTERNAL;
+		goto err_mt_unlock;
+	}
 
-	return ret;
+	return rc;
+
+	err_mt_unlock:
+	err_ht_put:
+	err_ht_dup:
+	pthread_mutex_unlock(&db->mutex);
+	err:
+	return rc;
 
 }
+

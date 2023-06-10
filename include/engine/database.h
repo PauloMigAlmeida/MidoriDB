@@ -21,9 +21,9 @@ struct database {
  * database_open - initialise a database
  * @db: database to initialise
  * 
- * Returns: true if successful, false otherwise
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
  */
-bool database_open(struct database *db);
+int database_open(struct database *db);
 
 /**
  * database_close - close a database
@@ -36,8 +36,9 @@ void database_close(struct database *db);
  * @db: database to add table to
  * @table: table to add
  * 
- * Returns: true if successful, false otherwise
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
  */
-bool database_add_table(struct database *db, struct table *table);
+int database_add_table(struct database *db, struct table *table);
+
 
 #endif /* INCLUDE_ENGINE_DATABASE_H_ */
