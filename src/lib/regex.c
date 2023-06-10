@@ -39,7 +39,7 @@ bool regex_ext_match_grp(const char *text, const char *exp, struct stack *out)
 		if (!stack_push(out, match, length + 1))
 			goto err_stack;
 
-		printf("Match %d: %s\n", i, match);
+//		printf("Match %d: %s\n", i, match);
 		free(match);
 	}
 
