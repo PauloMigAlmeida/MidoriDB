@@ -18,7 +18,6 @@ struct ast_node* ast_build_tree(struct queue *parser)
 
 	/* sanity checks */
 	BUG_ON(!parser || queue_empty(parser));
-//	BUG_ON(!strstarts((char* stack_peek(parser), "STMT")); //TODO adapt this for queue
 
 	/* walk to STMT */
 	while (pos < queue_length(parser)) {
