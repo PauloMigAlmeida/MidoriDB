@@ -15,9 +15,9 @@
 #include "compiler/macro.h"
 #include "compiler/bug.h"
 #include "compiler/container_of.h"
-#include "compiler/error.h"
 #include "compiler/heap.h"
 #include "compiler/compiler_attributes.h"
 #include "compiler/overflow.h"
+#include "engine/error.h"
 
 #endif /* COMPILER_COMMON_H */
