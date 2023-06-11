@@ -17,8 +17,8 @@
 #define TABLE_MAX_NAME			127
 
 /* sanity checks */
-BUILD_BUG(TABLE_MAX_COLUMNS > 8, "TABLE_MAX_COLUMNS has to be greater than 8")
-BUILD_BUG(IS_POWER_OF_2(TABLE_MAX_COLUMNS), "TABLE_MAX_COLUMNS must be a power of 2")
+BUILD_BUG(TABLE_MAX_COLUMNS > 8, "TABLE_MAX_COLUMNS has to be greater than 8");
+BUILD_BUG(IS_POWER_OF_2(TABLE_MAX_COLUMNS), "TABLE_MAX_COLUMNS must be a power of 2");
 
 struct table {
 

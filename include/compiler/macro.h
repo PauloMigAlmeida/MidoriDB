@@ -8,7 +8,7 @@
 #define IS_POWER_OF_2(x)        (x != 0) && ((x & (x - 1)) == 0)
 
 /* throws an error at compilation phase if it evalutates to false */
-#define BUILD_BUG(expr, msg)    _Static_assert(expr, msg);
+#define BUILD_BUG(expr, msg)    _Static_assert(expr, msg)
 
 /* hints compiler about likely/unlikely branch prediction optimisations */
 #define unlikely(x)           __builtin_expect(!!(x), 0)
