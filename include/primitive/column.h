@@ -26,15 +26,20 @@ enum COLUMN_TYPE {
 struct column {
 	/* NUL-terminated string */
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
-
 	/* type of value meant to be stored */
 	enum COLUMN_TYPE type;
-
 	/* how much space it takes up in memory */
 	int precision;
-
 	/* is this column indexed ? */
 	bool indexed;
+	/* is this column nullable ? */
+	bool nullable;
+	/* is this column unique ? */
+	bool unique;
+	/* is this column auto increment ? */
+	bool auto_inc;
+	/* is this column primary key ? */
+	bool primary_key;
 };
 
 #define TABLE_MAX_COLUMN_NAME		127

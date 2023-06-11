@@ -25,7 +25,19 @@ void add_index(struct ast_index_def_node *idx_def_node, struct table *table)
 
 			if (strncmp(col->name, entry->name, sizeof(col->name)) == 0) {
 				col->indexed = idx_def_node->is_index;
-				//TODO implement handler idx_def_node->is_pk
+
+				/*
+				 * When primary key is defined after the column definition,
+				 * the AST doesn't get the change to tweak the other attributes
+				 * which change as a side effect. So we need to do it here
+				 *
+				 * See more at: ast_create.c
+				 */
+				if (idx_def_node->is_pk) {
+					col->primary_key = true;
+					col->nullable = false;
+					col->unique = true;
+				}
 			}
 		}
 	}
@@ -39,6 +51,12 @@ int add_column(struct ast_column_def_node *col_def_node, struct table *table)
 	strncpy(column.name, col_def_node->name, sizeof(column.name));
 	column.type = col_def_node->type;
 	column.precision = col_def_node->precision;
+	column.nullable = col_def_node->attr_null;
+	column.unique = col_def_node->attr_uniq_key;
+	column.auto_inc = col_def_node->attr_auto_inc;
+
+	/* this can be overridden still if PK is declared after column definition */
+	column.primary_key = col_def_node->attr_prim_key;
 
 	if (!table_add_column(table, &column))
 		rc = -MIDORIDB_INTERNAL;
