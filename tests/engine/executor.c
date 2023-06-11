@@ -31,8 +31,10 @@ static struct ast_node* build_ast_for_query(char *stmt)
 void test_executor_run(void)
 {
 	struct database db = {0};
-	struct ast_node *node = NULL;
+	struct ast_node *node;
 	struct query_output output = {0};
+	struct hashtable_value *value;
+	struct table *table;
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
@@ -40,6 +42,24 @@ void test_executor_run(void)
 	node = build_ast_for_query("CREATE TABLE TEST (f1 INT, f2 INT);");
 	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 1);
+
+	value = hashtable_get(db.tables, "TEST", 5);
+	CU_ASSERT_PTR_NOT_NULL(value);
+	table = *(struct table**)value->content;
+
+	CU_ASSERT_STRING_EQUAL(table->name, "TEST");
+	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[0].name, "f1");
+	CU_ASSERT_EQUAL(table->columns[0].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[0].precision, 8);
+	CU_ASSERT_FALSE(table->columns[0].indexed);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[1].name, "f2");
+	CU_ASSERT_EQUAL(table->columns[1].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[1].precision, 8);
+	CU_ASSERT_FALSE(table->columns[1].indexed);
 
 	ast_free(node);
 	database_close(&db);
