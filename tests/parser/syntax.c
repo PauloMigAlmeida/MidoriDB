@@ -50,6 +50,17 @@ void test_syntax_parse(void)
 					");"
 					),
 			0);
+	// defining primary key and index after column definition
+	CU_ASSERT_EQUAL(try_parse_stmt("CREATE TABLE IF NOT EXISTS A ("
+					"  f1 INTEGER AUTO_INCREMENT, "
+					"  f2 INT UNIQUE, "
+					"  f3 DOUBLE NOT NULL, "
+					"  f5 VARCHAR(10) NULL,"
+					"  PRIMARY KEY(f1),"
+					"  INDEX(f2)"
+					");"
+					),
+			0);
 
 	/*
 	 * invalid tests
