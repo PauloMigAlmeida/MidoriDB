@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <math.h>
 #include <regex.h>
+#include <time.h>
 #include "compiler/macro.h"
 #include "compiler/bug.h"
 #include "compiler/container_of.h"

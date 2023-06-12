@@ -26,14 +26,13 @@ static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
 		node->type = CT_DOUBLE;
 		node->precision = sizeof(double);
 		break;
-		//TODO figure out the right sizeof for DATE and DATETIME
 	case 10:
 		node->type = CT_DATE;
-		node->precision = sizeof(uint64_t);
+		node->precision = sizeof(time_t);
 		break;
 	case 11:
 		node->type = CT_DATETIME;
-		node->precision = sizeof(uint64_t);
+		node->precision = sizeof(time_t);
 		break;
 	case 13:
 		node->type = CT_VARCHAR;
