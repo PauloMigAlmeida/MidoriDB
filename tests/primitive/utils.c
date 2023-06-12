@@ -77,11 +77,11 @@ size_t count_datablocks(struct table *table)
 	return ret;
 }
 
+/* This function doesn't ignore empty / deleted rows by design */
 struct row* fetch_row(struct table *table, size_t row_num)
 {
 	size_t row_size = table_calc_row_size(table);
 
-	//TODO implement jump to next datablock when EOB is found
 	struct list_head *pos;
 	size_t i = 0;
 	list_for_each(pos, table->datablock_head)
