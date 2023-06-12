@@ -23,6 +23,6 @@ void test_semantic_analyze(void);
 /* utility functions which are shared among tests */
 void print_queue(struct queue *ct);
 void parse_stmt(char *stmt, struct queue *out);
-struct ast_node* build_ast_for_query(char *stmt);
+struct ast_node* build_ast(char *stmt);
 
 #endif /* INCLUDE_TESTS_PARSER_H_ */

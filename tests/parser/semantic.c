@@ -15,7 +15,7 @@ void helper(char *stmt, bool expect_to_fail)
 
 	memzero(err_msg, sizeof(err_msg));
 
-	node = build_ast_for_query(stmt);
+	node = build_ast(stmt);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(node);
 
 	CU_ASSERT_FATAL(semantic_analyse(node, err_msg, sizeof(err_msg)) == !expect_to_fail);

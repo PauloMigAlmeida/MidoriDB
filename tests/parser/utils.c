@@ -24,7 +24,7 @@ void parse_stmt(char *stmt, struct queue *out)
 	print_queue(out);
 }
 
-struct ast_node* build_ast_for_query(char *stmt)
+struct ast_node* build_ast(char *stmt)
 {
 	struct queue queue = {0};
 	struct ast_node *ret;

@@ -7,26 +7,8 @@
 
 #include <tests/engine.h>
 #include <engine/executor.h>
-#include <datastructure/queue.h>
-#include <parser/syntax.h>
 
-//TODO I have similar functions on the parser/utils.c -> I need to centralise those
-static void parse_stmt(char *stmt, struct queue *out)
-{
-	CU_ASSERT_FATAL(queue_init(out));
-	CU_ASSERT_EQUAL(syntax_parse(stmt, out), 0);
-}
-
-static struct ast_node* build_ast_for_query(char *stmt)
-{
-	struct queue queue = {0};
-	struct ast_node *ret;
-
-	parse_stmt(stmt, &queue);
-	ret = ast_build_tree(&queue);
-	queue_free(&queue);
-	return ret;
-}
+extern struct ast_node* build_ast(char *stmt);
 
 static void test_create_1(void)
 {
@@ -39,7 +21,7 @@ static void test_create_1(void)
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
 
-	node = build_ast_for_query("CREATE TABLE TEST (f1 INT, f2 INT);");
+	node = build_ast("CREATE TABLE TEST (f1 INT, f2 INT);");
 	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 1);
 
@@ -84,7 +66,7 @@ static void test_create_2(void)
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
 
-	node = build_ast_for_query("CREATE TABLE TEST (f1 INT PRIMARY KEY, f2 INT);");
+	node = build_ast("CREATE TABLE TEST (f1 INT PRIMARY KEY, f2 INT);");
 	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 1);
 
@@ -129,10 +111,10 @@ static void test_create_3(void)
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
 
-	node = build_ast_for_query("CREATE TABLE TEST ("
-					"f1 INT AUTO_INCREMENT PRIMARY KEY, "
-					"f2 INT NOT NULL,"
-					"INDEX(f2));");
+	node = build_ast("CREATE TABLE TEST ("
+				"f1 INT AUTO_INCREMENT PRIMARY KEY, "
+				"f2 INT NOT NULL,"
+				"INDEX(f2));");
 	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 1);
 
@@ -177,12 +159,12 @@ static void test_create_4(void)
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
 
-	node = build_ast_for_query("CREATE TABLE TEST ("
-					"f1 INT AUTO_INCREMENT, "
-					"f2 INT NOT NULL,"
-					"f3 INT UNIQUE NULL,"
-					"PRIMARY KEY (f1),"
-					"INDEX(f2));");
+	node = build_ast("CREATE TABLE TEST ("
+				"f1 INT AUTO_INCREMENT, "
+				"f2 INT NOT NULL,"
+				"f3 INT UNIQUE NULL,"
+				"PRIMARY KEY (f1),"
+				"INDEX(f2));");
 	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 1);
 
@@ -238,4 +220,8 @@ void test_executor_run(void)
 
 	/* create table - index; pk; auto increment, not null; null, unique */
 	test_create_4();
+
+	/*
+	 * TODO: create test with other column types
+	 */
 }
