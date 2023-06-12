@@ -10,7 +10,7 @@
 #include <datastructure/linkedlist.h>
 #include <primitive/table.h>
 
-static int free_str_entries(struct hashtable *hashtable, const void *key, size_t klen,
+static void free_str_entries(struct hashtable *hashtable, const void *key, size_t klen,
 		const void *value, size_t vlen, void *arg)
 {
 	struct hashtable_entry *entry = NULL;
@@ -19,11 +19,7 @@ static int free_str_entries(struct hashtable *hashtable, const void *key, size_t
 	UNUSED(vlen);
 
 	entry = hashtable_remove(hashtable, key, klen);
-	free(entry->key.content);
-	free(entry->value.content);
-	free(entry);
-
-	return 0;
+	hashtable_free_entry(entry);
 }
 
 static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t out_err_len)

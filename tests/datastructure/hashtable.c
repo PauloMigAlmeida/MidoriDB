@@ -2,7 +2,7 @@
 #include <datastructure/hashtable.h>
 #include <lib/string.h>
 
-static int free_str_entries(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
+static void free_str_entries(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
 {
 	struct hashtable_entry *entry = NULL;
 	UNUSED(arg);
@@ -11,8 +11,6 @@ static int free_str_entries(struct hashtable *hashtable, const void *key, size_t
 	entry = hashtable_remove(hashtable, key, klen);
 	CU_ASSERT_PTR_NOT_NULL(entry);
 	hashtable_free_entry(entry);
-
-	return 0;
 }
 
 void test_hashtable_init(void)
@@ -130,7 +128,7 @@ void test_hashtable_remove(void)
 
 }
 
-static int test_hashtable_iterate_callback(struct hashtable *hashtable, const void *key, size_t klen,
+static void test_hashtable_iterate_callback(struct hashtable *hashtable, const void *key, size_t klen,
 		const void *value, size_t vlen, void *arg)
 {
 	UNUSED(hashtable);
@@ -139,7 +137,6 @@ static int test_hashtable_iterate_callback(struct hashtable *hashtable, const vo
 	UNUSED(value);
 	UNUSED(vlen);
 	*((int*)arg) += 1;
-	return 0;
 }
 
 void test_hashtable_iterate(void)

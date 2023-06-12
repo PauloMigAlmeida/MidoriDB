@@ -15,7 +15,7 @@ struct hashtable;
 
 typedef bool (*hashtable_compare_fn)(const void *key1, size_t key1_len, const void *key2, size_t key2_len);
 typedef size_t (*hashtable_hash_fn)(const void *key, size_t key_len);
-typedef int (hashtable_callback_fn)(struct hashtable* hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg);
+typedef void (hashtable_callback_fn)(struct hashtable* hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg);
 
 /* dynamic-sized hash table */
 struct hashtable {
