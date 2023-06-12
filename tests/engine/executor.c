@@ -285,12 +285,92 @@ static void test_create_5(void)
 	database_close(&db);
 }
 
+static void test_create_6(void)
+{
+	struct database db = {0};
+	struct ast_node *node;
+	struct query_output output = {0};
+	struct hashtable_value *value;
+	struct table *table;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 0);
+
+	/* create it for the first time */
+	node = build_ast("CREATE TABLE IF NOT EXISTS TEST (f1 INT PRIMARY KEY, f2 INT);");
+	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 1);
+
+	value = hashtable_get(db.tables, "TEST", 5);
+	CU_ASSERT_PTR_NOT_NULL(value);
+	table = *(struct table**)value->content;
+
+	CU_ASSERT_STRING_EQUAL(table->name, "TEST");
+	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[0].name, "f1");
+	CU_ASSERT_EQUAL(table->columns[0].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[0].precision, 8);
+	CU_ASSERT_FALSE(table->columns[0].indexed);
+	CU_ASSERT_FALSE(table->columns[0].nullable);
+	CU_ASSERT(table->columns[0].unique);
+	CU_ASSERT_FALSE(table->columns[0].auto_inc);
+	CU_ASSERT(table->columns[0].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[1].name, "f2");
+	CU_ASSERT_EQUAL(table->columns[1].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[1].precision, 8);
+	CU_ASSERT_FALSE(table->columns[1].indexed);
+	CU_ASSERT(table->columns[1].nullable);
+	CU_ASSERT_FALSE(table->columns[1].unique);
+	CU_ASSERT_FALSE(table->columns[1].auto_inc);
+	CU_ASSERT_FALSE(table->columns[1].primary_key);
+
+	ast_free(node);
+
+	/* try to create it again - this time nothing should change */
+	node = build_ast("CREATE TABLE IF NOT EXISTS TEST (f1 INT PRIMARY KEY, f2 INT);");
+	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 1);
+
+	value = hashtable_get(db.tables, "TEST", 5);
+	CU_ASSERT_PTR_NOT_NULL(value);
+	table = *(struct table**)value->content;
+
+	CU_ASSERT_STRING_EQUAL(table->name, "TEST");
+	CU_ASSERT_EQUAL(table->column_count, 2);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[0].name, "f1");
+	CU_ASSERT_EQUAL(table->columns[0].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[0].precision, 8);
+	CU_ASSERT_FALSE(table->columns[0].indexed);
+	CU_ASSERT_FALSE(table->columns[0].nullable);
+	CU_ASSERT(table->columns[0].unique);
+	CU_ASSERT_FALSE(table->columns[0].auto_inc);
+	CU_ASSERT(table->columns[0].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[1].name, "f2");
+	CU_ASSERT_EQUAL(table->columns[1].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[1].precision, 8);
+	CU_ASSERT_FALSE(table->columns[1].indexed);
+	CU_ASSERT(table->columns[1].nullable);
+	CU_ASSERT_FALSE(table->columns[1].unique);
+	CU_ASSERT_FALSE(table->columns[1].auto_inc);
+	CU_ASSERT_FALSE(table->columns[1].primary_key);
+
+	ast_free(node);
+
+	database_close(&db);
+}
+
 void test_executor_run(void)
 {
 	/* create table - no index; no pk */
 	test_create_1();
 
-	/* create table - no index; pk */
+	/* create table - pk */
 	test_create_2();
 
 	/* create table - index; pk; auto increment, not null */
@@ -301,4 +381,7 @@ void test_executor_run(void)
 
 	/* create table - index; pk; unique; mixed column types */
 	test_create_5();
+
+	/* create table - pk; if not exists */
+	test_create_6();
 }

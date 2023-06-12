@@ -65,7 +65,7 @@ int database_table_add(struct database *db, struct table *table)
 	}
 
 	/* check if table exists */
-	if (hashtable_get(db->tables, table->name, sizeof(table->name))) {
+	if (database_table_exists(db, table->name)) {
 		rc = -MIDORIDB_ERROR;
 		goto err_ht_dup;
 	}
@@ -88,6 +88,10 @@ int database_table_add(struct database *db, struct table *table)
 	pthread_mutex_unlock(&db->mutex);
 	err:
 	return rc;
+}
 
+bool database_table_exists(struct database *db, char *table_name)
+{
+	return hashtable_get(db->tables, table_name, MIN(strlen(table_name) + 1, sizeof(((struct table*)0)->name)));
 }
 

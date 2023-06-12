@@ -40,5 +40,14 @@ void database_close(struct database *db);
  */
 int database_table_add(struct database *db, struct table *table);
 
+/**
+ * database_table_exists - check if table exist in the database
+ * @db: database reference
+ * @table_name: name of the table. NUL-terminated
+ *
+ * Returns: true if table exists, false otherwise
+ */
+bool database_table_exists(struct database *db, char *table_name);
+
 
 #endif /* INCLUDE_ENGINE_DATABASE_H_ */

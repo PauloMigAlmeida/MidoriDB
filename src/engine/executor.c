@@ -71,6 +71,11 @@ int run_create_stmt(struct database *db, struct ast_create_node *create_node, st
 	struct table *table;
 	int rc = MIDORIDB_OK;
 
+	/* evaluate the "IF NOT EXISTS" option, leave early if so */
+	if (create_node->if_not_exists && database_table_exists(db, create_node->table_name)) {
+		return rc;
+	}
+
 	table = table_init(create_node->table_name);
 
 	if (!table) {
@@ -90,7 +95,7 @@ int run_create_stmt(struct database *db, struct ast_create_node *create_node, st
 		}
 	}
 
-	rc = database_add_table(db, table);
+	rc = database_table_add(db, table);
 
 	err:
 	return rc;
