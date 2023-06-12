@@ -52,7 +52,7 @@ void database_close(struct database *db)
 	db->tables = NULL;
 }
 
-int database_add_table(struct database *db, struct table *table)
+int database_table_add(struct database *db, struct table *table)
 {
 	int rc = MIDORIDB_OK;
 

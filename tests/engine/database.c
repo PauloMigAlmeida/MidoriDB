@@ -36,7 +36,7 @@ void test_database_add_table(void)
 
 	/* insert table 1 */
 	table_1 = table_init("test_123");
-	CU_ASSERT_EQUAL(database_add_table(&db, table_1), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(database_table_add(&db, table_1), MIDORIDB_OK);
 
 	/* check for table 1 */
 	entry = hashtable_get(db.tables, table_1->name, sizeof(table_1->name));
@@ -44,7 +44,7 @@ void test_database_add_table(void)
 
 	/* insert table 2 */
 	table_2 = table_init("test_456");
-	CU_ASSERT_EQUAL(database_add_table(&db, table_2), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(database_table_add(&db, table_2), MIDORIDB_OK);
 	/* check for table 1 && table 2*/
 	entry = hashtable_get(db.tables, table_1->name, sizeof(table_1->name));
 	CU_ASSERT_PTR_NOT_NULL(entry);

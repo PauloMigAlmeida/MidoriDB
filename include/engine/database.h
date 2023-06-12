@@ -32,13 +32,13 @@ int database_open(struct database *db);
 void database_close(struct database *db);
 
 /**
- * database_add_table - add a table to a database
- * @db: database to add table to
+ * database_table_add - add a table to a database
+ * @db: database reference
  * @table: table to add
  * 
  * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
  */
-int database_add_table(struct database *db, struct table *table);
+int database_table_add(struct database *db, struct table *table);
 
 
 #endif /* INCLUDE_ENGINE_DATABASE_H_ */
