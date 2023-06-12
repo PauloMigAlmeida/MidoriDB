@@ -207,6 +207,84 @@ static void test_create_4(void)
 	database_close(&db);
 }
 
+static void test_create_5(void)
+{
+	struct database db = {0};
+	struct ast_node *node;
+	struct query_output output = {0};
+	struct hashtable_value *value;
+	struct table *table;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 0);
+
+	node = build_ast("CREATE TABLE TEST ("
+				"f1 INTEGER AUTO_INCREMENT PRIMARY KEY, "
+				"f2 DOUBLE NOT NULL,"
+				"f3 DATE UNIQUE NULL,"
+				"f4 DATETIME NULL,"
+				"f5 VARCHAR(50) NULL,"
+				"INDEX(f2));");
+	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 1);
+
+	value = hashtable_get(db.tables, "TEST", 5);
+	CU_ASSERT_PTR_NOT_NULL(value);
+	table = *(struct table**)value->content;
+
+	CU_ASSERT_STRING_EQUAL(table->name, "TEST");
+	CU_ASSERT_EQUAL(table->column_count, 5);
+	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[0].name, "f1");
+	CU_ASSERT_EQUAL(table->columns[0].type, CT_INTEGER);
+	CU_ASSERT_EQUAL(table->columns[0].precision, 8);
+	CU_ASSERT_FALSE(table->columns[0].indexed);
+	CU_ASSERT_FALSE(table->columns[0].nullable);
+	CU_ASSERT(table->columns[0].unique);
+	CU_ASSERT(table->columns[0].auto_inc);
+	CU_ASSERT(table->columns[0].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[1].name, "f2");
+	CU_ASSERT_EQUAL(table->columns[1].type, CT_DOUBLE);
+	CU_ASSERT_EQUAL(table->columns[1].precision, 8);
+	CU_ASSERT(table->columns[1].indexed);
+	CU_ASSERT_FALSE(table->columns[1].nullable);
+	CU_ASSERT_FALSE(table->columns[1].unique);
+	CU_ASSERT_FALSE(table->columns[1].auto_inc);
+	CU_ASSERT_FALSE(table->columns[1].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[2].name, "f3");
+	CU_ASSERT_EQUAL(table->columns[2].type, CT_DATE);
+	CU_ASSERT_EQUAL(table->columns[2].precision, 8);
+	CU_ASSERT_FALSE(table->columns[2].indexed);
+	CU_ASSERT(table->columns[2].nullable);
+	CU_ASSERT(table->columns[2].unique);
+	CU_ASSERT_FALSE(table->columns[2].auto_inc);
+	CU_ASSERT_FALSE(table->columns[2].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[3].name, "f4");
+	CU_ASSERT_EQUAL(table->columns[3].type, CT_DATETIME);
+	CU_ASSERT_EQUAL(table->columns[3].precision, 8);
+	CU_ASSERT_FALSE(table->columns[3].indexed);
+	CU_ASSERT(table->columns[3].nullable);
+	CU_ASSERT_FALSE(table->columns[3].unique);
+	CU_ASSERT_FALSE(table->columns[3].auto_inc);
+	CU_ASSERT_FALSE(table->columns[3].primary_key);
+
+	CU_ASSERT_STRING_EQUAL(table->columns[4].name, "f5");
+	CU_ASSERT_EQUAL(table->columns[4].type, CT_VARCHAR);
+	CU_ASSERT_EQUAL(table->columns[4].precision, 50);
+	CU_ASSERT_FALSE(table->columns[4].indexed);
+	CU_ASSERT(table->columns[4].nullable);
+	CU_ASSERT_FALSE(table->columns[4].unique);
+	CU_ASSERT_FALSE(table->columns[4].auto_inc);
+	CU_ASSERT_FALSE(table->columns[4].primary_key);
+
+	ast_free(node);
+	database_close(&db);
+}
+
 void test_executor_run(void)
 {
 	/* create table - no index; no pk */
@@ -221,7 +299,6 @@ void test_executor_run(void)
 	/* create table - index; pk; auto increment, not null; null, unique */
 	test_create_4();
 
-	/*
-	 * TODO: create test with other column types
-	 */
+	/* create table - index; pk; unique; mixed column types */
+	test_create_5();
 }
