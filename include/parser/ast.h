@@ -14,12 +14,14 @@
 #include <datastructure/linkedlist.h>
 #include <datastructure/queue.h>
 
+// AST_TYPE_<stmt-type>_<rpn-prefix>
 enum ast_node_type {
 	AST_TYPE_STMT,
 	AST_TYPE_CREATE,
 	AST_TYPE_COLUMNDEF,
 	AST_TYPE_INDEXDEF,
 	AST_TYPE_INDEXCOL,
+	AST_TYPE_INS_COLUMN,
 };
 
 struct ast_node {
@@ -88,6 +90,24 @@ struct ast_index_column_node {
 	char name[255 + 1 /*NUL char */];
 };
 /* Create Statements - end */
+
+/* Insert Statements - start */
+//TODO refactor create-related ast structs to ast_crt_*
+
+/* columns referenced in the INSERT statement */
+struct ast_ins_column_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* column name */
+	char name[255 + 1 /*NUL char*/];
+};
+
+/* Insert Statements - end */
+
 
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
