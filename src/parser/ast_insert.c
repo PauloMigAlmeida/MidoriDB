@@ -41,7 +41,7 @@ struct ast_node* build_col_node(struct queue *parser)
 	free(str);
 	stack_free(&reg_pars);
 
-	return node;
+	return (struct ast_node*)node;
 
 err_regex:
 	free(str);
