@@ -54,7 +54,7 @@ err:
 	return NULL;
 }
 
-struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct stack *st)
+struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_ins_inscols_node *node;
 	struct stack reg_pars = {0};
@@ -81,6 +81,12 @@ struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct sta
 		goto err_regex;
 
 	node->column_count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < node->column_count; i++) {
+		struct ast_ins_column_node *col = (struct ast_ins_column_node*)stack_pop(tmp_st);
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		list_add(&col->head, node->node_children_head);
+	}
 
 	free(str);
 	stack_free(&reg_pars);
