@@ -27,7 +27,7 @@ int database_open(struct database *db)
 	return -MIDORIDB_ERROR;
 }
 
-void free_table(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
+static void free_table(struct hashtable *hashtable, const void *key, size_t klen, const void *value, size_t vlen, void *arg)
 {
 	struct hashtable_entry *entry = NULL;
 
