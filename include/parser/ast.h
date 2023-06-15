@@ -25,6 +25,8 @@ enum ast_node_type {
 	/* INSERT */
 	AST_TYPE_INS_COLUMN,
 	AST_TYPE_INS_INSCOLS,
+	AST_TYPE_INS_EXPRVAL,
+	AST_TYPE_INS_EXPROP, // TODO implement basic ops only */-+
 };
 
 struct ast_node {
@@ -118,6 +120,27 @@ struct ast_ins_inscols_node {
 	struct list_head head;
 	/* number of columns */
 	int column_count;
+};
+
+struct ast_ins_exprval_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* value type */
+	bool is_intnum;
+	bool is_str;
+	bool is_approxnum;
+	bool is_bool;
+	/* actual value */
+	union {
+		int int_val;
+		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
+		double double_val;
+		bool bool_val;
+	};
 };
 
 /* Insert Statements - end */

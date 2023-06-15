@@ -10,6 +10,13 @@
 #include <lib/regex.h>
 #include <datastructure/stack.h>
 
+enum expr_val_type {
+	EXPR_VAL_TYPE_INTNUM,
+	EXPR_VAL_TYPE_STRING,
+	EXPR_VAL_TYPE_APPROXNUM,
+	EXPR_VAL_TYPE_BOOL,
+};
+
 struct ast_ins_column_node* build_col_node(struct queue *parser)
 {
 	struct ast_ins_column_node *node;
@@ -27,14 +34,14 @@ struct ast_ins_column_node* build_col_node(struct queue *parser)
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
-        
+
 	list_head_init(&node->head);
-	list_head_init(node->node_children_head);	
-	
+	list_head_init(node->node_children_head);
+
 	str = (char*)queue_poll(parser);
 
 	if (!regex_ext_match_grp(str, "COLUMN ([A-Za-z0-9_]+)", &reg_pars))
-		goto err_regex;	
+		goto err_regex;
 
 	strncpy(node->name, (char*)stack_peek_pos(&reg_pars, 0), sizeof(node->name) - 1 /* NUL-char */);
 
@@ -104,13 +111,76 @@ err:
 	return NULL;
 }
 
-struct ast_node* build_val_num_node(struct queue *parser)
+struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, enum expr_val_type type)
 {
-	return NULL;
-}
+	struct ast_ins_exprval_node *node;
+	struct stack reg_pars = {0};
+	char *reg_exp;
+	char *str;
+	char *ext_val;
 
-struct ast_node* build_val_str_node(struct queue *parser)
-{
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INS_EXPRVAL;
+
+	if (type == EXPR_VAL_TYPE_INTNUM) {
+		node->is_intnum = true;
+		reg_exp = "NUMBER ([0-9]+)";
+	} else if (type == EXPR_VAL_TYPE_STRING) {
+		node->is_str = true;
+		reg_exp = "STRING '(.+)'";
+	} else if (type == EXPR_VAL_TYPE_APPROXNUM) {
+		node->is_approxnum = true;
+		reg_exp = "FLOAT ([0-9\\.]+)";
+	} else if (type == EXPR_VAL_TYPE_BOOL) {
+		node->is_bool = true;
+		reg_exp = "BOOL ([0-1])";
+	} else {
+		die("handler not implemented for type: %d\n", type);
+	}
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, reg_exp, &reg_pars))
+		goto err_regex;
+
+	ext_val = (char*)stack_peek_pos(&reg_pars,0);
+	if (type == EXPR_VAL_TYPE_INTNUM) {
+		node->int_val = atoi(ext_val);
+	} else if (type == EXPR_VAL_TYPE_STRING) {
+		strncpy(node->str_val, ext_val, sizeof(node->str_val) - 1);
+	} else if (type == EXPR_VAL_TYPE_APPROXNUM) {
+		node->double_val = atof(ext_val);
+	} else if (type == EXPR_VAL_TYPE_BOOL) {
+		node->bool_val = atoi(ext_val);
+	} else {
+		die("handler not implemented for type: %d\n", type);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
 	return NULL;
 }
 
@@ -143,10 +213,13 @@ struct ast_node* ast_insert_build_tree(struct queue *parser)
 		} else if (strstarts(str, "INSERTCOLS")) {
 			curr = (struct ast_node*)build_inscols_node(parser, &st);
 		} else if (strstarts(str, "NUMBER")) {
-			curr = (struct ast_node*)build_val_num_node(parser);
+			curr = (struct ast_node*)build_expr_val_node(parser, EXPR_VAL_TYPE_INTNUM);
 		} else if (strstarts(str, "STRING")) {
-			curr = (struct ast_node*)build_val_str_node(parser);
-			//TODO add other math expr types
+			curr = (struct ast_node*)build_expr_val_node(parser, EXPR_VAL_TYPE_STRING);
+		} else if (strstarts(str, "FLOAT")) {
+			curr = (struct ast_node*)build_expr_val_node(parser, EXPR_VAL_TYPE_APPROXNUM);
+		} else if (strstarts(str, "BOOL")) {
+			curr = (struct ast_node*)build_expr_val_node(parser, EXPR_VAL_TYPE_BOOL);
 		} else if (strstarts(str, "VALUES")) {
 			curr = (struct ast_node*)build_values_node(parser, &st);
 		} else if (strstarts(str, "INSERTVALS")) {
