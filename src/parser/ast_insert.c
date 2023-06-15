@@ -10,7 +10,7 @@
 #include <lib/regex.h>
 #include <datastructure/stack.h>
 
-struct ast_node* build_col_node(struct queue *parser)
+struct ast_ins_column_node* build_col_node(struct queue *parser)
 {
 	struct ast_ins_column_node *node;
 	struct stack reg_pars = {0};
@@ -41,7 +41,7 @@ struct ast_node* build_col_node(struct queue *parser)
 	free(str);
 	stack_free(&reg_pars);
 
-	return (struct ast_node*)node;
+	return node;
 
 err_regex:
 	free(str);
@@ -54,8 +54,47 @@ err:
 	return NULL;
 }
 
-struct ast_node* build_inscols_node(struct queue *parser, struct stack *st)
+struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct stack *st)
 {
+	struct ast_ins_inscols_node *node;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INS_INSCOLS ;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "INSERTCOLS ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->column_count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
 	return NULL;
 }
 

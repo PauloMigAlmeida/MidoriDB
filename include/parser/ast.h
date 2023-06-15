@@ -17,11 +17,14 @@
 // AST_TYPE_<stmt-type>_<rpn-prefix>
 enum ast_node_type {
 	AST_TYPE_STMT,
+	/* CREATE */
 	AST_TYPE_CREATE,
 	AST_TYPE_COLUMNDEF,
 	AST_TYPE_INDEXDEF,
 	AST_TYPE_INDEXCOL,
+	/* INSERT */
 	AST_TYPE_INS_COLUMN,
+	AST_TYPE_INS_INSCOLS,
 };
 
 struct ast_node {
@@ -104,6 +107,17 @@ struct ast_ins_column_node {
 	struct list_head head;
 	/* column name */
 	char name[255 + 1 /*NUL char*/];
+};
+
+struct ast_ins_inscols_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* number of columns */
+	int column_count;
 };
 
 /* Insert Statements - end */
