@@ -41,7 +41,7 @@ static void create_table_case_1(void)
 	{
 		entry = list_entry(pos, typeof(*entry), head);
 		CU_ASSERT_EQUAL(entry->node_type, AST_TYPE_CRT_COLUMNDEF);
-		CU_ASSERT_PTR_NULL(entry->node_children_head);
+		CU_ASSERT_PTR_NOT_NULL(entry->node_children_head);
 		CU_ASSERT_FALSE(list_is_empty(&entry->head));
 
 		if (i == 0) {
@@ -111,7 +111,7 @@ static void create_table_case_2(void)
 	{
 		entry = list_entry(pos, typeof(*entry), head);
 		CU_ASSERT_EQUAL(entry->node_type, AST_TYPE_CRT_COLUMNDEF);
-		CU_ASSERT_PTR_NULL(entry->node_children_head);
+		CU_ASSERT_PTR_NOT_NULL(entry->node_children_head);
 		CU_ASSERT_FALSE(list_is_empty(&entry->head));
 
 		if (i == 0) {
@@ -202,7 +202,7 @@ static void create_table_case_3(void)
 		if (i == 0) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f1");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_INTEGER);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -214,7 +214,7 @@ static void create_table_case_3(void)
 		} else if (i == 1) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f2");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_DOUBLE);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -235,7 +235,7 @@ static void create_table_case_3(void)
 			{
 				idx_col_node = list_entry(pos2, typeof(*idx_col_node), head);
 				CU_ASSERT_EQUAL(idx_col_node->node_type, AST_TYPE_CRT_INDEXCOL);
-				CU_ASSERT_PTR_NULL(idx_col_node->node_children_head);
+				CU_ASSERT_PTR_NOT_NULL(idx_col_node->node_children_head);
 				if (j == 0) {
 					CU_ASSERT_STRING_EQUAL(idx_col_node->name, "f1");
 				} else {
@@ -304,7 +304,7 @@ static void create_table_case_4(void)
 		if (i == 0) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f1");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_INTEGER);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -316,7 +316,7 @@ static void create_table_case_4(void)
 		} else if (i == 1) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f2");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_DOUBLE);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -337,7 +337,7 @@ static void create_table_case_4(void)
 			{
 				idx_col_node = list_entry(pos2, typeof(*idx_col_node), head);
 				CU_ASSERT_EQUAL(idx_col_node->node_type, AST_TYPE_CRT_INDEXCOL);
-				CU_ASSERT_PTR_NULL(idx_col_node->node_children_head);
+				CU_ASSERT_PTR_NOT_NULL(idx_col_node->node_children_head);
 				CU_ASSERT_STRING_EQUAL(idx_col_node->name, "f1");
 			}
 		}
@@ -403,7 +403,7 @@ static void create_table_case_5(void)
 		if (i == 0) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f1");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_INTEGER);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -415,7 +415,7 @@ static void create_table_case_5(void)
 		} else if (i == 1) {
 			col_def_node = (struct ast_crt_column_def_node*)entry;
 			CU_ASSERT_EQUAL(col_def_node->node_type, AST_TYPE_CRT_COLUMNDEF);
-			CU_ASSERT_PTR_NULL(col_def_node->node_children_head);
+			CU_ASSERT_PTR_NOT_NULL(col_def_node->node_children_head);
 			CU_ASSERT_STRING_EQUAL(col_def_node->name, "f2");
 			CU_ASSERT_EQUAL(col_def_node->type, CT_DOUBLE);
 			CU_ASSERT_EQUAL(col_def_node->precision, sizeof(uint64_t));
@@ -436,7 +436,7 @@ static void create_table_case_5(void)
 			{
 				idx_col_node = list_entry(pos2, typeof(*idx_col_node), head);
 				CU_ASSERT_EQUAL(idx_col_node->node_type, AST_TYPE_CRT_INDEXCOL);
-				CU_ASSERT_PTR_NULL(idx_col_node->node_children_head);
+				CU_ASSERT_PTR_NOT_NULL(idx_col_node->node_children_head);
 				CU_ASSERT_STRING_EQUAL(idx_col_node->name, "f1");
 			}
 		} else {
@@ -451,7 +451,7 @@ static void create_table_case_5(void)
 			{
 				idx_col_node = list_entry(pos2, typeof(*idx_col_node), head);
 				CU_ASSERT_EQUAL(idx_col_node->node_type, AST_TYPE_CRT_INDEXCOL);
-				CU_ASSERT_PTR_NULL(idx_col_node->node_children_head);
+				CU_ASSERT_PTR_NOT_NULL(idx_col_node->node_children_head);
 				CU_ASSERT_STRING_EQUAL(idx_col_node->name, "f2");
 			}
 		}

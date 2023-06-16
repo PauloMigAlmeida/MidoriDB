@@ -9,6 +9,7 @@
 #include <lib/string.h>
 
 extern struct ast_node* ast_create_build_tree(struct queue *parser);
+extern struct ast_node* ast_insert_build_tree(struct queue *parser);
 
 struct ast_node* ast_build_tree(struct queue *parser)
 {
@@ -43,6 +44,8 @@ struct ast_node* ast_build_tree(struct queue *parser)
 	str = (char*)queue_peek_pos(parser, pos);
 	if (strstarts(str, "CREATE")) {
 		return ast_create_build_tree(parser);
+	} else if (strstarts(str, "INSERTVALS")) {
+		return ast_insert_build_tree(parser);
 	} else {
 		fprintf(stderr, "%s: %s handler not implement yet\n", __func__, str);
 		exit(1);
@@ -55,16 +58,12 @@ void ast_free(struct ast_node *node)
 	struct list_head *tmp_pos = NULL;
 	struct ast_node *entry = NULL;
 
-	if (node->node_children_head) {
-
-		list_for_each_safe(pos,tmp_pos, node->node_children_head)
-		{
-			entry = list_entry(pos, typeof(*entry), head);
-			ast_free(entry);
-		}
-
-		free(node->node_children_head);
+	list_for_each_safe(pos,tmp_pos, node->node_children_head)
+	{
+		entry = list_entry(pos, typeof(*entry), head);
+		ast_free(entry);
 	}
 
+	free(node->node_children_head);
 	free(node);
 }

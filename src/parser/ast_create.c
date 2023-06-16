@@ -55,8 +55,12 @@ static struct ast_crt_column_def_node* __must_check build_columndef_node(struct 
 		goto err;
 
 	node->node_type = AST_TYPE_CRT_COLUMNDEF;
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
 	list_head_init(&node->head);
-	node->node_children_head = NULL;
+	list_head_init(node->node_children_head);
+
 	/* unless specified otherwise, columns are nullable */
 	node->attr_null = true;
 
@@ -98,9 +102,11 @@ static struct ast_crt_column_def_node* __must_check build_columndef_node(struct 
 	err_regex:
 	stack_free(&tmp_st);
 	err_stack_init:
-	free(node);
 	if (!str)
 		free(str);
+	free(node->node_children_head);
+	err_head:
+	free(node);
 	err:
 	return NULL;
 }
@@ -120,11 +126,11 @@ static struct ast_crt_create_node* __must_check build_table_node(struct queue *p
 		goto err_node;
 
 	node->node_type = AST_TYPE_CRT_CREATE;
-	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
 
+	list_head_init(&node->head);
 	list_head_init(node->node_children_head);
 
 	str = (char*)queue_poll(parser);
@@ -164,18 +170,21 @@ static struct ast_crt_index_column_node* __must_check build_indexcol_node(struct
 	char *str = NULL;
 	struct stack reg_pars = {0};
 
-	node = zalloc(sizeof(*node));
-	if (!node)
+	if (!stack_init(&reg_pars))
 		goto err;
 
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
 	node->node_type = AST_TYPE_CRT_INDEXCOL;
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
 	list_head_init(&node->head);
-	node->node_children_head = NULL;
+	list_head_init(node->node_children_head);
 
 	str = (char*)queue_poll(parser);
-
-	if (!stack_init(&reg_pars))
-		goto err_stack_init;
 
 	if (!regex_ext_match_grp(str, "COLUMN ([A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
@@ -186,12 +195,14 @@ static struct ast_crt_index_column_node* __must_check build_indexcol_node(struct
 
 	return node;
 
-	err_regex:
-	stack_free(&reg_pars);
-	err_stack_init:
+err_regex:
 	free(str);
+	free(node->node_children_head);
+err_head:
 	free(node);
-	err:
+err_node:
+	stack_free(&reg_pars);
+err:
 	return NULL;
 }
 
@@ -210,11 +221,11 @@ static struct ast_crt_index_def_node* __must_check build_indexdef_pk_node(struct
 		goto err_node;
 
 	node->node_type = AST_TYPE_CRT_INDEXDEF;
-	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
 
+	list_head_init(&node->head);
 	list_head_init(node->node_children_head);
 
 	str = (char*)queue_poll(parser);
@@ -263,11 +274,11 @@ static struct ast_crt_index_def_node* __must_check build_indexdef_idx_node(struc
 		goto err_node;
 
 	node->node_type = AST_TYPE_CRT_INDEXDEF;
-	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
 
+	list_head_init(&node->head);
 	list_head_init(node->node_children_head);
 
 	str = (char*)queue_poll(parser);
