@@ -98,6 +98,21 @@ struct ast_crt_index_column_node {
 
 /* Insert Statements - start */
 
+enum ast_ins_expr_val_type {
+	AST_INS_EXPR_VAL_INTNUM,
+	AST_INS_EXPR_VAL_STRING,
+	AST_INS_EXPR_VAL_APPROXNUM,
+	AST_INS_EXPR_VAL_BOOL,
+};
+
+enum ast_ins_expr_op_type {
+	AST_INS_EXPR_OP_ADD,
+	AST_INS_EXPR_OP_SUB,
+	AST_INS_EXPR_OP_MUL,
+	AST_INS_EXPR_OP_DIV,
+	AST_INS_EXPR_OP_MOD,
+};
+
 /* columns referenced in the INSERT statement */
 struct ast_ins_column_node {
 	/* type of node */
@@ -141,6 +156,18 @@ struct ast_ins_exprval_node {
 		double double_val;
 		bool bool_val;
 	};
+};
+
+/* math operators */
+struct ast_ins_exprop_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* math operator */
+	enum ast_ins_expr_op_type op_type;
 };
 
 /* Insert Statements - end */
