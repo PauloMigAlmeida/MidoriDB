@@ -23,9 +23,9 @@ bool stack_init(struct stack *stack)
 
 	return true;
 
-	err_vector:
+err_vector:
 	free(stack->arr);
-	err:
+err:
 	return false;
 }
 
@@ -70,9 +70,9 @@ bool stack_push(struct stack *stack, void *data, size_t len)
 	stack->idx++;
 	return true;
 
-	err_vector:
+err_vector:
 	free(content);
-	err:
+err:
 	return false;
 }
 

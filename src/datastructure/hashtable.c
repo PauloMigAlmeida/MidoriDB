@@ -25,7 +25,7 @@ static bool array_init(char *array, size_t capacity)
 
 	return true;
 
-	err:
+err:
 	for (size_t i = 0; i < capacity; i++) {
 		ptr = (struct list_head**)(array + i * sizeof(uintptr_t));
 		if (*ptr) {
@@ -55,9 +55,9 @@ bool hashtable_init(struct hashtable *hashtable, hashtable_compare_fn compare_fn
 
 	return true;
 
-	err_arr_init:
+err_arr_init:
 	free(hashtable->array);
-	err:
+err:
 	return false;
 
 }
@@ -177,13 +177,13 @@ bool hashtable_put(struct hashtable *hashtable, const void *key, size_t key_len,
 
 	return true;
 
-	err_duplicate:
+err_duplicate:
 	free(new->value.content);
-	err_value:
+err_value:
 	free(entry->key.content);
-	err_key:
+err_key:
 	free(entry);
-	err:
+err:
 	return false;
 }
 

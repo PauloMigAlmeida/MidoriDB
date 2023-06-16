@@ -99,15 +99,15 @@ static struct ast_crt_column_def_node* __must_check build_columndef_node(struct 
 
 	return node;
 
-	err_regex:
+err_regex:
 	stack_free(&tmp_st);
-	err_stack_init:
+err_stack_init:
 	if (!str)
 		free(str);
 	free(node->node_children_head);
-	err_head:
+err_head:
 	free(node);
-	err:
+err:
 	return NULL;
 }
 
@@ -153,14 +153,14 @@ static struct ast_crt_create_node* __must_check build_table_node(struct queue *p
 
 	return node;
 
-	err_regex:
+err_regex:
 	free(str);
 	free(node->node_children_head);
-	err_head:
+err_head:
 	free(node);
-	err_node:
+err_node:
 	stack_free(&reg_pars);
-	err:
+err:
 	return NULL;
 }
 
@@ -248,14 +248,14 @@ static struct ast_crt_index_def_node* __must_check build_indexdef_pk_node(struct
 
 	return node;
 
-	err_regex:
+err_regex:
 	free(str);
 	free(node->node_children_head);
-	err_head:
+err_head:
 	free(node);
-	err_node:
+err_node:
 	stack_free(&reg_pars);
-	err:
+err:
 	return NULL;
 }
 
@@ -301,14 +301,14 @@ static struct ast_crt_index_def_node* __must_check build_indexdef_idx_node(struc
 
 	return node;
 
-	err_regex:
+err_regex:
 	free(str);
 	free(node->node_children_head);
-	err_head:
+err_head:
 	free(node);
-	err_node:
+err_node:
 	stack_free(&reg_pars);
-	err:
+err:
 	return NULL;
 }
 
@@ -360,11 +360,11 @@ struct ast_node* ast_create_build_tree(struct queue *parser)
 
 	return root;
 
-	err_push_node:
+err_push_node:
 	while (!stack_empty(&st)) {
 		ast_free((struct ast_node*)stack_pop(&st));
 	}
 	stack_free(&st);
-	err_stack_init:
+err_stack_init:
 	return NULL;
 }

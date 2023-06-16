@@ -21,9 +21,9 @@ int database_open(struct database *db)
 
 	return MIDORIDB_OK;
 
-	err_ht_init:
+err_ht_init:
 	free(db->tables);
-	err:
+err:
 	return -MIDORIDB_ERROR;
 }
 
@@ -82,16 +82,16 @@ int database_table_add(struct database *db, struct table *table)
 
 	return rc;
 
-	err_mt_unlock:
-	err_ht_put:
-	err_ht_dup:
+err_mt_unlock:
+err_ht_put:
+err_ht_dup:
 	pthread_mutex_unlock(&db->mutex);
-	err:
+err:
 	return rc;
 }
 
 bool database_table_exists(struct database *db, char *table_name)
 {
-	return hashtable_get(db->tables, table_name, MIN(strlen(table_name) + 1, sizeof(((struct table*)0)->name)));
+	return hashtable_get(db->tables, table_name, MIN(strlen(table_name) + 1, sizeof(((struct table* )0)->name)));
 }
 

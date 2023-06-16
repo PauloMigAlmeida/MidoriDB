@@ -60,9 +60,9 @@ struct table* __must_check table_init(char *name)
 
 	return ret;
 
-	err_datablock:
+err_datablock:
 	free(ret->datablock_head);
-	err_free:
+err_free:
 	free(ret);
 	return NULL;
 }

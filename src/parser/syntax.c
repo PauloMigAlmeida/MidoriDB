@@ -10,7 +10,6 @@
 #include <midorisql.yy.h>
 #include <errno.h>
 
-
 int syntax_parse(char *in, struct queue *out)
 {
 	yyscan_t sc;
@@ -22,7 +21,7 @@ int syntax_parse(char *in, struct queue *out)
 
 	if (yylex_init(&sc)) {
 		res = errno;
-		if(!queue_offer(out, strerror(res), strlen(strerror(res))))
+		if (!queue_offer(out, strerror(res), strlen(strerror(res))))
 			fprintf(stderr, "error while gathering parser error \n");
 		return res;
 	}

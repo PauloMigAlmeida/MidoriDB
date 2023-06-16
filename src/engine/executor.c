@@ -97,7 +97,7 @@ int run_create_stmt(struct database *db, struct ast_crt_create_node *create_node
 
 	rc = database_table_add(db, table);
 
-	err:
+err:
 	return rc;
 }
 

@@ -106,14 +106,14 @@ static bool datablock_add_column(struct table *table, size_t row_cur_size, size_
 
 	return true;
 
-	err_free:
+err_free:
 	list_for_each_safe(new_pos, tmp_pos, new_head)
 	{
 		datablock_free(list_entry(new_pos, typeof(*new_entry), head));
 	}
 	free(new_head);
 
-	err:
+err:
 	return false;
 }
 
@@ -160,7 +160,7 @@ bool table_add_column(struct table *table, struct column *column)
 
 	return true;
 
-	err_cleanup_mutex:
+err_cleanup_mutex:
 	/*
 	 * pthread_mutex_unlock should fail if
 	 * 	 - [EINVAL] The value specified for the argument is not correct.
@@ -285,7 +285,7 @@ bool table_rem_column(struct table *table, struct column *column)
 
 	return true;
 
-	err_cleanup_mutex:
+err_cleanup_mutex:
 	/*
 	 * pthread_mutex_unlock should fail if
 	 * 	 - [EINVAL] The value specified for the argument is not correct.

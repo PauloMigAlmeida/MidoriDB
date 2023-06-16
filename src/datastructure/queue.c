@@ -21,9 +21,9 @@ bool __must_check queue_init(struct queue *queue)
 
 	return true;
 
-	err_vector:
+err_vector:
 	free(queue->arr);
-	err:
+err:
 	return false;
 }
 
@@ -67,9 +67,9 @@ bool __must_check queue_offer(struct queue *queue, void *data, size_t len)
 
 	return true;
 
-	err_vector:
+err_vector:
 	free(content);
-	err:
+err:
 	return false;
 }
 

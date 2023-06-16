@@ -65,11 +65,11 @@ struct query_output* query_execute(struct database *db, char *query)
 
 	return output;
 
-	err_build_ast:
+err_build_ast:
 	queue_free(&queue);
-	err_init_queue:
+err_init_queue:
 	free(output);
-	err:
+err:
 	return NULL;
 }
 
