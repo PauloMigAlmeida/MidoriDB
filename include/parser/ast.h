@@ -18,10 +18,10 @@
 enum ast_node_type {
 	AST_TYPE_STMT,
 	/* CREATE */
-	AST_TYPE_CREATE,
-	AST_TYPE_COLUMNDEF,
-	AST_TYPE_INDEXDEF,
-	AST_TYPE_INDEXCOL,
+	AST_TYPE_CRT_CREATE,
+	AST_TYPE_CRT_COLUMNDEF,
+	AST_TYPE_CRT_INDEXDEF,
+	AST_TYPE_CRT_INDEXCOL,
 	/* INSERT */
 	AST_TYPE_INS_COLUMN,
 	AST_TYPE_INS_INSCOLS,
@@ -39,7 +39,7 @@ struct ast_node {
 };
 
 /* Create Statements - start */
-struct ast_create_node {
+struct ast_crt_create_node {
 	/* type of node */
 	enum ast_node_type node_type;
 	/* children if applicable */
@@ -52,7 +52,7 @@ struct ast_create_node {
 	int column_count;
 };
 
-struct ast_column_def_node {
+struct ast_crt_column_def_node {
 	/* type of node */
 	enum ast_node_type node_type;
 	/* children if applicable */
@@ -71,7 +71,7 @@ struct ast_column_def_node {
 };
 
 /* Indexes -> Index || Primary Keys */
-struct ast_index_def_node {
+struct ast_crt_index_def_node {
 	/* type of node */
 	enum ast_node_type node_type;
 	/* children if applicable */
@@ -84,7 +84,7 @@ struct ast_index_def_node {
 };
 
 /* Columns referenced when creating index as the last few lines of a CREATE statement */
-struct ast_index_column_node {
+struct ast_crt_index_column_node {
 	/* type of node */
 	enum ast_node_type node_type;
 	/* children if applicable */
@@ -97,7 +97,6 @@ struct ast_index_column_node {
 /* Create Statements - end */
 
 /* Insert Statements - start */
-//TODO refactor create-related ast structs to ast_crt_*
 
 /* columns referenced in the INSERT statement */
 struct ast_ins_column_node {
@@ -122,6 +121,7 @@ struct ast_ins_inscols_node {
 	int column_count;
 };
 
+/* raw values - usually referenced in math expressions */
 struct ast_ins_exprval_node {
 	/* type of node */
 	enum ast_node_type node_type;
@@ -144,7 +144,6 @@ struct ast_ins_exprval_node {
 };
 
 /* Insert Statements - end */
-
 
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);

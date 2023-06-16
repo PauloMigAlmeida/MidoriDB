@@ -25,10 +25,10 @@ static void free_str_entries(struct hashtable *hashtable, const void *key, size_
 static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct hashtable ht = {0};
-	struct ast_create_node *create_node;
-	struct ast_column_def_node *coldef_node;
-	struct ast_index_def_node *idxdef_node;
-	struct ast_index_column_node *idxcol_node;
+	struct ast_crt_create_node *create_node;
+	struct ast_crt_column_def_node *coldef_node;
+	struct ast_crt_index_def_node *idxdef_node;
+	struct ast_crt_index_column_node *idxcol_node;
 	struct list_head *pos1 = NULL;
 	struct list_head *pos2 = NULL;
 	struct ast_node *tmp_entry;
@@ -39,7 +39,7 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 	}
 
 	/* validate table name */
-	create_node = (struct ast_create_node*)node;
+	create_node = (struct ast_crt_create_node*)node;
 	if (!table_validate_name(create_node->table_name)) {
 		snprintf(out_err, out_err_len,
 				"table name '%s' is invalid\n",
@@ -52,8 +52,8 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 	list_for_each(pos1, create_node->node_children_head)
 	{
 		tmp_entry = list_entry(pos1, typeof(*tmp_entry), head);
-		if (tmp_entry->node_type == AST_TYPE_COLUMNDEF) {
-			coldef_node = (struct ast_column_def_node*)tmp_entry;
+		if (tmp_entry->node_type == AST_TYPE_CRT_COLUMNDEF) {
+			coldef_node = (struct ast_crt_column_def_node*)tmp_entry;
 
 			if (hashtable_get(&ht, coldef_node->name, strlen(coldef_node->name) + 1)) {
 				snprintf(out_err, out_err_len, "duplicate column name: '%s'\n", coldef_node->name);
@@ -88,8 +88,8 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 	list_for_each(pos1, create_node->node_children_head)
 	{
 		tmp_entry = list_entry(pos1, typeof(*tmp_entry), head);
-		if (tmp_entry->node_type == AST_TYPE_INDEXDEF) {
-			idxdef_node = (struct ast_index_def_node*)tmp_entry;
+		if (tmp_entry->node_type == AST_TYPE_CRT_INDEXDEF) {
+			idxdef_node = (struct ast_crt_index_def_node*)tmp_entry;
 
 			list_for_each(pos2, idxdef_node->node_children_head)
 			{
@@ -125,7 +125,7 @@ bool semantic_analyse(struct ast_node *node, char *out_err, size_t out_err_len)
 	/* sanity checks */
 	BUG_ON(!node || !out_err || out_err_len == 0);
 
-	if (node->node_type == AST_TYPE_CREATE)
+	if (node->node_type == AST_TYPE_CRT_CREATE)
 		return validate_create_stmt(node, out_err, out_err_len);
 	else
 		/* semantic analysis not implemented for that yet */

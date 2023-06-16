@@ -10,10 +10,10 @@
 
 #include <datastructure/linkedlist.h>
 
-void add_index(struct ast_index_def_node *idx_def_node, struct table *table)
+void add_index(struct ast_crt_index_def_node *idx_def_node, struct table *table)
 {
 	struct list_head *pos;
-	struct ast_index_column_node *entry;
+	struct ast_crt_index_column_node *entry;
 	struct column *col;
 
 	list_for_each(pos, idx_def_node->node_children_head)
@@ -43,7 +43,7 @@ void add_index(struct ast_index_def_node *idx_def_node, struct table *table)
 	}
 }
 
-int add_column(struct ast_column_def_node *col_def_node, struct table *table)
+int add_column(struct ast_crt_column_def_node *col_def_node, struct table *table)
 {
 	struct column column = {0};
 	int rc = MIDORIDB_OK;
@@ -64,7 +64,7 @@ int add_column(struct ast_column_def_node *col_def_node, struct table *table)
 	return rc;
 }
 
-int run_create_stmt(struct database *db, struct ast_create_node *create_node, struct query_output *output)
+int run_create_stmt(struct database *db, struct ast_crt_create_node *create_node, struct query_output *output)
 {
 	struct list_head *pos;
 	struct ast_node *entry;
@@ -87,11 +87,11 @@ int run_create_stmt(struct database *db, struct ast_create_node *create_node, st
 	{
 		entry = list_entry(pos, typeof(*entry), head);
 
-		if (entry->node_type == AST_TYPE_COLUMNDEF) {
-			if ((rc = add_column((struct ast_column_def_node*)entry, table)))
+		if (entry->node_type == AST_TYPE_CRT_COLUMNDEF) {
+			if ((rc = add_column((struct ast_crt_column_def_node*)entry, table)))
 				goto err;
-		} else if (entry->node_type == AST_TYPE_INDEXDEF) {
-			add_index((struct ast_index_def_node*)entry, table);
+		} else if (entry->node_type == AST_TYPE_CRT_INDEXDEF) {
+			add_index((struct ast_crt_index_def_node*)entry, table);
 		}
 	}
 
@@ -106,8 +106,8 @@ int executor_run(struct database *db, struct ast_node *node, struct query_output
 	/* sanity checks */
 	BUG_ON(!db || !node || !output);
 
-	if (node->node_type == AST_TYPE_CREATE)
-		return run_create_stmt(db, (struct ast_create_node*)node, output);
+	if (node->node_type == AST_TYPE_CRT_CREATE)
+		return run_create_stmt(db, (struct ast_crt_create_node*)node, output);
 	else
 		/* semantic analysis not implemented for that yet */
 		BUG_ON(true);

@@ -10,7 +10,7 @@
 #include <lib/regex.h>
 #include <datastructure/stack.h>
 
-static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
+static void parse_bison_data_type(char *str, struct ast_crt_column_def_node *node)
 {
 	int val = atoi(str);
 	int type = val / 10000;
@@ -41,9 +41,9 @@ static void parse_bison_data_type(char *str, struct ast_column_def_node *node)
 	}
 }
 
-static struct ast_column_def_node* __must_check build_columndef_node(struct queue *parser)
+static struct ast_crt_column_def_node* __must_check build_columndef_node(struct queue *parser)
 {
-	struct ast_column_def_node *node;
+	struct ast_crt_column_def_node *node;
 	char *str = NULL;
 	struct stack tmp_st = {0};
 
@@ -54,7 +54,7 @@ static struct ast_column_def_node* __must_check build_columndef_node(struct queu
 	if (!node)
 		goto err;
 
-	node->node_type = AST_TYPE_COLUMNDEF;
+	node->node_type = AST_TYPE_CRT_COLUMNDEF;
 	list_head_init(&node->head);
 	node->node_children_head = NULL;
 	/* unless specified otherwise, columns are nullable */
@@ -105,9 +105,9 @@ static struct ast_column_def_node* __must_check build_columndef_node(struct queu
 	return NULL;
 }
 
-static struct ast_create_node* __must_check build_table_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_crt_create_node* __must_check build_table_node(struct queue *parser, struct stack *tmp_st)
 {
-	struct ast_create_node *node;
+	struct ast_crt_create_node *node;
 	char *str;
 	struct stack reg_pars = {0};
 	int count;
@@ -119,7 +119,7 @@ static struct ast_create_node* __must_check build_table_node(struct queue *parse
 	if (!node)
 		goto err_node;
 
-	node->node_type = AST_TYPE_CREATE;
+	node->node_type = AST_TYPE_CRT_CREATE;
 	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
@@ -137,7 +137,7 @@ static struct ast_create_node* __must_check build_table_node(struct queue *parse
 	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), sizeof(node->table_name) - 1 /* NUL-char */);
 
 	for (int i = 0; i < count; i++) {
-		struct ast_column_def_node *col = (struct ast_column_def_node*)stack_pop(tmp_st);
+		struct ast_crt_column_def_node *col = (struct ast_crt_column_def_node*)stack_pop(tmp_st);
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		list_add(&col->head, node->node_children_head);
 	}
@@ -158,9 +158,9 @@ static struct ast_create_node* __must_check build_table_node(struct queue *parse
 	return NULL;
 }
 
-static struct ast_index_column_node* __must_check build_indexcol_node(struct queue *parser)
+static struct ast_crt_index_column_node* __must_check build_indexcol_node(struct queue *parser)
 {
-	struct ast_index_column_node *node;
+	struct ast_crt_index_column_node *node;
 	char *str = NULL;
 	struct stack reg_pars = {0};
 
@@ -168,7 +168,7 @@ static struct ast_index_column_node* __must_check build_indexcol_node(struct que
 	if (!node)
 		goto err;
 
-	node->node_type = AST_TYPE_INDEXCOL;
+	node->node_type = AST_TYPE_CRT_INDEXCOL;
 	list_head_init(&node->head);
 	node->node_children_head = NULL;
 
@@ -195,9 +195,9 @@ static struct ast_index_column_node* __must_check build_indexcol_node(struct que
 	return NULL;
 }
 
-static struct ast_index_def_node* __must_check build_indexdef_pk_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_crt_index_def_node* __must_check build_indexdef_pk_node(struct queue *parser, struct stack *tmp_st)
 {
-	struct ast_index_def_node *node;
+	struct ast_crt_index_def_node *node;
 	char *str;
 	struct stack reg_pars = {0};
 	int count;
@@ -209,7 +209,7 @@ static struct ast_index_def_node* __must_check build_indexdef_pk_node(struct que
 	if (!node)
 		goto err_node;
 
-	node->node_type = AST_TYPE_INDEXDEF;
+	node->node_type = AST_TYPE_CRT_INDEXDEF;
 	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
@@ -227,7 +227,7 @@ static struct ast_index_def_node* __must_check build_indexdef_pk_node(struct que
 	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
 
 	for (int i = 0; i < count; i++) {
-		struct ast_index_column_node *col = (struct ast_index_column_node*)stack_pop(tmp_st);
+		struct ast_crt_index_column_node *col = (struct ast_crt_index_column_node*)stack_pop(tmp_st);
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		list_add(&col->head, node->node_children_head);
 	}
@@ -248,9 +248,9 @@ static struct ast_index_def_node* __must_check build_indexdef_pk_node(struct que
 	return NULL;
 }
 
-static struct ast_index_def_node* __must_check build_indexdef_idx_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_crt_index_def_node* __must_check build_indexdef_idx_node(struct queue *parser, struct stack *tmp_st)
 {
-	struct ast_index_def_node *node;
+	struct ast_crt_index_def_node *node;
 	char *str;
 	struct stack reg_pars = {0};
 	int count;
@@ -262,7 +262,7 @@ static struct ast_index_def_node* __must_check build_indexdef_idx_node(struct qu
 	if (!node)
 		goto err_node;
 
-	node->node_type = AST_TYPE_INDEXDEF;
+	node->node_type = AST_TYPE_CRT_INDEXDEF;
 	list_head_init(&node->head);
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
@@ -280,7 +280,7 @@ static struct ast_index_def_node* __must_check build_indexdef_idx_node(struct qu
 	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
 
 	for (int i = 0; i < count; i++) {
-		struct ast_index_column_node *col = (struct ast_index_column_node*)stack_pop(tmp_st);
+		struct ast_crt_index_column_node *col = (struct ast_crt_index_column_node*)stack_pop(tmp_st);
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		list_add(&col->head, node->node_children_head);
 	}
