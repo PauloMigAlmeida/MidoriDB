@@ -10,7 +10,7 @@
 #include <lib/regex.h>
 #include <datastructure/stack.h>
 
-struct ast_ins_column_node* build_col_node(struct queue *parser)
+static struct ast_ins_column_node* build_col_node(struct queue *parser)
 {
 	struct ast_ins_column_node *node;
 	struct stack reg_pars = {0};
@@ -54,7 +54,7 @@ err:
 	return NULL;
 }
 
-struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_ins_inscols_node* build_inscols_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_ins_inscols_node *node;
 	struct stack reg_pars = {0};
@@ -104,7 +104,7 @@ err:
 	return NULL;
 }
 
-struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, enum ast_ins_expr_val_type type)
+static struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, enum ast_ins_expr_val_type type)
 {
 	struct ast_ins_exprval_node *node;
 	struct stack reg_pars = {0};
@@ -177,7 +177,7 @@ err:
 	return NULL;
 }
 
-struct ast_ins_exprop_node* build_expr_op_node(struct stack *tmp_st, enum ast_ins_expr_op_type type)
+static struct ast_ins_exprop_node* build_expr_op_node(struct stack *tmp_st, enum ast_ins_expr_op_type type)
 {
 	struct ast_ins_exprop_node *node;
 	struct ast_node *operand1;
@@ -210,13 +210,17 @@ err_node:
 	return NULL;
 }
 
-struct ast_node* build_values_node(struct queue *parser, struct stack *st)
+static struct ast_node* build_values_node(struct queue *parser, struct stack *st)
 {
+	UNUSED(parser);
+	UNUSED(st);
 	return NULL;
 }
 
-struct ast_node* build_insvals_node(struct queue *parser, struct stack *st)
+static struct ast_node* build_insvals_node(struct queue *parser, struct stack *st)
 {
+	UNUSED(parser);
+	UNUSED(st);
 	return NULL;
 }
 
