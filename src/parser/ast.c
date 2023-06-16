@@ -54,9 +54,9 @@ struct ast_node* ast_build_tree(struct queue *parser)
 
 void ast_free(struct ast_node *node)
 {
-	struct list_head *pos = NULL;
-	struct list_head *tmp_pos = NULL;
-	struct ast_node *entry = NULL;
+	struct list_head *pos;
+	struct list_head *tmp_pos;
+	struct ast_node *entry;
 
 	list_for_each_safe(pos,tmp_pos, node->node_children_head)
 	{
