@@ -100,7 +100,7 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 
 	return true;
 
-	err:
+err:
 
 	/*
 	 * if we failed to alloc memory for variable precision columns then

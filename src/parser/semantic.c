@@ -109,14 +109,14 @@ static bool validate_create_stmt(struct ast_node *node, char *out_err, size_t ou
 
 	return true;
 
-	err_idx_pk_col:
-	err_ht_put_col:
-	err_column_name:
-	err_dup_col_name:
+err_idx_pk_col:
+err_ht_put_col:
+err_column_name:
+err_dup_col_name:
 	hashtable_foreach(&ht, &free_str_entries, NULL);
-	err_table_name:
+err_table_name:
 	hashtable_free(&ht);
-	err:
+err:
 	return false;
 }
 

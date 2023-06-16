@@ -51,13 +51,13 @@ bool regex_ext_match_grp(const char *text, const char *exp, struct stack *out)
 
 	return true;
 
-	err_stack:
+err_stack:
 	free(match);
-	err_regex:
+err_regex:
 	stack_free(out);
 	regfree(&regex);
 	free(matches);
-	err:
+err:
 	return false;
 
 }
