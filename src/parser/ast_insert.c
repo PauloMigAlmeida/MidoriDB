@@ -261,10 +261,54 @@ err:
 	return NULL;
 }
 
-static struct ast_node* build_insvals_node(struct queue *parser, struct stack *st)
+static struct ast_ins_insvals_node* build_insvals_node(struct queue *parser, struct stack *tmp_st)
 {
-	UNUSED(parser);
-	UNUSED(st);
+	struct ast_ins_insvals_node *node;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INS_INSVALS;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "INSERTVALS ([0-9]+) ([A-Za-z0-9_]*)", &reg_pars))
+		goto err_regex;
+
+	node->row_count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+	strncpy(node->name, (char*)stack_peek_pos(&reg_pars, 1), sizeof(node->name) - 1 /* NUL-char */);
+
+	for (int i = 0; i < node->row_count; i++) {
+		struct ast_ins_values_node *val = (struct ast_ins_values_node*)stack_pop(tmp_st);
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		list_add(&val->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
 	return NULL;
 }
 

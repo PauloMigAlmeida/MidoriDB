@@ -28,6 +28,7 @@ enum ast_node_type {
 	AST_TYPE_INS_EXPRVAL,
 	AST_TYPE_INS_EXPROP,
 	AST_TYPE_INS_VALUES,
+	AST_TYPE_INS_INSVALS,
 };
 
 struct ast_node {
@@ -171,7 +172,7 @@ struct ast_ins_exprop_node {
 	enum ast_ins_expr_op_type op_type;
 };
 
-/* insert values - indicate how many values are being specified after the "VALUES" keyword */
+/* indicate how many values are being specified after the "VALUES" keyword */
 struct ast_ins_values_node {
 	/* type of node */
 	enum ast_node_type node_type;
@@ -181,6 +182,20 @@ struct ast_ins_values_node {
 	struct list_head head;
 	/* number of values */
 	int value_count;
+};
+
+/* how many rows will be inserted as part of a INSERT statement */
+struct ast_ins_insvals_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* table name */
+	char name[255 + 1 /*NUL char */];
+	/* number of rows */
+	int row_count;
 };
 
 /* Insert Statements - end */
