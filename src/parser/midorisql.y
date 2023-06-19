@@ -408,6 +408,7 @@ expr: expr '+' expr { emit(result, "ADD"); }
    | expr SHIFT expr { emit(result, "SHIFT %s", $2==1?"left":"right"); }
    | NOT expr { emit(result, "NOT"); }
    | '!' expr { emit(result, "NOT"); }
+   | '(' expr ')'
    ;    
 
 expr:  expr IS NULLX     { emit(result, "ISNULL"); }

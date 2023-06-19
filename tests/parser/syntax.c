@@ -96,8 +96,8 @@ static void test_insert_stmt(void)
 
 	//TODO This is valid but should be invalid - as I don't want to support that hideous MySQL feature
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (a + 1);"), 0);
-	//TODO this is invalid but should be valid as although being unsual, this will make my life as writing SELECT parsers easier
-	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ((2 + 2) * 3);"), 0);
+	// simple insert - precedence expr
+	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ((2 + 2) * 3, 4 * (3 + 1));"), 0);
 
 	/*
 	 * invalid tests
