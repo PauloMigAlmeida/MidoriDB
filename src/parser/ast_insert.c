@@ -288,7 +288,7 @@ static struct ast_ins_insvals_node* build_insvals_node(struct queue *parser, str
 		goto err_regex;
 
 	node->row_count = atoi((char*)stack_peek_pos(&reg_pars, 0));
-	strncpy(node->name, (char*)stack_peek_pos(&reg_pars, 1), sizeof(node->name) - 1 /* NUL-char */);
+	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 1), sizeof(node->table_name) - 1 /* NUL-char */);
 
 	for (int i = 0; i < node->row_count; i++) {
 		struct ast_ins_values_node *val = (struct ast_ins_values_node*)stack_pop(tmp_st);

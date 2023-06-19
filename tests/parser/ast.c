@@ -462,6 +462,60 @@ static void create_table_case_5(void)
 	ast_free(root);
 }
 
+static void insert_table_case_1(void)
+{
+	struct queue ct = {0};
+	struct ast_node *root;
+	struct ast_ins_insvals_node *insert_node;
+	struct list_head *pos1, *pos2;
+	struct ast_ins_values_node *vals_entry;
+	struct ast_ins_exprval_node *expval_entry;
+	int i = 0;
+
+	parse_stmt("INSERT INTO A VALUES (123, '456');", &ct);
+
+	root = ast_build_tree(&ct);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(root);
+
+	insert_node = (typeof(insert_node))root;
+	CU_ASSERT_EQUAL(insert_node->node_type, AST_TYPE_INS_INSVALS);
+	CU_ASSERT_EQUAL(insert_node->row_count, 1);
+	CU_ASSERT_EQUAL(list_length(insert_node->node_children_head), 1);
+	CU_ASSERT_STRING_EQUAL(insert_node->table_name, "A");
+	CU_ASSERT(list_is_empty(&insert_node->head));
+
+	list_for_each(pos1, insert_node->node_children_head)
+	{
+		vals_entry = list_entry(pos1, typeof(*vals_entry), head);
+		CU_ASSERT_EQUAL(vals_entry->node_type, AST_TYPE_INS_VALUES);
+		CU_ASSERT_FALSE(list_is_empty(&vals_entry->head));
+		CU_ASSERT_EQUAL(list_length(vals_entry->node_children_head), 2);
+
+		list_for_each(pos2, vals_entry->node_children_head)
+		{
+			expval_entry = list_entry(pos2, typeof(*expval_entry), head);
+
+			CU_ASSERT_EQUAL(expval_entry->node_type, AST_TYPE_INS_EXPRVAL);
+			CU_ASSERT_FALSE(list_is_empty(&expval_entry->head));
+			CU_ASSERT_EQUAL(list_length(expval_entry->node_children_head), 0);
+
+			if (i == 0) {
+				CU_ASSERT(expval_entry->is_intnum);
+				CU_ASSERT_EQUAL(expval_entry->int_val, 123);
+			} else {
+				CU_ASSERT(expval_entry->is_str);
+				CU_ASSERT_STRING_EQUAL(expval_entry->str_val, "456");
+			}
+			i++;
+		}
+
+	}
+
+	queue_free(&ct);
+	ast_free(root);
+
+}
+
 void test_ast_build_tree(void)
 {
 
@@ -475,6 +529,8 @@ void test_ast_build_tree(void)
 	create_table_case_4();
 	/* create - index key + primary key together after column definition */
 	create_table_case_5();
+	/* insert - no col_names; single row */
+	insert_table_case_1();
 	/**
 	 *
 	 * Parser -> Syntax -> Semantic -> Optimiser -> Execution Plan (This works for Select, Insert, Update, Delete)

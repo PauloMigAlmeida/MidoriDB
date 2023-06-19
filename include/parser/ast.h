@@ -138,7 +138,7 @@ struct ast_ins_inscols_node {
 	int column_count;
 };
 
-/* raw values - usually referenced in math expressions */
+/* raw values */
 struct ast_ins_exprval_node {
 	/* type of node */
 	enum ast_node_type node_type;
@@ -193,7 +193,7 @@ struct ast_ins_insvals_node {
 	/* doubly-linked list head */
 	struct list_head head;
 	/* table name */
-	char name[255 + 1 /*NUL char */];
+	char table_name[255 + 1 /*NUL char */];
 	/* number of rows */
 	int row_count;
 };
