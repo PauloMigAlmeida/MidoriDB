@@ -284,13 +284,14 @@ static struct ast_ins_insvals_node* build_insvals_node(struct queue *parser, str
 
 	str = (char*)queue_poll(parser);
 
-	if (!regex_ext_match_grp(str, "INSERTVALS ([0-9]+) ([A-Za-z0-9_]*)", &reg_pars))
+	if (!regex_ext_match_grp(str, "INSERTVALS ([0-9]+) ([0-9]+) ([A-Za-z0-9_]*)", &reg_pars))
 		goto err_regex;
 
-	node->row_count = atoi((char*)stack_peek_pos(&reg_pars, 0));
-	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 1), sizeof(node->table_name) - 1 /* NUL-char */);
+	node->opt_column_list = atoi((char*)stack_peek_pos(&reg_pars, 0));
+	node->row_count = atoi((char*)stack_peek_pos(&reg_pars, 1));
+	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 2), sizeof(node->table_name) - 1 /* NUL-char */);
 
-	for (int i = 0; i < node->row_count; i++) {
+	for (int i = 0; i < node->row_count + node->opt_column_list; i++) {
 		struct ast_ins_values_node *val = (struct ast_ins_values_node*)stack_pop(tmp_st);
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		list_add(&val->head, node->node_children_head);

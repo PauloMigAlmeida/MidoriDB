@@ -137,7 +137,7 @@ int yylex(void*, void*);
 %type <intval> table_references opt_inner_cross opt_outer
 %type <intval> left_or_right column_list
 
-%type <intval> insert_vals insert_vals_list
+%type <intval> insert_vals insert_vals_list opt_col_names
 %type <intval> opt_if_not_exists update_asgn_list
 %type <intval> column_atts data_type create_col_list
 
@@ -282,14 +282,14 @@ stmt: insert_stmt { emit(result, "STMT"); }
 
 insert_stmt: INSERT opt_into NAME
      opt_col_names
-     VALUES insert_vals_list { emit(result, "INSERTVALS %d %s", $6, $3); free($3); }
+     VALUES insert_vals_list { emit(result, "INSERTVALS %d %d %s", $4, $6, $3); free($3); }
    ;
 
 opt_into: INTO | /* nil */
    ;
 
-opt_col_names: /* nil */
-   | '(' column_list ')' { emit(result, "INSERTCOLS %d", $2); }
+opt_col_names: /* nil */ { $$ = 0; }
+   | '(' column_list ')' { emit(result, "INSERTCOLS %d", $2); $$ = 1; }
    ;
 
 insert_vals_list: '(' insert_vals ')' { emit(result, "VALUES %d", $2); $$ = 1; }

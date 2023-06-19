@@ -196,6 +196,8 @@ struct ast_ins_insvals_node {
 	char table_name[255 + 1 /*NUL char */];
 	/* number of rows */
 	int row_count;
+	/* were columns specified as part of the INSERT stmt ? if so, there will be added to node_children_head too */
+	bool opt_column_list;
 };
 
 /* Insert Statements - end */
