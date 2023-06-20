@@ -177,11 +177,14 @@ err:
 	return NULL;
 }
 
-static struct ast_ins_exprop_node* build_expr_op_node(struct stack *tmp_st, enum ast_ins_expr_op_type type)
+static struct ast_ins_exprop_node* build_expr_op_node(struct queue *parser, struct stack *tmp_st, enum ast_ins_expr_op_type type)
 {
 	struct ast_ins_exprop_node *node;
 	struct ast_node *operand1;
 	struct ast_node *operand2;
+
+	/* discard entry */
+	free(queue_poll(parser));
 
 	node = zalloc(sizeof(*node));
 	if (!node)
@@ -199,8 +202,8 @@ static struct ast_ins_exprop_node* build_expr_op_node(struct stack *tmp_st, enum
 	operand2 = (struct ast_node*)stack_pop(tmp_st);
 	operand1 = (struct ast_node*)stack_pop(tmp_st);
 
-	list_add(node->node_children_head, &operand1->head);
-	list_add(node->node_children_head, &operand2->head);
+	list_add(&operand1->head, node->node_children_head);
+	list_add(&operand2->head, node->node_children_head);
 
 	return node;
 
@@ -340,15 +343,15 @@ struct ast_node* ast_insert_build_tree(struct queue *parser)
 		} else if (strstarts(str, "BOOL")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_INS_EXPR_VAL_BOOL);
 		} else if (strstarts(str, "ADD")) {
-			curr = (struct ast_node*)build_expr_op_node(&st, AST_INS_EXPR_OP_ADD);
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_ADD);
 		} else if (strstarts(str, "SUB")) {
-			curr = (struct ast_node*)build_expr_op_node(&st, AST_INS_EXPR_OP_SUB);
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_SUB);
 		} else if (strstarts(str, "DIV")) {
-			curr = (struct ast_node*)build_expr_op_node(&st, AST_INS_EXPR_OP_DIV);
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_DIV);
 		} else if (strstarts(str, "MUL")) {
-			curr = (struct ast_node*)build_expr_op_node(&st, AST_INS_EXPR_OP_MUL);
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_MUL);
 		} else if (strstarts(str, "MOD")) {
-			curr = (struct ast_node*)build_expr_op_node(&st, AST_INS_EXPR_OP_MOD);
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_MOD);
 		} else if (strstarts(str, "VALUES")) {
 			curr = (struct ast_node*)build_values_node(parser, &st);
 		} else if (strstarts(str, "INSERTVALS")) {
