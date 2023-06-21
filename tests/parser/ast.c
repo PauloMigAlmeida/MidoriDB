@@ -483,6 +483,7 @@ static void insert_table_case_1(void)
 	CU_ASSERT_EQUAL(list_length(insert_node->node_children_head), 1);
 	CU_ASSERT_STRING_EQUAL(insert_node->table_name, "A");
 	CU_ASSERT(list_is_empty(&insert_node->head));
+	CU_ASSERT_FALSE(insert_node->opt_column_list);
 
 	list_for_each(pos1, insert_node->node_children_head)
 	{
@@ -545,6 +546,7 @@ static void insert_table_case_2(void)
 	/* Row 1 + Row 2 + Ins Col (yep, they count too) */
 	CU_ASSERT_EQUAL(list_length(insert_node->node_children_head), 3);
 	CU_ASSERT_STRING_EQUAL(insert_node->table_name, "A");
+	CU_ASSERT(insert_node->opt_column_list);
 	CU_ASSERT(list_is_empty(&insert_node->head));
 
 	list_for_each(pos1, insert_node->node_children_head)
@@ -638,6 +640,7 @@ static void insert_table_case_3(void)
 	CU_ASSERT_EQUAL(list_length(insert_node->node_children_head), 1);
 	CU_ASSERT_STRING_EQUAL(insert_node->table_name, "A");
 	CU_ASSERT(list_is_empty(&insert_node->head));
+	CU_ASSERT_FALSE(insert_node->opt_column_list);
 
 	list_for_each(pos1, insert_node->node_children_head)
 	{
