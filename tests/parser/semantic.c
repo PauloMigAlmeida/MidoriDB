@@ -27,7 +27,7 @@ void helper(char *stmt, bool expect_to_fail)
 	ast_free(node);
 }
 
-void test_semantic_analyze(void)
+static void create_tests(void)
 {
 	/* valid case */
 	helper("CREATE TABLE IF NOT EXISTS A ("
@@ -80,4 +80,41 @@ void test_semantic_analyze(void)
 		"f1 INTEGER AUTO_INCREMENT,"
 		"INDEX(f2));",
 		true);
+}
+
+static void insert_tests(void)
+{
+	/* valid case - insert - no col_names; single row */
+	helper("INSERT INTO A VALUES (123, '456');", false);
+
+	/* valid case - insert - with col_names; multiple rows */
+	helper("INSERT INTO A (f1, f2) VALUES (123, '456'), (678, '901');", false);
+
+	/* valid case - insert - no col_names; single row; recursive math expr */
+	helper("INSERT INTO A VALUES ((2 + 2) * 3, 4 * (3 + 1));", false);
+
+	/* invalid case - insert - with col_names; multiple rows; different num of terms */
+	helper("INSERT INTO A (f1, f2) VALUES (123, '456'), (678);", true);
+
+	/* invalid case - insert - with col_names; single row; different num of terms */
+	helper("INSERT INTO A (f1) VALUES (123, '456');", true);
+
+	/* invalid case - insert - invalid table name */
+	helper("INSERT INTO iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii (f1) VALUES (123);",
+		true);
+
+	/* invalid case - insert - invalid column name */
+	helper("INSERT INTO A (iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii) VALUES (123);",
+		true);
+
+}
+
+void test_semantic_analyze(void)
+{
+	create_tests();
+	insert_tests();
 }
