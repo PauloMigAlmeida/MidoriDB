@@ -472,7 +472,7 @@ static void insert_table_case_1(void)
 	struct ast_ins_exprval_node *expval_entry;
 	int i = 0;
 
-	parse_stmt("INSERT INTO A VALUES (123, '456');", &ct);
+	parse_stmt("INSERT INTO A VALUES (123, '456', true, 1.0);", &ct);
 
 	root = ast_build_tree(&ct);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(root);
@@ -489,7 +489,7 @@ static void insert_table_case_1(void)
 		vals_entry = list_entry(pos1, typeof(*vals_entry), head);
 		CU_ASSERT_EQUAL(vals_entry->node_type, AST_TYPE_INS_VALUES);
 		CU_ASSERT_FALSE(list_is_empty(&vals_entry->head));
-		CU_ASSERT_EQUAL(list_length(vals_entry->node_children_head), 2);
+		CU_ASSERT_EQUAL(list_length(vals_entry->node_children_head), 4);
 
 		list_for_each(pos2, vals_entry->node_children_head)
 		{
@@ -502,9 +502,15 @@ static void insert_table_case_1(void)
 			if (i == 0) {
 				CU_ASSERT(expval_entry->is_intnum);
 				CU_ASSERT_EQUAL(expval_entry->int_val, 123);
-			} else {
+			} else if (i == 1) {
 				CU_ASSERT(expval_entry->is_str);
 				CU_ASSERT_STRING_EQUAL(expval_entry->str_val, "456");
+			} else if (i == 2) {
+				CU_ASSERT(expval_entry->is_bool);
+				CU_ASSERT(expval_entry->bool_val);
+			} else {
+				CU_ASSERT(expval_entry->is_approxnum);
+				CU_ASSERT_EQUAL(expval_entry->double_val, 1.0);
 			}
 			i++;
 		}
@@ -704,6 +710,8 @@ void test_ast_build_tree(void)
 	insert_table_case_2();
 	/* insert - no col_names; single row; recursive math expr */
 	insert_table_case_3();
+	/* TODO: insert - no col_names; select */
+	/* TODO: insert - with col_names; select */
 	/**
 	 *
 	 * Parser -> Syntax -> Semantic -> Optimiser -> Execution Plan (This works for Select, Insert, Update, Delete)
