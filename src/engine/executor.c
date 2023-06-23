@@ -71,6 +71,9 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 	struct table *table;
 	int rc = MIDORIDB_OK;
 
+	if ((rc = database_lock(db)))
+		goto err;
+
 	/* evaluate the "IF NOT EXISTS" option, leave early if so */
 	if (create_node->if_not_exists && database_table_exists(db, create_node->table_name)) {
 		return rc;
@@ -80,7 +83,7 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 
 	if (!table) {
 		rc = -MIDORIDB_INTERNAL;
-		goto err;
+		goto err_tbl_init;
 	}
 
 	list_for_each(pos, create_node->node_children_head)
@@ -89,7 +92,7 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 
 		if (entry->node_type == AST_TYPE_CRT_COLUMNDEF) {
 			if ((rc = add_column((struct ast_crt_column_def_node*)entry, table)))
-				goto err;
+				goto err_add_col;
 		} else if (entry->node_type == AST_TYPE_CRT_INDEXDEF) {
 			add_index((struct ast_crt_index_def_node*)entry, table);
 		}
@@ -97,6 +100,28 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 
 	rc = database_table_add(db, table);
 
+	database_unlock(db);
+
+	return rc;
+
+err_add_col:
+	//TODO free columns added so far
+	free(table);
+err_tbl_init:
+	database_unlock(db);
+err:
+	return rc;
+}
+
+static int run_insertvals_stmt(struct database *db, struct ast_ins_insvals_node *ins_node, struct query_output *output)
+{
+	struct table *table;
+	int rc = MIDORIDB_OK;
+
+	table = hashtable_get(db->tables, ins_node->table_name,
+				MIN(strlen(ins_node->table_name) + 1, sizeof(((struct table* )0)->name)));
+
+	return rc;
 err:
 	return rc;
 }
@@ -108,6 +133,8 @@ int executor_run(struct database *db, struct ast_node *node, struct query_output
 
 	if (node->node_type == AST_TYPE_CRT_CREATE)
 		return run_create_stmt(db, (struct ast_crt_create_node*)node, output);
+	else if (node->node_type == AST_TYPE_INS_INSVALS)
+		return run_insertvals_stmt(db, (struct ast_ins_insvals_node*)node, output);
 	else
 		/* semantic analysis not implemented for that yet */
 		BUG_ON(true);

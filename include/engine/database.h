@@ -13,8 +13,8 @@
 #include <datastructure/hashtable.h>
 
 struct database {
-    struct hashtable *tables;
-    pthread_mutex_t mutex;
+	struct hashtable *tables;
+	pthread_mutex_t mutex;
 };
 
 /**
@@ -36,6 +36,9 @@ void database_close(struct database *db);
  * @db: database reference
  * @table: table to add
  * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call database_lock() before calling this method.
+ * 
  * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
  */
 int database_table_add(struct database *db, struct table *table);
@@ -45,9 +48,27 @@ int database_table_add(struct database *db, struct table *table);
  * @db: database reference
  * @table_name: name of the table. NUL-terminated
  *
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call database_lock() before calling this method.
+ * 
  * Returns: true if table exists, false otherwise
  */
 bool database_table_exists(struct database *db, char *table_name);
 
+/**
+ * database_lock - lock a database
+ * @db: database to lock
+ * 
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int __must_check database_lock(struct database *db);
+
+/**
+ * database_unlock - unlock a database
+ * @db: database to unlock
+ * 
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int database_unlock(struct database *db);
 
 #endif /* INCLUDE_ENGINE_DATABASE_H_ */

@@ -52,6 +52,22 @@ void database_close(struct database *db)
 	db->tables = NULL;
 }
 
+int database_lock(struct database *db)
+{
+	if (pthread_mutex_lock(&db->mutex))
+		return -MIDORIDB_INTERNAL;
+
+	return MIDORIDB_OK;
+}
+
+int database_unlock(struct database *db)
+{
+	if (pthread_mutex_unlock(&db->mutex))
+		return -MIDORIDB_INTERNAL;
+
+	return MIDORIDB_OK;
+}
+
 int database_table_add(struct database *db, struct table *table)
 {
 	int rc = MIDORIDB_OK;
@@ -59,15 +75,10 @@ int database_table_add(struct database *db, struct table *table)
 	/* sanity check */
 	BUG_ON(!db || !table);
 
-	if (pthread_mutex_lock(&db->mutex)) {
-		rc = -MIDORIDB_INTERNAL;
-		goto err;
-	}
-
 	/* check if table exists */
 	if (database_table_exists(db, table->name)) {
 		rc = -MIDORIDB_ERROR;
-		goto err_ht_dup;
+		goto err;
 	}
 
 	if (!hashtable_put(db->tables, table->name, sizeof(table->name), &table, sizeof(uintptr_t))) {
@@ -75,17 +86,9 @@ int database_table_add(struct database *db, struct table *table)
 		goto err_ht_put;
 	}
 
-	if (pthread_mutex_unlock(&db->mutex)) {
-		rc = -MIDORIDB_INTERNAL;
-		goto err_mt_unlock;
-	}
-
 	return rc;
 
-err_mt_unlock:
 err_ht_put:
-err_ht_dup:
-	pthread_mutex_unlock(&db->mutex);
 err:
 	return rc;
 }
