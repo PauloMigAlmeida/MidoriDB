@@ -10,7 +10,7 @@
 
 #include <datastructure/linkedlist.h>
 
-void add_index(struct ast_crt_index_def_node *idx_def_node, struct table *table)
+static void add_index(struct ast_crt_index_def_node *idx_def_node, struct table *table)
 {
 	struct list_head *pos;
 	struct ast_crt_index_column_node *entry;
@@ -43,7 +43,7 @@ void add_index(struct ast_crt_index_def_node *idx_def_node, struct table *table)
 	}
 }
 
-int add_column(struct ast_crt_column_def_node *col_def_node, struct table *table)
+static int add_column(struct ast_crt_column_def_node *col_def_node, struct table *table)
 {
 	struct column column = {0};
 	int rc = MIDORIDB_OK;
@@ -64,7 +64,7 @@ int add_column(struct ast_crt_column_def_node *col_def_node, struct table *table
 	return rc;
 }
 
-int run_create_stmt(struct database *db, struct ast_crt_create_node *create_node, struct query_output *output)
+static int run_create_stmt(struct database *db, struct ast_crt_create_node *create_node, struct query_output *output)
 {
 	struct list_head *pos;
 	struct ast_node *entry;
