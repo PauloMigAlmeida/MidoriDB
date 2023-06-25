@@ -19,5 +19,6 @@ void test_executor_run(void);
 void test_database_open(void);
 void test_database_close(void);
 void test_database_add_table(void);
+void test_database_table_exists(void);
 
 #endif /* INCLUDE_TESTS_ENGINE_H_ */

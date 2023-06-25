@@ -14,6 +14,7 @@ bool engine_init_suite(void)
 	ADD_UNITTEST(suite, test_database_open);
 	ADD_UNITTEST(suite, test_database_close);
 	ADD_UNITTEST(suite, test_database_add_table);
+	ADD_UNITTEST(suite, test_database_table_exists);
 	/* executor */
 	ADD_UNITTEST(suite, test_executor_run);
 

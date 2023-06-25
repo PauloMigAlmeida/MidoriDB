@@ -51,7 +51,26 @@ void test_database_add_table(void)
 	entry = hashtable_get(db.tables, table_2->name, sizeof(table_2->name));
 	CU_ASSERT_PTR_NOT_NULL(entry);
 
+	/* check for table that doesn't exist */
+	CU_ASSERT_PTR_NULL(hashtable_get(db.tables, "bogus", 6));
+
 	database_close(&db);
 
 }
 
+void test_database_table_exists(void)
+{
+	struct database db = {0};
+	struct table *table;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* existing table  */
+	table = table_init("test_123");
+	CU_ASSERT_EQUAL(database_table_add(&db, table), MIDORIDB_OK);
+	CU_ASSERT(database_table_exists(&db, table->name));
+	/* non-existing table */
+	CU_ASSERT_FALSE(database_table_exists(&db, "bogus"));
+
+	database_close(&db);	
+}
