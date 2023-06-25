@@ -433,6 +433,71 @@ static void test_create_7(void)
 	database_close(&db);
 }
 
+/* insert tests require tables to exist. This helper function deals with the
+ * cumbersome tasks of executing the queries. It assumes that the database is
+ * already opened
+ */
+static void insert_prep(struct database *db, char *stmt)
+{
+	struct ast_node *node;
+	struct query_output output = {0};
+	int table_count;
+
+	table_count = db->tables->count;
+	node = build_ast(stmt);
+	CU_ASSERT_EQUAL_FATAL(executor_run(db, node, &output), MIDORIDB_OK);
+	CU_ASSERT_EQUAL_FATAL(db->tables->count, table_count + 1);
+
+	ast_free(node);
+}
+
+static void test_insert_1(void)
+{
+	struct database db = {0};
+	struct ast_node *node;
+	struct query_output output = {0};
+	struct hashtable_value *value;
+	struct table *table;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 0);
+
+	insert_prep(&db, "CREATE TABLE TEST (f1 INT, f2 INT);");
+
+	node = build_ast("INSERT INTO TEST VALUES (123, 456);");
+	CU_ASSERT_EQUAL(executor_run(&db, node, &output), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 1);
+
+//	value = hashtable_get(db.tables, "TEST", 5);
+//	CU_ASSERT_PTR_NOT_NULL(value);
+//	table = *(struct table**)value->content;
+//
+//	CU_ASSERT_STRING_EQUAL(table->name, "TEST");
+//	CU_ASSERT_EQUAL(table->column_count, 2);
+//	CU_ASSERT_EQUAL(table->free_dtbkl_offset, 0);
+//
+//	CU_ASSERT_STRING_EQUAL(table->columns[0].name, "f1");
+//	CU_ASSERT_EQUAL(table->columns[0].type, CT_INTEGER);
+//	CU_ASSERT_EQUAL(table->columns[0].precision, 8);
+//	CU_ASSERT_FALSE(table->columns[0].indexed);
+//	CU_ASSERT(table->columns[0].nullable);
+//	CU_ASSERT_FALSE(table->columns[0].unique);
+//	CU_ASSERT_FALSE(table->columns[0].auto_inc);
+//	CU_ASSERT_FALSE(table->columns[0].primary_key);
+//
+//	CU_ASSERT_STRING_EQUAL(table->columns[1].name, "f2");
+//	CU_ASSERT_EQUAL(table->columns[1].type, CT_INTEGER);
+//	CU_ASSERT_EQUAL(table->columns[1].precision, 8);
+//	CU_ASSERT_FALSE(table->columns[1].indexed);
+//	CU_ASSERT(table->columns[1].nullable);
+//	CU_ASSERT_FALSE(table->columns[1].unique);
+//	CU_ASSERT_FALSE(table->columns[1].auto_inc);
+//	CU_ASSERT_FALSE(table->columns[1].primary_key);
+
+	ast_free(node);
+	database_close(&db);
+}
+
 void test_executor_run(void)
 {
 	/* create table - no index; no pk */
@@ -455,4 +520,7 @@ void test_executor_run(void)
 
 	/* create table - composed pk; multi-field index*/
 	test_create_7();
+
+	/* insert table - no col_names; single row */
+//	test_insert_1();
 }

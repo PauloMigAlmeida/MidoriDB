@@ -118,8 +118,7 @@ static int run_insertvals_stmt(struct database *db, struct ast_ins_insvals_node 
 	struct table *table;
 	int rc = MIDORIDB_OK;
 
-	table = hashtable_get(db->tables, ins_node->table_name,
-				MIN(strlen(ins_node->table_name) + 1, sizeof(((struct table* )0)->name)));
+	table = database_table_get(db, ins_node->table_name);
 
 	return rc;
 err:
