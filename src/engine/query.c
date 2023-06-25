@@ -32,7 +32,10 @@ struct query_output* query_execute(struct database *db, char *query)
 	/* syntax analysis */
 	if (syntax_parse(query, &queue)) {
 		/* copy error from the tail of the queue */
-		strncpy(output->error.message, (char*)queue_peek(&queue), sizeof(output->error.message));
+		char *err_msg = (char*)queue_peek(&queue);
+		//size_t err_msg_len = MIN(strlen(err_msg) + 1, sizeof(output->error.message));
+		size_t err_msg_len = sizeof(output->error.message) - 1;
+		strncpy(output->error.message, err_msg, err_msg_len);
 		output->status = ST_ERROR;
 
 		/* house keeping */
