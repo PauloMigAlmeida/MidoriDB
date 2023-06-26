@@ -75,9 +75,8 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 		goto err;
 
 	/* evaluate the "IF NOT EXISTS" option, leave early if so */
-	if (create_node->if_not_exists && database_table_exists(db, create_node->table_name)) {
-		return rc;
-	}
+	if (create_node->if_not_exists && database_table_exists(db, create_node->table_name))
+		goto early_ret;
 
 	table = table_init(create_node->table_name);
 
@@ -100,6 +99,8 @@ static int run_create_stmt(struct database *db, struct ast_crt_create_node *crea
 
 	rc = database_table_add(db, table);
 
+early_ret:
+	output->n_rows_aff = 0;
 	database_unlock(db);
 
 	return rc;
@@ -110,6 +111,9 @@ err_add_col:
 err_tbl_init:
 	database_unlock(db);
 err:
+	snprintf(output->error.message,
+		 sizeof(output->error.message) - 1,
+		 "Internal error at %s", __func__);
 	return rc;
 }
 

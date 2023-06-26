@@ -34,6 +34,8 @@ struct query_output {
 	enum query_output_status status;
 	struct result_set *results;
 	struct query_output_error error;
+	/* number of rows affected */
+	size_t n_rows_aff;
 };
 
 struct query_output* query_execute(struct database *db, char *query);
