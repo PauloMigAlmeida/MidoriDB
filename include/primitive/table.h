@@ -42,6 +42,24 @@ struct table {
 };
 
 /**
+ * table_lock - lock a table
+ *
+ * @table: table reference
+ *
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int __must_check table_lock(struct table *table);
+
+/**
+ * table_unlock - unlock a table
+ *
+ * @table: table reference
+ *
+ * Returns: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int table_unlock(struct table *table);
+
+/**
  * table_init - initialise a table
  *
  * @name: name of the table
@@ -56,6 +74,9 @@ struct table* __must_check table_init(char *name);
  * @table: table reference
  *
  * This function returns true if it could release all resources, false otherwise
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  */
 bool table_destroy(struct table **table);
 
@@ -63,6 +84,9 @@ bool table_destroy(struct table **table);
  * table_vacuum - perform table vaccum on existing datablocks
  *
  * @table: table reference
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  */
 bool table_vacuum(struct table *table);
 

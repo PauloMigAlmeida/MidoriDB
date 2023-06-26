@@ -33,6 +33,9 @@ struct row {
  * @table: table reference
  * @row: struct row pointer to be inserted into table
  * @len: size of row data to be read from row ptr
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  */
 bool table_insert_row(struct table *table, struct row *row, size_t len);
 
@@ -42,6 +45,9 @@ bool table_insert_row(struct table *table, struct row *row, size_t len);
  * @table: table reference
  * @blk: pointer to datablock where row resides
  * @offset: offset to row inside datablock
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  */
 bool table_delete_row(struct table *table, struct datablock *blk, size_t offset);
 
@@ -53,6 +59,9 @@ bool table_delete_row(struct table *table, struct datablock *blk, size_t offset)
  * @offset: offset to row inside datablock
  * @row: row's content
  * @len: size of data to be read from data ptr
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  */
 bool table_update_row(struct table *table, struct datablock *blk, size_t offset, struct row *row, size_t len);
 

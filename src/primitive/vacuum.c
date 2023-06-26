@@ -23,9 +23,6 @@ bool table_vacuum(struct table *table)
 	if (!table)
 		return false;
 
-	if (pthread_mutex_lock(&table->mutex))
-		return false;
-
 	dst_blk_idx = 0;
 	src_blk_idx = 0;
 	dst_blk_offset = 0;
@@ -133,9 +130,6 @@ bool table_vacuum(struct table *table)
 
 		datablock_free(src_entry);
 	}
-
-	if (pthread_mutex_unlock(&table->mutex))
-		return false;
 
 	return true;
 }

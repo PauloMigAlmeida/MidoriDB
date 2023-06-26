@@ -129,18 +129,15 @@ bool table_add_column(struct table *table, struct column *column)
 	if (!table_validate_column(column))
 		return false;
 
-	if (pthread_mutex_lock(&table->mutex))
-		return false;
-
 	/* check whether it is within the max limit for columns */
 	if (table->column_count + 1 > TABLE_MAX_COLUMNS) {
-		goto err_cleanup_mutex;
+		return false;
 	}
 
 	/* check if this column exists already */
 	for (int i = 0; i < table->column_count; i++) {
 		if (strcmp(table->columns[i].name, column->name) == 0)
-			goto err_cleanup_mutex;
+			return false;
 	}
 
 	row_cur_size = table_calc_row_size(table);
@@ -152,25 +149,10 @@ bool table_add_column(struct table *table, struct column *column)
 	/* if table isn't empty than we can to rearrange rows in datablocks */
 	if (!list_is_empty(table->datablock_head)) {
 		if (!datablock_add_column(table, row_cur_size, table_calc_row_size(table)))
-			goto err_cleanup_mutex;
+			return false;
 	}
 
-	if (pthread_mutex_unlock(&table->mutex))
-		return false;
-
 	return true;
-
-err_cleanup_mutex:
-	/*
-	 * pthread_mutex_unlock should fail if
-	 * 	 - [EINVAL] The value specified for the argument is not correct.
-	 * 	 - [EPERM]  The mutex is not currently held by the caller.
-	 *
-	 * In both cases, this is the symptom for something much worse, so in this case
-	 * the program should die... and the developer blamed :)
-	 */
-	BUG_ON(pthread_mutex_unlock(&table->mutex));
-	return false;
 }
 
 static void datablock_rem_column(struct table *table, size_t col_idx)
@@ -257,9 +239,6 @@ bool table_rem_column(struct table *table, struct column *column)
 	if (!table_validate_column(column))
 		return false;
 
-	if (pthread_mutex_lock(&table->mutex))
-		return false;
-
 	for (pos = 0; pos < table->column_count; pos++) {
 		if (strncmp(table->columns[pos].name, column->name, TABLE_MAX_COLUMN_NAME) == 0) {
 			found = true;
@@ -268,7 +247,7 @@ bool table_rem_column(struct table *table, struct column *column)
 	}
 
 	if (!found)
-		goto err_cleanup_mutex;
+		return false;
 
 	/* if table isn't empty than we can to rearrange rows in datablocks */
 	if (!list_is_empty(table->datablock_head))
@@ -280,22 +259,7 @@ bool table_rem_column(struct table *table, struct column *column)
 
 	table->column_count--;
 
-	if (pthread_mutex_unlock(&table->mutex))
-		return false;
-
 	return true;
-
-err_cleanup_mutex:
-	/*
-	 * pthread_mutex_unlock should fail if
-	 * 	 - [EINVAL] The value specified for the argument is not correct.
-	 * 	 - [EPERM]  The mutex is not currently held by the caller.
-	 *
-	 * In both cases, this is the symptom for something much worse, so in this case
-	 * the program should die... and the developer blamed :)
-	 */
-	BUG_ON(pthread_mutex_unlock(&table->mutex));
-	return false;
 }
 
 bool table_check_var_column(struct column *column)

@@ -49,6 +49,9 @@ struct column {
  *
  * @table: table reference
  * @column: column to be added
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  *
  * This function returns true if it could add the column successfully, false otherwise
  */
@@ -59,6 +62,9 @@ bool table_add_column(struct table *table, struct column *column);
  *
  * @table: table reference
  * @column: column to be removed
+ * 
+ * Note: this method is not thread-safe. It is the caller's responsibility to
+ * call table_lock() before calling this method.
  *
  * This function returns true if it could remove the column successfully, false otherwise
  */
