@@ -24,4 +24,26 @@
  */
 int executor_run(struct database *db, struct ast_node *node, struct query_output* output);
 
+/**
+ * Run the execution plan for CREATE statements
+ * @param db database reference
+ * @param node The AST node to run.
+ * @param err_out The buffer to write the error message to.
+ * @param err_out_size The size of the error buffer.
+ * 
+ * @return: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int executor_run_create_stmt(struct database *db, struct ast_crt_create_node *create_node, struct query_output *output);
+
+/**
+ * Run the execution plan for INSERT (VALUES) statements
+ * @param db database reference
+ * @param node The AST node to run.
+ * @param err_out The buffer to write the error message to.
+ * @param err_out_size The size of the error buffer.
+ * 
+ * @return: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_node *ins_node, struct query_output *output);
+
 #endif /* INCLUDE_ENGINE_EXECUTOR_H_ */
