@@ -9,6 +9,22 @@
 #include <primitive/column.h>
 #include <primitive/row.h>
 
+int table_lock(struct table *table)
+{
+	if (pthread_mutex_lock(&table->mutex))
+		return -MIDORIDB_INTERNAL;
+
+	return MIDORIDB_OK;
+}
+
+int table_unlock(struct table *table)
+{
+	if (pthread_mutex_unlock(&table->mutex))
+		return -MIDORIDB_INTERNAL;
+
+	return MIDORIDB_OK;
+}
+
 static inline bool __valid_name(char *name, size_t max_size)
 {
 	size_t arg_len;
