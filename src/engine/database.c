@@ -97,11 +97,11 @@ struct table* database_table_get(struct database *db, char *table_name)
 {
 	struct hashtable_value *entry;
 	entry = hashtable_get(db->tables, table_name, MIN(strlen(table_name) + 1, sizeof(((struct table* )0)->name)));
-	return *(struct table**)entry->content;
+	return entry ? *(struct table**)entry->content : NULL;
 }
 
 bool database_table_exists(struct database *db, char *table_name)
 {
-	return hashtable_get(db->tables, table_name, MIN(strlen(table_name) + 1, sizeof(((struct table* )0)->name))) != NULL;
+	return database_table_get(db, table_name) != NULL;
 }
 

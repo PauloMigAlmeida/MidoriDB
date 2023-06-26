@@ -456,8 +456,8 @@ static void test_insert_1(void)
 	struct database db = {0};
 	struct ast_node *node;
 	struct query_output output = {0};
-	struct hashtable_value *value;
-	struct table *table;
+//	struct hashtable_value *value;
+//	struct table *table;
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
@@ -522,5 +522,5 @@ void test_executor_run(void)
 	test_create_7();
 
 	/* insert table - no col_names; single row */
-//	test_insert_1();
+	test_insert_1();
 }
