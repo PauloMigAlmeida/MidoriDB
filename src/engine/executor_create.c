@@ -47,7 +47,7 @@ static int add_column(struct ast_crt_column_def_node *col_def_node, struct table
 	struct column column = {0};
 	int rc = MIDORIDB_OK;
 
-	strncpy(column.name, col_def_node->name, sizeof(column.name));
+	memccpy(column.name, col_def_node->name, '\0', sizeof(column.name) - 1);
 	column.type = col_def_node->type;
 	column.precision = col_def_node->precision;
 	column.nullable = col_def_node->attr_null;
