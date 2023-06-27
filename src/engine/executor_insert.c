@@ -87,15 +87,15 @@ static int build_row(struct table *table,
 		} else if (exprval_entry->is_bool) {
 			row_out->data[row_pos] = exprval_entry->bool_val;
 		} else {
-			char *tmp_str = zalloc(column->precision + 1 /* NUL-char */);
+			/* note for myself: VARCHAR() precision is NUL-char inclusive */
+			char *tmp_str = zalloc(column->precision);
 			if (!tmp_str) {
 				rc = -MIDORIDB_INTERNAL;
 				goto err;
 			}
-			//TODO copy string - you know, rush hour in auckland =/
-
+			strncpy(tmp_str, exprval_entry->str_val, column->precision - 1);
+			row_out->data[row_pos] = (uintptr_t)tmp_str;
 		}
-		
 
 		col_pos++;
 		row_pos += table_calc_column_space(column);
@@ -145,8 +145,12 @@ int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_nod
 		if (entry->node_type == AST_TYPE_INS_VALUES) {
 
 			row = zalloc(table_calc_row_size(table));
+
 			if (!row)
 				goto err_row_alloc;
+
+			row->flags.deleted = false;
+			row->flags.empty = false;
 			
 			if ((rc = build_row(table, (struct ast_ins_values_node*)entry, row, output)))
 				goto err_build_row;
@@ -154,6 +158,7 @@ int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_nod
 			if (!table_insert_row(table, row, table_calc_row_size(table)))
 				goto err_ins_row;
 
+			table_free_row_content(table, row);
 		}
 	}
 
