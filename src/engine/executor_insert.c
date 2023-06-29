@@ -81,11 +81,11 @@ static int build_row(struct table *table,
 			goto err;
 		
 		if (exprval_entry->is_intnum) {
-			row_out->data[row_pos] = exprval_entry->int_val;
+			memcpy(row_out->data + row_pos, &exprval_entry->int_val, sizeof(exprval_entry->int_val));
 		} else if (exprval_entry->is_approxnum) {
-			row_out->data[row_pos] = exprval_entry->double_val;
+			memcpy(row_out->data + row_pos, &exprval_entry->double_val, sizeof(exprval_entry->double_val));
 		} else if (exprval_entry->is_bool) {
-			row_out->data[row_pos] = exprval_entry->bool_val;
+			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, sizeof(exprval_entry->bool_val));
 		} else {
 			/* note for myself: VARCHAR() precision is NUL-char inclusive */
 			char *tmp_str = zalloc(column->precision);
@@ -155,10 +155,13 @@ int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_nod
 			if ((rc = build_row(table, (struct ast_ins_values_node*)entry, row, output)))
 				goto err_build_row;
 
-			if (!table_insert_row(table, row, table_calc_row_size(table)))
+			if (!table_insert_row(table, row, table_calc_row_size(table))){
+				rc = -MIDORIDB_INTERNAL;
 				goto err_ins_row;
+			}
 
 			table_free_row_content(table, row);
+			free(row);
 		}
 	}
 

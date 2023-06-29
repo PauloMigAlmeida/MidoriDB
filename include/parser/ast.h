@@ -153,7 +153,7 @@ struct ast_ins_exprval_node {
 	bool is_bool;
 	/* actual value */
 	union {
-		int int_val;
+		int64_t int_val;
 		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
 		double double_val;
 		bool bool_val;
