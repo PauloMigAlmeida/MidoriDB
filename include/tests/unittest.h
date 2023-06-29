@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "CUnit/Basic.h"
+#include <CUnit/Basic.h>
+#include <tests/utils.h>
 
 #define ADD_SUITE(suite, name)				\
 	do {						\
