@@ -21,4 +21,8 @@
  */
 bool semantic_analyse(struct ast_node* node, char* out_err, size_t out_err_len);
 
+bool semantic_analyse_create_stmt(struct ast_node *node, char *out_err, size_t out_err_len);
+
+bool semantic_analyse_insert_stmt(struct ast_node *node, char *out_err, size_t out_err_len);
+
 #endif /* INCLUDE_PARSER_SEMANTIC_H_ */
