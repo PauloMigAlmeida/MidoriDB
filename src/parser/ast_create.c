@@ -20,7 +20,11 @@ static void parse_bison_data_type(char *str, struct ast_crt_column_def_node *nod
 	case 4:
 		case 5:
 		node->type = CT_INTEGER;
-		node->precision = sizeof(uint64_t);
+		node->precision = sizeof(int64_t);
+		break;
+	case 6:
+		node->type = CT_TINYINT;
+		node->precision = sizeof(bool);
 		break;
 	case 8:
 		node->type = CT_DOUBLE;
@@ -38,6 +42,8 @@ static void parse_bison_data_type(char *str, struct ast_crt_column_def_node *nod
 		node->type = CT_VARCHAR;
 		node->precision = precision;
 		break;
+	default:
+		BUG_ON_CUSTOM_MSG(true, "type not implemented yet... dying!");
 	}
 }
 

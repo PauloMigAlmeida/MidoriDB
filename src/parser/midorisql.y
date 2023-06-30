@@ -120,6 +120,7 @@ int yylex(void*, void*);
 %token THEN
 %token TIME
 %token TIMESTAMP
+%token TINYINT
 %token UNIQUE
 %token UPDATE
 %token VALUES
@@ -374,6 +375,7 @@ column_atts: /* nil */ { $$ = 0; }
 data_type:
      INT { $$ = 40000; }
    | INTEGER { $$ = 50000; }
+   | TINYINT { $$ = 60000; }
    | DOUBLE { $$ = 80000; }
    | DATE { $$ = 100000; }
    | DATETIME { $$ = 110000; }

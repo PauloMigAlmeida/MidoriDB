@@ -73,6 +73,7 @@ RIGHT	{ return RIGHT; }
 SELECT	{ return SELECT; }
 SET	{ return SET; }
 TABLE	{ return TABLE; }
+TINYINT { return TINYINT; }
 THEN	{ return THEN; }
 UNIQUE	{ return UNIQUE; }
 UPDATE	{ return UPDATE; }

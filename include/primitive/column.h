@@ -17,6 +17,7 @@ struct table;
 enum COLUMN_TYPE {
 	CT_VARCHAR,
 	CT_INTEGER,
+	CT_TINYINT, // Also used as BOOL
 	CT_DOUBLE,
 	CT_DATE,
 	CT_DATETIME,
