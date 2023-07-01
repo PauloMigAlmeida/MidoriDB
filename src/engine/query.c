@@ -43,8 +43,10 @@ struct query_output* query_execute(struct database *db, char *query)
 	if (!output)
 		goto err;
 
-	if (!queue_init(&queue))
+	if (!queue_init(&queue)) {
+		snprintf(output->error.message, sizeof(output->error.message) - 1, "error while initialising query\n");
 		goto err_init_queue;
+	}
 
 	/* syntax analysis */
 	if (syntax_parse(query, &queue)) {
@@ -52,43 +54,48 @@ struct query_output* query_execute(struct database *db, char *query)
 		char *err_msg = (char*)queue_peek(&queue);
 		size_t err_msg_len = sizeof(output->error.message) - 1;
 		strncpy(output->error.message, err_msg, err_msg_len);
-		output->status = ST_ERROR;
 
-		/* house keeping */
-		queue_free(&queue);
-
-		return output;
+		goto err_syntax_parser;
 	}
 
 	/* build AST for the query */
 	node = ast_build_tree(&queue);
-	if (!node)
+	if (!node) {
+		snprintf(output->error.message, sizeof(output->error.message) - 1,
+				"error while running syntax analysis on query\n");
 		goto err_build_ast;
+	}
 
 	/* semantic analysis */
-	if (!semantic_analyse(db, node, output->error.message, sizeof(output->error.message))) {
-		/* house keeping */
-		ast_free(node);
-		queue_free(&queue);
-
-		return output;
+	if (!semantic_analyse(db, node, output->error.message, sizeof(output->error.message) - 1)) {
+		goto err_semantic_analysis;
 	}
 
 	/* optimisation */
 	//TODO add optimisation
+
 	/* execution */
-	executor_run(db, node, output);
+	if (executor_run(db, node, output))
+		goto err_execution_phase;
+
+	//TODO change this once we implement SELECT statements
+	output->status = ST_OK_EXECUTED;
+
 	/* clean up */
 	queue_free(&queue);
 	ast_free(node);
 
 	return output;
 
+err_execution_phase:
+err_semantic_analysis:
+	ast_free(node);
 err_build_ast:
+err_syntax_parser:
 	queue_free(&queue);
 err_init_queue:
-	free(output);
+	output->status = ST_ERROR;
 err:
-	return NULL;
+	return output;
 }
 
