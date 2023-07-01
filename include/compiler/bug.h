@@ -26,16 +26,16 @@ static inline void die(const char *fmt, ...)
 	exit(ret);
 }
 
-#define BUG_ON(cond)							\
-	do {								\
-		if (unlikely(cond))					\
-			die("BUG_ON: %s:%u", __func__, __LINE__);	\
-	} while (0)
-
-#define BUG_ON_CUSTOM_MSG(cond, msg)						\
+#define BUG_ON(cond)								\
 	do {									\
 		if (unlikely(cond))						\
-			die("BUG_ON: %s:%u :: %s", __func__, __LINE__, msg);	\
+			die("BUG_ON: %s:%u:%s", __FILE__, __LINE__, __func__);	\
+	} while (0)
+
+#define BUG_ON_CUSTOM_MSG(cond, msg)								\
+	do {											\
+		if (unlikely(cond))								\
+			die("BUG_ON: %s:%u:%s :: %s", __FILE__, __LINE__, __func__, msg);	\
 	} while (0)
 
 #endif /* COMPILER_BUG_H */
