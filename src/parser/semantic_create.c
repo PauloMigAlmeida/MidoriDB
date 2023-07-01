@@ -41,8 +41,12 @@ bool semantic_analyse_create_stmt(struct database *db, struct ast_node *node, ch
 	create_node = (struct ast_crt_create_node*)node;
 	if (!table_validate_name(create_node->table_name)) {
 		snprintf(out_err, out_err_len, "table name '%s' is invalid\n", create_node->table_name);
-
 		goto err_table_name;
+	}
+
+	if (!create_node->if_not_exists && database_table_exists(db, create_node->table_name)) {
+		snprintf(out_err, out_err_len, "table name '%s' already exists\n", create_node->table_name);
+		goto err_table_dup;
 	}
 
 	/* validate columns */
@@ -111,6 +115,7 @@ err_ht_put_col:
 err_column_name:
 err_dup_col_name:
 	hashtable_foreach(&ht, &free_str_entries, NULL);
+err_table_dup:
 err_table_name:
 	hashtable_free(&ht);
 err:
