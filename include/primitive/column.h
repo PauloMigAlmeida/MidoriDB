@@ -24,6 +24,9 @@ enum COLUMN_TYPE {
 // Add more in the future
 };
 
+#define COLUMN_CTDATE_FMT		"%Y-%m-%d"
+#define COLUMN_CTDATETIME_FMT		"%Y-%m-%d %H:%M:%S"
+
 struct column {
 	/* NUL-terminated string */
 	char name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
@@ -42,8 +45,6 @@ struct column {
 	/* is this column primary key ? */
 	bool primary_key;
 };
-
-#define TABLE_MAX_COLUMN_NAME		127
 
 /**
  * table_add_column - add column to a table
