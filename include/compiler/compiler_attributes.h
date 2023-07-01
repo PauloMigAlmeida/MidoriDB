@@ -32,4 +32,11 @@
  */
 #define __force_inline		inline __attribute__((always_inline))
 
+/*
+ * This attribute, attached to an enum, struct, or union type definition,
+ * specified that the minimum required memory be used to represent the type.
+ * more: https://gcc.gnu.org/onlinedocs/gcc-3.3/gcc/Type-Attributes.html
+ */
+#define __packed            __attribute__((__packed__))
+
 #endif /* INCLUDE_COMPILER_COMPILER_ATTRIBUTES_H_ */

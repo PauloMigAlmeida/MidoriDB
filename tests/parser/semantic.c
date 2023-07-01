@@ -38,8 +38,7 @@ void prep_helper(struct database *db, char *stmt)
 
 	output = query_execute(db, stmt);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(output);
-
-	//TODO evaluate output->status when this is implemented
+	CU_ASSERT_EQUAL_FATAL(output->status, ST_OK_EXECUTED)
 
 	free(output);
 }
@@ -137,10 +136,47 @@ static void insert_tests(void)
 		true);
 
 	/* invalid case - insert - invalid column name */
+	prep_helper(&db, "CREATE TABLE F (f1 INT);");
 	helper(&db, "INSERT INTO F (iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
 		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
 		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii) VALUES (123);",
 		true);
+
+	/* invalid case - insert - invalid value for column - int */
+	prep_helper(&db, "CREATE TABLE G (f1 INT);");
+	helper(&db, "INSERT INTO G (f1) VALUES ('456');", true);
+	helper(&db, "INSERT INTO G (f1) VALUES (456);", false);
+
+	/* invalid case - insert - invalid value for column - double */
+	prep_helper(&db, "CREATE TABLE H (f1 DOUBLE);");
+	helper(&db, "INSERT INTO H (f1) VALUES (123);", true); // we don't support implicit conversion
+	helper(&db, "INSERT INTO H (f1) VALUES (123.0);", false);
+
+	/* invalid case - insert - invalid value for column - bool */
+	prep_helper(&db, "CREATE TABLE I (f1 TINYINT);");
+	helper(&db, "INSERT INTO I (f1) VALUES (1);", true); // we don't support implicit conversion
+	helper(&db, "INSERT INTO I (f1) VALUES (TRUE);", false);
+
+	/* invalid case - insert - invalid value for column - VARCHAR */
+	prep_helper(&db, "CREATE TABLE J (f1 VARCHAR(10));");
+	helper(&db, "INSERT INTO J (f1) VALUES (1);", true);
+	//TODO maybe we can check boundaries for VARCHAR values in semantic values
+	helper(&db, "INSERT INTO J (f1) VALUES ('hello');", false);
+
+	/* invalid case - insert - invalid value for column - DATE */
+	prep_helper(&db, "CREATE TABLE K (f1 DATE);");
+	helper(&db, "INSERT INTO K (f1) VALUES (1688253642);", true); // we don't support implicit conversion
+	helper(&db, "INSERT INTO K (f1) VALUES ('2023-07-02');", false);
+
+	/* invalid case - insert - invalid value for column - DATETIME */
+	prep_helper(&db, "CREATE TABLE L (f1 DATETIME);");
+	helper(&db, "INSERT INTO L (f1) VALUES (1688253642);", true); // we don't support implicit conversion
+	helper(&db, "INSERT INTO L (f1) VALUES ('2023-07-02 11:22:00');", false);
+
+	/* invalid case - insert - messing with column opt list order */
+	prep_helper(&db, "CREATE TABLE M (f1 INT, f2 DOUBLE, f3 VARCHAR(10), f4 DATE);");
+	helper(&db, "INSERT INTO M (f2, f1, f4, f3) VALUES (456, 789.0, 'hello', '2023-07-02');", true);
+	helper(&db, "INSERT INTO M (f2, f1, f4, f3) VALUES (789.0, 456, '2023-07-02', 'hello');", false);
 
 	database_close(&db);
 }
