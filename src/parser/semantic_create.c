@@ -21,7 +21,7 @@ static void free_str_entries(struct hashtable *hashtable, const void *key, size_
 	hashtable_free_entry(entry);
 }
 
-bool semantic_analyse_create_stmt(struct ast_node *node, char *out_err, size_t out_err_len)
+bool semantic_analyse_create_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct hashtable ht = {0};
 	struct ast_crt_create_node *create_node;

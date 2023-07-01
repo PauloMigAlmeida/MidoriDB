@@ -12,6 +12,23 @@
 #include <datastructure/queue.h>
 #include <engine/executor.h>
 
+/**
+ * Notes to my future self:
+ * 	-> I removed the locking references from executor_*.c files as this was leading to some validations to be
+ * 		performed at the execution phase that I consider to be part of the semantic phase. For instance, to
+ * 		test whether the date format of a string would parse before turning it into time_t:
+ *
+ * 		INSERT INTO TEST VALUES ('2023-06-30 21:11:00');
+ *
+ * 		The reason I was initially doing it on execution phase was because I had the table lock but this was
+ * 		making the source code rather messy. So I decided to implement the locking actions only when I start
+ * 		meddling with the transaction piece of the database -> Which I haven't started yet.
+ *
+ * 		I don't have everything figured out yet but I am assuming that I will be able to lock tables as I go
+ * 		through different phases (and as early as semantic phase) and only release it after the the execution
+ * 		phase.... some sort of hash map of locked elements pointer that I pass around. (TBD)
+ */
+
 //TODO add tests
 struct query_output* query_execute(struct database *db, char *query)
 {
@@ -33,7 +50,6 @@ struct query_output* query_execute(struct database *db, char *query)
 	if (syntax_parse(query, &queue)) {
 		/* copy error from the tail of the queue */
 		char *err_msg = (char*)queue_peek(&queue);
-		//size_t err_msg_len = MIN(strlen(err_msg) + 1, sizeof(output->error.message));
 		size_t err_msg_len = sizeof(output->error.message) - 1;
 		strncpy(output->error.message, err_msg, err_msg_len);
 		output->status = ST_ERROR;
@@ -50,7 +66,7 @@ struct query_output* query_execute(struct database *db, char *query)
 		goto err_build_ast;
 
 	/* semantic analysis */
-	if (!semantic_analyse(node, output->error.message, sizeof(output->error.message))) {
+	if (!semantic_analyse(db, node, output->error.message, sizeof(output->error.message))) {
 		/* house keeping */
 		ast_free(node);
 		queue_free(&queue);
