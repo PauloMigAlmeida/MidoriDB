@@ -10,6 +10,13 @@
 #include <lib/regex.h>
 #include <datastructure/stack.h>
 
+enum ast_ins_expr_val_type {
+	AST_INS_EXPR_VAL_INTNUM,
+	AST_INS_EXPR_VAL_STRING,
+	AST_INS_EXPR_VAL_APPROXNUM,
+	AST_INS_EXPR_VAL_BOOL,
+};
+
 static struct ast_ins_column_node* build_col_node(struct queue *parser)
 {
 	struct ast_ins_column_node *node;

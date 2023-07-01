@@ -99,14 +99,6 @@ struct ast_crt_index_column_node {
 /* Create Statements - end */
 
 /* Insert Statements - start */
-
-enum ast_ins_expr_val_type {
-	AST_INS_EXPR_VAL_INTNUM,
-	AST_INS_EXPR_VAL_STRING,
-	AST_INS_EXPR_VAL_APPROXNUM,
-	AST_INS_EXPR_VAL_BOOL,
-};
-
 enum ast_ins_expr_op_type {
 	AST_INS_EXPR_OP_ADD,
 	AST_INS_EXPR_OP_SUB,
