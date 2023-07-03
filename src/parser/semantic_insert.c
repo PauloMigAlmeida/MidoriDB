@@ -377,6 +377,8 @@ static bool check_not_null_columns(struct database *db, struct ast_ins_insvals_n
 	struct column *column;
 	bool found;
 
+	memzero(column_order, sizeof(column_order));
+
 	table = database_table_get(db, insvals_node->table_name);
 
 	/* columns can be specified in an order that's different from the order defined in the CREATE stmt */
