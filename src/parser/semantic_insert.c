@@ -365,6 +365,81 @@ static bool validate_values(struct database *db, struct ast_ins_insvals_node *in
 	return true;
 }
 
+static bool check_not_null_columns(struct database *db, struct ast_ins_insvals_node *insvals_node, char *out_err, size_t out_err_len)
+{
+	struct table *table;
+	struct list_head *pos1, *pos2;
+	struct ast_node *tmp_entry1, *tmp_entry2;
+	struct ast_ins_values_node *vals_node;
+	struct ast_ins_exprval_node *exprval_node;
+	int column_order[TABLE_MAX_COLUMNS];
+	int vals_idx;
+	struct column *column;
+	bool found;
+
+	table = database_table_get(db, insvals_node->table_name);
+
+	/* columns can be specified in an order that's different from the order defined in the CREATE stmt */
+	build_column_order(table, insvals_node, column_order, ARR_SIZE(column_order));
+
+	/*
+	 * syntactically speaking, one can create a valid insert stmt that doesn't have all columns on the
+	 * opt_column_list section. We need to figure out if any columns that have been left out
+	 * has the "not null" constraint. If so, this statement is semantically invalid.
+	 */
+	if (insvals_node->opt_column_list) {
+		for (int i = 0; i < table->column_count; i++) {
+			column = &table->columns[i];
+			found = false;
+
+			for (int j = 0; j < table->column_count; j++) {
+				if (column_order[j] == i) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found && !column->nullable) {
+				snprintf(out_err, out_err_len, "NOT NULL constraint failed: %s.%s\n", table->name,
+						column->name);
+				return false;
+			}
+		}
+	}
+
+	/* check if values haven't explicitly been set to NULL */
+	list_for_each(pos1, insvals_node->node_children_head)
+	{
+		tmp_entry1 = list_entry(pos1, typeof(*tmp_entry1), head);
+		if (tmp_entry1->node_type == AST_TYPE_INS_VALUES) {
+			vals_node = (struct ast_ins_values_node*)tmp_entry1;
+
+			vals_idx = 0;
+			list_for_each(pos2, vals_node->node_children_head)
+			{
+				column = &table->columns[column_order[vals_idx]];
+				tmp_entry2 = list_entry(pos2, typeof(*tmp_entry2), head);
+
+				if (tmp_entry2->node_type == AST_TYPE_INS_EXPRVAL) {
+					exprval_node = (struct ast_ins_exprval_node*)tmp_entry2;
+
+					if (exprval_node->is_null && !column->nullable) {
+						snprintf(out_err, out_err_len, "NOT NULL constraint failed: %s.%s\n",
+								table->name,
+								column->name);
+						return false;
+					}
+				}
+
+				vals_idx++;
+			}
+		}
+	}
+
+	return true;
+
+}
+
 bool semantic_analyse_insert_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct ast_ins_insvals_node *insvals_node;
@@ -387,12 +462,16 @@ bool semantic_analyse_insert_stmt(struct database *db, struct ast_node *node, ch
 	if (insvals_node->opt_column_list && !validate_column_list(db, insvals_node, out_err, out_err_len))
 		return false;
 
+	/* check if all not null columns have values */
+	if (!check_not_null_columns(db, insvals_node, out_err, out_err_len))
+		return false;
+
+	/* check value types match column types */
 	if (!validate_values(db, insvals_node, out_err, out_err_len))
 		return false;
 
 	/**
 	 * TODO list:
-	 * 	-> validate if all not null columns have values
 	 * 	-> check if unique constraints are not violated (probably later when index management is in place)
 	 *
 	 */

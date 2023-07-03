@@ -299,8 +299,10 @@ insert_vals_list: '(' insert_vals ')' { emit(result, "VALUES %d", $2); $$ = 1; }
 insert_vals:
      expr { $$ = 1; }
    | DEFAULT { emit(result, "DEFAULT"); $$ = 1; }
+   | NULLX { emit(result, "NULL"); $$ = 1; }
    | insert_vals ',' expr { $$ = $1 + 1; }
    | insert_vals ',' DEFAULT { emit(result, "DEFAULT"); $$ = $1 + 1; }
+   | insert_vals ',' NULLX { emit(result, "NULL"); $$ = $1 + 1; }
    ;
 
 insert_stmt: INSERT opt_into NAME opt_col_names

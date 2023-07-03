@@ -190,6 +190,17 @@ static void insert_tests(void)
 	helper(&db, "INSERT INTO O VALUES (456);", true);
 	helper(&db, "INSERT INTO O VALUES (123, 789.0);", false);
 
+	/* invalid case - insert - leaving out column with NOT NULL constraint using opt_column_list */
+	prep_helper(&db, "CREATE TABLE P (f1 INT, f2 DOUBLE NOT NULL);");
+	helper(&db, "INSERT INTO P (f1) VALUES (456);", true);
+	helper(&db, "INSERT INTO P (f1, f2) VALUES (123, 789.0);", false);
+
+	/* invalid case - insert - explicitly inserting NULL into a NOT NULL column */
+	prep_helper(&db, "CREATE TABLE Q (f1 INT, f2 DOUBLE NOT NULL);");
+	helper(&db, "INSERT INTO Q (f1, f2) VALUES (123, NULL);", true);
+	helper(&db, "INSERT INTO Q (f1, f2) VALUES (NULL, 789.0);", false);
+	helper(&db, "INSERT INTO Q (f1, f2) VALUES (123, NULL), (NULL, 789.0);", true);
+
 	database_close(&db);
 }
 

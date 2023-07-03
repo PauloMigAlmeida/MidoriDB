@@ -143,6 +143,7 @@ struct ast_ins_exprval_node {
 	bool is_str;
 	bool is_approxnum;
 	bool is_bool;
+	bool is_null;
 	/* actual value */
 	union {
 		int64_t int_val;

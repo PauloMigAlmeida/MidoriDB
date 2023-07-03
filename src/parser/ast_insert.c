@@ -15,6 +15,7 @@ enum ast_ins_expr_val_type {
 	AST_INS_EXPR_VAL_STRING,
 	AST_INS_EXPR_VAL_APPROXNUM,
 	AST_INS_EXPR_VAL_BOOL,
+	AST_INS_EXPR_VAL_NULL,
 };
 
 static struct ast_ins_column_node* build_col_node(struct queue *parser)
@@ -140,6 +141,8 @@ static struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, en
 	} else if (type == AST_INS_EXPR_VAL_BOOL) {
 		node->is_bool = true;
 		reg_exp = "BOOL ([0-1])";
+	} else if (type == AST_INS_EXPR_VAL_NULL) {
+		node->is_null = true;
 	} else {
 		die("handler not implemented for type: %d\n", type);
 	}
@@ -152,23 +155,28 @@ static struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, en
 
 	str = (char*)queue_poll(parser);
 
-	if (!regex_ext_match_grp(str, reg_exp, &reg_pars))
-		goto err_regex;
+	if (type != AST_INS_EXPR_VAL_NULL) {
 
-	ext_val = (char*)stack_peek_pos(&reg_pars, 0);
-	if (type == AST_INS_EXPR_VAL_INTNUM) {
-		node->int_val = atoi(ext_val);
-	} else if (type == AST_INS_EXPR_VAL_STRING) {
-		strncpy(node->str_val, ext_val, sizeof(node->str_val) - 1);
-	} else if (type == AST_INS_EXPR_VAL_APPROXNUM) {
-		node->double_val = atof(ext_val);
-	} else if (type == AST_INS_EXPR_VAL_BOOL) {
-		node->bool_val = atoi(ext_val);
-	} else {
-		die("handler not implemented for type: %d\n", type);
+		if (!regex_ext_match_grp(str, reg_exp, &reg_pars))
+			goto err_regex;
+
+		ext_val = (char*)stack_peek_pos(&reg_pars, 0);
+		if (type == AST_INS_EXPR_VAL_INTNUM) {
+			node->int_val = atoi(ext_val);
+		} else if (type == AST_INS_EXPR_VAL_STRING) {
+			strncpy(node->str_val, ext_val, sizeof(node->str_val) - 1);
+		} else if (type == AST_INS_EXPR_VAL_APPROXNUM) {
+			node->double_val = atof(ext_val);
+		} else if (type == AST_INS_EXPR_VAL_BOOL) {
+			node->bool_val = atoi(ext_val);
+		} else {
+			die("handler not implemented for type: %d\n", type);
+		}
+
 	}
 
 	free(str);
+
 	stack_free(&reg_pars);
 
 	return node;
@@ -349,6 +357,8 @@ struct ast_node* ast_insert_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_INS_EXPR_VAL_APPROXNUM);
 		} else if (strstarts(str, "BOOL")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_INS_EXPR_VAL_BOOL);
+		} else if (strstarts(str, "NULL")) {
+			curr = (struct ast_node*)build_expr_val_node(parser, AST_INS_EXPR_VAL_NULL);
 		} else if (strstarts(str, "ADD")) {
 			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_ADD);
 		} else if (strstarts(str, "SUB")) {
