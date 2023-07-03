@@ -135,12 +135,16 @@ err:
 	return false;
 }
 
-static bool validate_number_terms(struct ast_ins_insvals_node *insvals_node, char *out_err, size_t out_err_len)
+static bool validate_number_terms(struct database *db, struct ast_ins_insvals_node *insvals_node, char *out_err, size_t out_err_len)
 {
+	struct table *table;
 	int num_terms = -1;
 	struct list_head *pos1;
 	struct ast_node *tmp_entry;
 	struct ast_ins_values_node *vals_node;
+	int opt_col_list_idx;
+
+	table = database_table_get(db, insvals_node->table_name);
 
 	list_for_each(pos1, insvals_node->node_children_head)
 	{
@@ -156,6 +160,41 @@ static bool validate_number_terms(struct ast_ins_insvals_node *insvals_node, cha
 				snprintf(out_err, out_err_len, "all VALUES must have the same number of terms\n");
 				return false;
 			}
+		}
+	}
+
+	/* check if number of terms match number of columns specified - (opt_column_list) */
+	if (insvals_node->opt_column_list) {
+		opt_col_list_idx = 0;
+
+		// find AST_TYPE_INS_INSCOLS node
+		list_for_each(pos1, insvals_node->node_children_head)
+		{
+			tmp_entry = list_entry(pos1, typeof(*tmp_entry), head);
+			if (tmp_entry->node_type == AST_TYPE_INS_INSCOLS)
+				break;
+		}
+
+		list_for_each(pos1, tmp_entry->node_children_head)
+		{
+			opt_col_list_idx++;
+		}
+
+		if (num_terms != opt_col_list_idx) {
+			snprintf(out_err, out_err_len, "%d values for %d columns\n", num_terms, opt_col_list_idx);
+			return false;
+		}
+
+	} else {
+		/* check if number of terms match number of columns in the table */
+
+		if (num_terms != table->column_count) {
+			snprintf(out_err, out_err_len,
+					"table %s has %d columns but %d values were supplied\n",
+					table->name,
+					table->column_count,
+					num_terms);
+			return false;
 		}
 	}
 
@@ -241,20 +280,14 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 	return true;
 }
 
-static bool validate_values(struct database *db, struct ast_ins_insvals_node *insvals_node, char *out_err, size_t out_err_len)
+/* columns can be specified in an order that's different from the order defined in the CREATE stmt */
+static void build_column_order(struct table *table, struct ast_ins_insvals_node *insvals_node, int *column_order, int len)
 {
-	struct table *table;
-	struct list_head *pos1, *pos2;
-	struct ast_node *tmp_entry1, *tmp_entry2;
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
 	struct ast_ins_inscols_node *inscols_node;
 	struct ast_ins_column_node *col_node;
-	struct ast_ins_values_node *vals_node;
-	/* columns can be specified in an order that's different from the order defined in the CREATE stmt */
-	int column_order[TABLE_MAX_COLUMNS];
 	int opt_col_list_idx;
-	int vals_idx;
-
-	table = database_table_get(db, insvals_node->table_name);
 
 	if (!insvals_node->opt_column_list) {
 		/* column list wasn't specified, so it follows the natural order defined in the CREATE stmt */
@@ -264,19 +297,21 @@ static bool validate_values(struct database *db, struct ast_ins_insvals_node *in
 		/* column list was defined, so we create a mapping of that order */
 
 		// find AST_TYPE_INS_INSCOLS node
-		list_for_each(pos1, insvals_node->node_children_head)
+		list_for_each(pos, insvals_node->node_children_head)
 		{
-			tmp_entry1 = list_entry(pos1, typeof(*tmp_entry1), head);
-			if (tmp_entry1->node_type == AST_TYPE_INS_INSCOLS) {
-				inscols_node = (struct ast_ins_inscols_node*)tmp_entry1;
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			if (tmp_entry->node_type == AST_TYPE_INS_INSCOLS) {
+				inscols_node = (struct ast_ins_inscols_node*)tmp_entry;
 				break;
 			}
 		}
 
 		opt_col_list_idx = 0;
-		list_for_each(pos2, inscols_node->node_children_head)
+		list_for_each(pos, inscols_node->node_children_head)
 		{
-			col_node = list_entry(pos2, typeof(*col_node), head);
+			col_node = list_entry(pos, typeof(*col_node), head);
+
+			BUG_ON(len < table->column_count);
 
 			for (int i = 0; i < table->column_count; i++) {
 				struct column *col = &table->columns[i];
@@ -289,6 +324,21 @@ static bool validate_values(struct database *db, struct ast_ins_insvals_node *in
 			opt_col_list_idx++;
 		}
 	}
+}
+
+static bool validate_values(struct database *db, struct ast_ins_insvals_node *insvals_node, char *out_err, size_t out_err_len)
+{
+	struct table *table;
+	struct list_head *pos1, *pos2;
+	struct ast_node *tmp_entry1, *tmp_entry2;
+	struct ast_ins_values_node *vals_node;
+	int column_order[TABLE_MAX_COLUMNS];
+	int vals_idx;
+
+	table = database_table_get(db, insvals_node->table_name);
+
+	/* columns can be specified in an order that's different from the order defined in the CREATE stmt */
+	build_column_order(table, insvals_node, column_order, ARR_SIZE(column_order));
 
 	/* check if values match column types */
 	list_for_each(pos1, insvals_node->node_children_head)
@@ -325,8 +375,12 @@ bool semantic_analyse_insert_stmt(struct database *db, struct ast_node *node, ch
 	if (!validate_table(db, insvals_node, out_err, out_err_len))
 		return false;
 
-	/* check whether all rows have the same number of terms */
-	if (!validate_number_terms(insvals_node, out_err, out_err_len))
+	/*
+	 * 1 - check whether all rows have the same number of terms.
+	 * 2 - if opt_column_list -> check if number of terms match number of columns specified
+	 * 3 - if not opt_column_list -> check if number of terms match number of columns in the table
+	 */
+	if (!validate_number_terms(db, insvals_node, out_err, out_err_len))
 		return false;
 
 	/* when column list is specified, we can validate a few more things */

@@ -178,6 +178,18 @@ static void insert_tests(void)
 	helper(&db, "INSERT INTO M (f2, f1, f4, f3) VALUES (456, 789.0, 'hello', '2023-07-02');", true);
 	helper(&db, "INSERT INTO M (f2, f1, f4, f3) VALUES (789.0, 456, '2023-07-02', 'hello');", false);
 
+	/* invalid case - insert - number of terms different from number of columns in opt_column_list */
+	prep_helper(&db, "CREATE TABLE N (f1 INT, f2 DOUBLE, f3 TINYINT);");
+	helper(&db, "INSERT INTO N (f2, f1, f3) VALUES (789.0);", true);
+	helper(&db, "INSERT INTO N (f2, f1) VALUES (789.0, 456, TRUE);", true);
+	helper(&db, "INSERT INTO N (f2, f1) VALUES (456, 789.0);", true); // wrong data type (purposely)
+	helper(&db, "INSERT INTO N (f2, f1) VALUES (789.0, 456);", false);
+
+	/* invalid case - insert - number of terms different from number of table columns*/
+	prep_helper(&db, "CREATE TABLE O (f1 INT, f2 DOUBLE);");
+	helper(&db, "INSERT INTO O VALUES (456);", true);
+	helper(&db, "INSERT INTO O VALUES (123, 789.0);", false);
+
 	database_close(&db);
 }
 
