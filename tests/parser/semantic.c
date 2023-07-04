@@ -160,8 +160,8 @@ static void insert_tests(void)
 	/* invalid case - insert - invalid value for column - VARCHAR */
 	prep_helper(&db, "CREATE TABLE J (f1 VARCHAR(10));");
 	helper(&db, "INSERT INTO J (f1) VALUES (1);", true);
-	//TODO maybe we can check boundaries for VARCHAR values in semantic values
 	helper(&db, "INSERT INTO J (f1) VALUES ('hello');", false);
+	helper(&db, "INSERT INTO J (f1) VALUES ('hellohellohello');", true); //testing varchar boundaries
 
 	/* invalid case - insert - invalid value for column - DATE */
 	prep_helper(&db, "CREATE TABLE K (f1 DATE);");

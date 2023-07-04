@@ -244,6 +244,16 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 							vals_node->str_val);
 					return false;
 				}
+			} else if (column->type == CT_VARCHAR) {
+				size_t len = strlen(vals_node->str_val) + 1;
+				if (len > (size_t)column->precision){
+					snprintf(out_err, out_err_len,
+							/* max str size would exceed buffer's size, so trim it */
+							"column: '%s' supports up to %d ASCII chars, "
+							"value contains %lu\n",
+							column->name, column->precision, len);
+					return false;
+				}
 			} else if (column->type != CT_VARCHAR) {
 				snprintf(out_err, out_err_len,
 						/* max str size would exceed buffer's size, so trim it */
@@ -377,7 +387,7 @@ static bool check_not_null_columns(struct database *db, struct ast_ins_insvals_n
 	struct column *column;
 	bool found;
 
-	memzero(column_order, sizeof(column_order));
+	memset(column_order, -1, sizeof(column_order));
 
 	table = database_table_get(db, insvals_node->table_name);
 
