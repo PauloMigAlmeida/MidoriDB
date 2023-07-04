@@ -79,6 +79,7 @@ static int build_row(struct table *table,
 	int val_pos = 0;
 	size_t row_pos = 0;
 	struct column *column;
+	size_t col_space;
 	time_t dt = 0;
 	int rc = MIDORIDB_OK;
 
@@ -99,6 +100,7 @@ static int build_row(struct table *table,
 	{
 		entry = list_entry(pos, typeof(*entry), head);
 		column = &table->columns[column_order[val_pos]];
+		col_space = table_calc_column_space(column);
 		row_pos = 0;
 
 		/* calculate column displacement in row's payload, then again user can fiddle with opt_column_list */
@@ -115,17 +117,17 @@ static int build_row(struct table *table,
 		exprval_entry = (struct ast_ins_exprval_node*)entry;
 
 		if (exprval_entry->is_intnum) {
-			memcpy(row_out->data + row_pos, &exprval_entry->int_val, table_calc_column_space(column));
+			memcpy(row_out->data + row_pos, &exprval_entry->int_val, col_space);
 		} else if (exprval_entry->is_approxnum) {
-			memcpy(row_out->data + row_pos, &exprval_entry->double_val, table_calc_column_space(column));
+			memcpy(row_out->data + row_pos, &exprval_entry->double_val, col_space);
 		} else if (exprval_entry->is_bool) {
-			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, table_calc_column_space(column));
+			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, col_space);
 		} else if (exprval_entry->is_null) {
 			/*
 			 * I don't have to zero out part of the row payload for null value
 			 * but that makes troubleshooting slightly easier
 			 */
-			memzero(row_out->data + row_pos, table_calc_column_space(column));
+			memzero(row_out->data + row_pos, col_space);
 		} else if (exprval_entry->is_str) {
 
 			/*
@@ -138,7 +140,7 @@ static int build_row(struct table *table,
 				if ((rc = parse_date_type(exprval_entry, column->type, output, &dt)))
 					goto err;
 
-				memcpy(row_out->data + row_pos, &dt, table_calc_column_space(column));
+				memcpy(row_out->data + row_pos, &dt, col_space);
 
 			} else {
 				BUG_ON_CUSTOM_MSG(true, "not implemented yet");
@@ -149,7 +151,7 @@ static int build_row(struct table *table,
 					goto err;
 				}
 				strncpy(tmp_str, exprval_entry->str_val, column->precision - 1);
-				memcpy(row_out->data + row_pos, &tmp_str, table_calc_column_space(column));
+				memcpy(row_out->data + row_pos, &tmp_str, col_space);
 			}
 
 		} else {
