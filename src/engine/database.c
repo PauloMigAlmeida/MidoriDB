@@ -34,7 +34,9 @@ static void free_table(struct hashtable *hashtable, const void *key, size_t klen
 	UNUSED(vlen);
 	UNUSED(arg);
 
-	table_destroy((struct table**)value);
+	// if we can't destroy a table, then a memory leak is guaranteed.
+	// usually this can happen when we make mistakes regarding table_lock/table_unlock calls.
+	BUG_ON(!table_destroy((struct table**)value));
 
 	entry = hashtable_remove(hashtable, key, klen);
 	hashtable_free_entry(entry);
