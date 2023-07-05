@@ -500,6 +500,7 @@ static void test_insert_1(void)
 		double val_4;
 		bool val_5;
 		time_t val_6;
+		time_t val_7;
 	} __packed;
 
 	struct database db = {0};
@@ -507,24 +508,46 @@ static void test_insert_1(void)
 
 	struct row *exp_row_1;
 	struct row *exp_row_2;
-	//TODO add test for DATE (you got DATETIME only)
-	struct fp_types_row fp_data_1 = {123, 456, 123.0, 456.0, true, 1688116260};
-	struct fp_types_row fp_data_2 = {-12345, -78965, -12345.0, -78965.0, false, 1688116260};
+	struct fp_types_row fp_data_1 = {123, 456, 123.0, 456.0, true, 1688116260, 1688472000};
+	struct fp_types_row fp_data_2 = {-12345, -78965, -12345.0, -78965.0, false, 1688116260, 1688472000};
 
 	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
 	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 
-	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 INT,f2 INT,f3 DOUBLE,f4 DOUBLE, f5 TINYINT, f6 DATETIME);");
-	CU_ASSERT_EQUAL(run_stmt(
-			&db,
-			"INSERT INTO TEST VALUES (123, 456, 123.0, 456.0, TRUE, '2023-06-30 21:11:00');"),
-			ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(
-			&db,
-			"INSERT INTO TEST VALUES (-12345, -78965, -12345.0, -78965.0, FALSE, '2023-06-30 21:11:00');"),
-			ST_OK_EXECUTED);
+	table = run_create_stmt(&db,
+				"CREATE TABLE TEST ("
+				"	f1 INT,"
+				"	f2 INT,"
+				"	f3 DOUBLE,"
+				"	f4 DOUBLE,"
+				"	f5 TINYINT,"
+				"	f6 DATETIME,"
+				"	f7 DATE"
+				");");
+	CU_ASSERT_EQUAL(run_stmt(&db, 
+				"INSERT INTO TEST VALUES ("
+				"	123,"
+				"	456,"
+				"	123.0,"
+				"	456.0,"
+				"	TRUE,"
+				"	'2023-06-30 21:11:00',"
+				"	'2023-07-05'"
+				");"),
+				ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db,
+				"INSERT INTO TEST VALUES ("
+				"	-12345,"
+				"	-78965,"
+				"	-12345.0,"
+				"	-78965.0,"
+				"	FALSE,"
+				"	'2023-06-30 21:11:00',"
+				"	'2023-07-05'"
+				");"),
+				ST_OK_EXECUTED);
 
 	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
 	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
