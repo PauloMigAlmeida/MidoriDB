@@ -526,28 +526,28 @@ static void test_insert_1(void)
 				"	f6 DATETIME,"
 				"	f7 DATE"
 				");");
-	CU_ASSERT_EQUAL(run_stmt(&db, 
-				"INSERT INTO TEST VALUES ("
-				"	123,"
-				"	456,"
-				"	123.0,"
-				"	456.0,"
-				"	TRUE,"
-				"	'2023-06-30 21:11:00',"
-				"	'2023-07-05'"
-				");"),
-				ST_OK_EXECUTED);
 	CU_ASSERT_EQUAL(run_stmt(&db,
-				"INSERT INTO TEST VALUES ("
-				"	-12345,"
-				"	-78965,"
-				"	-12345.0,"
-				"	-78965.0,"
-				"	FALSE,"
-				"	'2023-06-30 21:11:00',"
-				"	'2023-07-05'"
-				");"),
-				ST_OK_EXECUTED);
+					"INSERT INTO TEST VALUES ("
+					"	123,"
+					"	456,"
+					"	123.0,"
+					"	456.0,"
+					"	TRUE,"
+					"	'2023-06-30 21:11:00',"
+					"	'2023-07-05'"
+					");"),
+			ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db,
+					"INSERT INTO TEST VALUES ("
+					"	-12345,"
+					"	-78965,"
+					"	-12345.0,"
+					"	-78965.0,"
+					"	FALSE,"
+					"	'2023-06-30 21:11:00',"
+					"	'2023-07-05'"
+					");"),
+			ST_OK_EXECUTED);
 
 	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
 	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
@@ -603,6 +603,65 @@ static void test_insert_2(void)
 	free(exp_row);
 }
 
+static void test_insert_3(void)
+{
+	struct mix_types_row {
+		int64_t val_1;
+		int64_t val_2;
+		double vaddl_3;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	char *data1_str = "456";
+	struct mix_types_row data_1 = {123, (uintptr_t)data1_str, 123.0};
+
+	char *data2_str = zalloc(4);
+	int data_2_null_field[] = {1, 2};
+	struct mix_types_row data_2 = {123, (uintptr_t)data2_str, 0};
+
+	char *data3_str = zalloc(4);
+	int data_3_null_field[] = {1};
+	struct mix_types_row data_3 = {123, (uintptr_t)data3_str, 456.0};
+
+	struct row *exp_row_1;
+	struct row *exp_row_2;
+	struct row *exp_row_3;
+
+	exp_row_1 = build_row(&data_1, sizeof(data_1), NULL, 0);
+	exp_row_2 = build_row(&data_2, sizeof(data_2), data_2_null_field, ARR_SIZE(data_2_null_field));
+	exp_row_3 = build_row(&data_3, sizeof(data_3), data_3_null_field, ARR_SIZE(data_3_null_field));
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 INT, f2 VARCHAR(4), f3 DOUBLE);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (123, '456', 123.0);"), ST_OK_EXECUTED);
+	// explicit nulls
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (123, NULL, NULL);"), ST_OK_EXECUTED);
+	// implicit nulls
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST (f1) VALUES (123);"), ST_OK_EXECUTED);
+	// explicit nulls + reorder columns
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST (f3, f2, f1) VALUES (NULL, NULL, 123);"), ST_OK_EXECUTED);
+	// implicit nulls + reorder columns
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST (f3, f1) VALUES (456.0, 123);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 4, &header_used, exp_row_3));
+	CU_ASSERT(check_row_flags(table, 5, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(data2_str);
+	free(data3_str);
+}
+
 void test_executor_run(void)
 {
 	/* create table - no index; no pk */
@@ -629,6 +688,9 @@ void test_executor_run(void)
 	/* insert table - no col_names; fixed-precision; single row */
 	test_insert_1();
 
-	/* insert table - no col_names; fixed-precision; single row; NOT NULL cols */
+	/* insert table - fixed-precision; single row; NOT NULL cols */
 	test_insert_2();
+
+	/* insert table - mixed precision; single row; NULL and NOT NULL */
+	test_insert_3();
 }

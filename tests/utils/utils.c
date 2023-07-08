@@ -71,8 +71,9 @@ bool check_row_flags(struct table *table, size_t row_num, struct row_header_flag
 
 bool check_row(struct table *table, size_t row_num, struct row_header_flags *exp_header_flags, struct row *row)
 {
+	struct row *fetched_row = fetch_row(table, row_num);
 	return check_row_flags(table, row_num, exp_header_flags) &&
-			memcmp(fetch_row(table, row_num)->null_bitmap, row->null_bitmap, sizeof(row->null_bitmap)) == 0
+			memcmp(fetched_row->null_bitmap, row->null_bitmap, sizeof(row->null_bitmap)) == 0
 			&&
 			check_row_data(table, row_num, row->data);
 }

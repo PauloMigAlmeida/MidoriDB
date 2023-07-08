@@ -92,8 +92,31 @@ static int build_row(struct table *table,
 	 * if field still null at the end then either the value was a explicit NULL or the column
 	 * has been left out of the INSERT stmt via the opt_column_list
 	 */
+	row_pos = 0;
 	for (int i = 0; i < table->column_count; i++) {
+		column = &table->columns[i];
+		col_space = table_calc_column_space(column);
+
 		bit_set(row_out->null_bitmap, i, sizeof(row_out->null_bitmap));
+
+		if (table_check_var_column(column)) {
+			/*
+			 * for variable precision columns, we have to allocate the memory as if there would be a value
+			 * copied to it. Reason being because otherwise we would have some trouble keeping track of
+			 * what has been allocated and what hasn't.
+			 */
+
+			/* note to myself: VARCHAR() precision is NUL-char inclusive */
+			char *tmp_str = zalloc(column->precision);
+			if (!tmp_str) {
+				rc = -MIDORIDB_INTERNAL;
+				goto err;
+			}
+
+			memcpy(row_out->data + row_pos, &tmp_str, col_space);
+		}
+
+		row_pos += col_space;
 	}
 
 	list_for_each(pos, vals_node->node_children_head)
@@ -123,11 +146,11 @@ static int build_row(struct table *table,
 		} else if (exprval_entry->is_bool) {
 			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, col_space);
 		} else if (exprval_entry->is_null) {
-			/*
-			 * I don't have to zero out part of the row payload for null value
-			 * but that makes troubleshooting slightly easier
-			 */
-			memzero(row_out->data + row_pos, col_space);
+
+			if (!table_check_var_column(column)) {
+				/* not required but it makes troubleshooting slightly easier */
+				memzero(row_out->data + row_pos, col_space);
+			}
 		} else if (exprval_entry->is_str) {
 
 			/*
@@ -143,15 +166,8 @@ static int build_row(struct table *table,
 				memcpy(row_out->data + row_pos, &dt, col_space);
 
 			} else {
-				BUG_ON_CUSTOM_MSG(true, "not implemented yet");
-				/* note to myself: VARCHAR() precision is NUL-char inclusive */
-				char *tmp_str = zalloc(column->precision);
-				if (!tmp_str) {
-					rc = -MIDORIDB_INTERNAL;
-					goto err;
-				}
-				strncpy(tmp_str, exprval_entry->str_val, column->precision - 1);
-				memcpy(row_out->data + row_pos, &tmp_str, col_space);
+				char **tmp_str = (char**)(row_out->data + row_pos);
+				strncpy(*tmp_str, exprval_entry->str_val, column->precision - 1);
 			}
 
 		} else {
