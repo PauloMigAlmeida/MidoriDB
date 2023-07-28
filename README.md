@@ -3,12 +3,29 @@
 
 In-memory database written in C from scratch
 
-## Build
+## Dependencies
 
-On Ubuntu
+On ubuntu:
 
 ```bash
-apt install libcunit1-dev bison flex libfl-dev
+apt install bison flex libfl-dev
+
+# if you want to build tests
+apt install libcunit1-dev
+```
+
+
+## Build
+
+```bash
+make
+```
+
+## Running tests
+
+```bash
+make all
+./build/tests/run_unit_tests
 ```
 
 ## Wishlist
