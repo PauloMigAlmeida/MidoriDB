@@ -439,7 +439,7 @@ void test_table_vacuum(void)
 	create_test_table_var_precision_columns(&table, 6, 3);
 
 	char *data11_1 = "test1";
-	char *data11_2 = "00000";
+	char data11_2[6] = {0};
 	char *data11_3 = "test3";
 	uintptr_t data11[] = {(uintptr_t)data11_1, (uintptr_t)data11_2, (uintptr_t)data11_3};
 	int data11_null_fds[] = {1};

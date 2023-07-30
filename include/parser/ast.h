@@ -144,13 +144,15 @@ struct ast_ins_exprval_node {
 	bool is_approxnum;
 	bool is_bool;
 	bool is_null;
-	/* actual value */
+	/* raw values */
 	union {
 		int64_t int_val;
 		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
 		double double_val;
 		bool bool_val;
 	};
+	/* synthetic value - hold intermediate values extracted from raw values in the SQL stmt */
+	time_t date_val;
 };
 
 /* math operators */

@@ -359,14 +359,14 @@ void test_table_update_row(void)
 	free(row_new);
 
 	/* valid case - variable precision columns with null columns */
-	char *vpn_old_data_1 = "00000";
+	char vpn_old_data_1[6] = {0};
 	char *vpn_old_data_2 = "test2";
-	char *vpn_old_data_3 = "00000";
+	char vpn_old_data_3[6] = {0};
 	int vpn_old_null_fields[] = {0, 2};
 	uintptr_t vpn_old_data[] = {(uintptr_t)vpn_old_data_1, (uintptr_t)vpn_old_data_2, (uintptr_t)vpn_old_data_3};
 
 	char *vpn_new_data_1 = "test4";
-	char *vpn_new_data_2 = "00000";
+	char vpn_new_data_2[6] = {0};
 	char *vpn_new_data_3 = "test6";
 	int vpn_new_null_fields[] = {1};
 	uintptr_t vpn_new_data[] = {(uintptr_t)vpn_new_data_1, (uintptr_t)vpn_new_data_2, (uintptr_t)vpn_new_data_3};

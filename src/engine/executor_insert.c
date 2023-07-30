@@ -80,7 +80,6 @@ static int build_row(struct table *table,
 	size_t row_pos = 0;
 	struct column *column;
 	size_t col_space;
-	time_t dt = 0;
 	int rc = MIDORIDB_OK;
 
 	/* initialise row flags */
@@ -92,31 +91,8 @@ static int build_row(struct table *table,
 	 * if field still null at the end then either the value was a explicit NULL or the column
 	 * has been left out of the INSERT stmt via the opt_column_list
 	 */
-	row_pos = 0;
 	for (int i = 0; i < table->column_count; i++) {
-		column = &table->columns[i];
-		col_space = table_calc_column_space(column);
-
 		bit_set(row_out->null_bitmap, i, sizeof(row_out->null_bitmap));
-
-		if (table_check_var_column(column)) {
-			/*
-			 * for variable precision columns, we have to allocate the memory as if there would be a value
-			 * copied to it. Reason being because otherwise we would have some trouble keeping track of
-			 * what has been allocated and what hasn't.
-			 */
-
-			/* note to myself: VARCHAR() precision is NUL-char inclusive */
-			char *tmp_str = zalloc(column->precision);
-			if (!tmp_str) {
-				rc = -MIDORIDB_INTERNAL;
-				goto err;
-			}
-
-			memcpy(row_out->data + row_pos, &tmp_str, col_space);
-		}
-
-		row_pos += col_space;
 	}
 
 	list_for_each(pos, vals_node->node_children_head)
@@ -146,11 +122,7 @@ static int build_row(struct table *table,
 		} else if (exprval_entry->is_bool) {
 			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, col_space);
 		} else if (exprval_entry->is_null) {
-
-			if (!table_check_var_column(column)) {
-				/* not required but it makes troubleshooting slightly easier */
-				memzero(row_out->data + row_pos, col_space);
-			}
+			/* do nothing */
 		} else if (exprval_entry->is_str) {
 
 			/*
@@ -160,14 +132,14 @@ static int build_row(struct table *table,
 
 			if (column->type == CT_DATE || column->type == CT_DATETIME) {
 
-				if ((rc = parse_date_type(exprval_entry, column->type, output, &dt)))
+				if ((rc = parse_date_type(exprval_entry, column->type, output, &exprval_entry->date_val)))
 					goto err;
 
-				memcpy(row_out->data + row_pos, &dt, col_space);
+				memcpy(row_out->data + row_pos, &exprval_entry->date_val, col_space);
 
 			} else {
-				char **tmp_str = (char**)(row_out->data + row_pos);
-				strncpy(*tmp_str, exprval_entry->str_val, column->precision - 1);
+				char **ptr = (char**)(row_out->data + row_pos);
+				*ptr = exprval_entry->str_val;
 			}
 
 		} else {
@@ -276,7 +248,6 @@ int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_nod
 				goto err_ins_row;
 			}
 
-			table_free_row_content(table, row);
 			free(row);
 		}
 	}

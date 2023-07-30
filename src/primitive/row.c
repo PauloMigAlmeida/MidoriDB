@@ -76,14 +76,10 @@ bool table_insert_row(struct table *table, struct row *row, size_t len)
 			if (!ptr)
 				goto err;
 
-			/* 
-			 * This line will give me a headache... I'm sure of it.
-			 *
-			 * So far my thought is the following:
-			 *	-> it is expected that the engine would ensure that the ptr
-			 *		copied here has the same length as the column->precision
-			 */
-			memcpy(ptr, *((char**)((char*)row->data + pos)), column->precision);
+			/* Copy data only if column is not NULL */
+			if (!bit_test(row->null_bitmap, column_idx, sizeof(row->null_bitmap))) {
+				memcpy(ptr, *((char**)((char*)row->data + pos)), column->precision);
+			}
 
 			uintptr_t *col_idx_ptr = (uintptr_t*)&new_row->data[pos];
 			*col_idx_ptr = (uintptr_t)ptr;
