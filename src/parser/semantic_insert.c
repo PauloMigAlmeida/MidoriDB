@@ -140,7 +140,7 @@ static bool validate_number_terms(struct database *db, struct ast_ins_insvals_no
 	struct table *table;
 	int num_terms = -1;
 	struct list_head *pos1;
-	struct ast_node *tmp_entry;
+	struct ast_node *tmp_entry = NULL;
 	struct ast_ins_values_node *vals_node;
 	int opt_col_list_idx;
 
@@ -295,7 +295,7 @@ static void build_column_order(struct table *table, struct ast_ins_insvals_node 
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_ins_inscols_node *inscols_node;
+	struct ast_ins_inscols_node *inscols_node = NULL;
 	struct ast_ins_column_node *col_node;
 	int opt_col_list_idx;
 
