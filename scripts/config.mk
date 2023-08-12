@@ -30,19 +30,18 @@ else
 endif
 
 
-CCFLAGS			:= -std=gnu11 \
-					-g \
-					-O2 \
-					-fpic \
-					-masm=intel \
-					-Wall -Wextra -Wpedantic \
-					-D_FORTIFY_SOURCE=3 \
-			       	-fsanitize=bounds \
-			       	-fsanitize-undefined-trap-on-error \
-			       	-fstack-protector-strong \
-			       	-Wvla \
-			       	-Wimplicit-fallthrough 
-
-LDFLAGS			:= -lm -lfl
+CCFLAGS		:= -std=gnu11 \
+			-g \
+			-O2 \
+			-fpic \
+			-masm=intel \
+			-Wall -Wextra -Wpedantic \
+			-D_FORTIFY_SOURCE=3 \
+			-fsanitize=bounds \
+			-fsanitize-undefined-trap-on-error \
+			-fstack-protector-strong \
+			-Wvla \
+			-Wimplicit-fallthrough 
+LDFLAGS		:= -lm -lfl
 TEST_LDFLAGS	:= $(LDFLAGS) -lcunit
-MAKE_FLAGS  	:= --quiet --no-print-directory
+MAKE_FLAGS	:= --quiet --no-print-directory
