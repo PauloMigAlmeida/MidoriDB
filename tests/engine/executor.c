@@ -480,7 +480,7 @@ static enum query_output_status run_stmt(struct database *db, char *stmt)
 
 	if (ret == ST_ERROR) {
 		// helps diagnose issues during unit tests / CI builds
-		printf(output->error.message);
+		printf("%s\n", output->error.message);
 	}
 
 	free(output);
