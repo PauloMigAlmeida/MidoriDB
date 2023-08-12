@@ -79,7 +79,6 @@ int yylex(void*, void*);
 %token CURRENT_TIMESTAMP
 %token DATE
 %token DATETIME
-%token DEFAULT
 %token DELETE
 %token DESC
 %token DISTINCT
@@ -133,7 +132,7 @@ int yylex(void*, void*);
 %token FCOUNT
 
 %type <intval> select_opts select_expr_list
-%type <intval> val_list opt_val_list case_list
+%type <intval> val_list case_list
 %type <intval> groupby_list opt_asc_desc
 %type <intval> table_references opt_inner_cross opt_outer
 %type <intval> left_or_right column_list
@@ -298,10 +297,8 @@ insert_vals_list: '(' insert_vals ')' { emit(result, "VALUES %d", $2); $$ = 1; }
 
 insert_vals:
      expr { $$ = 1; }
-   | DEFAULT { emit(result, "DEFAULT"); $$ = 1; }
    | NULLX { emit(result, "NULL"); $$ = 1; }
    | insert_vals ',' expr { $$ = $1 + 1; }
-   | insert_vals ',' DEFAULT { emit(result, "DEFAULT"); $$ = $1 + 1; }
    | insert_vals ',' NULLX { emit(result, "NULL"); $$ = $1 + 1; }
    ;
 
@@ -429,18 +426,11 @@ val_list: expr { $$ = 1; }
    | expr ',' val_list { $$ = 1 + $3; }
    ;
 
-opt_val_list: /* nil */ { $$ = 0; }
-   | val_list
-   ;
-
 expr: expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
    | expr NOT IN '(' val_list ')'    { emit(result, "ISIN %d", $5); emit(result, "NOT"); }
    | expr IN '(' select_stmt ')'     { emit(result, "INSELECT"); }
    | expr NOT IN '(' select_stmt ')' { emit(result, "INSELECT"); emit(result, "NOT"); }
    | EXISTS '(' select_stmt ')'      { emit(result, "EXISTS"); if($1) emit(result, "NOT"); }
-   ;
-
-expr: NAME '(' opt_val_list ')' {  emit(result, "CALL %d %s", $3, $1); free($1); }
    ;
 
   /* functions with special syntax */

@@ -34,7 +34,6 @@ CROSS	{ return CROSS; }
 CURRENT_DATE	{ return CURRENT_DATE; }
 DATE	{ return DATE; }
 DATETIME	{ return DATETIME; }
-DEFAULT	{ return DEFAULT; }
 DELETE	{ return DELETE; }
 DESC	{ return DESC; }
 DISTINCT	{ return DISTINCT; }
