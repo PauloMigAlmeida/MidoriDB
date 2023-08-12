@@ -347,10 +347,6 @@ create_table_stmt: CREATE TABLE opt_if_not_exists NAME
    '(' create_col_list ')' { emit(result, "CREATE %d %d %s", $3, $6, $4); free($4); }
    ;
 
-create_table_stmt: CREATE TABLE opt_if_not_exists NAME '.' NAME
-   '(' create_col_list ')' { emit(result, "CREATE %d %d %s.%s", $3, $8, $4, $6);
-                          free($4); free($6); }
-   ;
 
 create_col_list: create_definition { $$ = 1; }
     | create_col_list ',' create_definition { $$ = $1 + 1; }

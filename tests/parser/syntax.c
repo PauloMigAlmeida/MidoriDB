@@ -76,6 +76,8 @@ static void test_create_stmt(void)
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("create table a(field bla);"), 0);
 	// temporary table isn't supported
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("create temporary table a(field integer);"), 0);
+	// We don't have support for "schemas"
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("CREATE TABLE A.G (f1 INTEGER);"), 0);
 
 }
 
