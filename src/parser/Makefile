@@ -43,7 +43,7 @@ $(INT_BISON_FILES): $(SRC_BISON_FILES)
 # Both Flex and Bison can generate code that will make
 # the current CCFLAGS scream. Since I don't control
 # much of how the code will be generated, I will silence
-# the warnings that are not application to this application.
+# the warnings that are not related to this application.
 #
 # Additionally, given that we generate code into a different 
 # folder, then I have to adjust the include paths to make it

@@ -5,7 +5,7 @@
 void yyerror(void*, void*, char *s, ...);
 int oldstate;
 
-#define YY_FATAL_ERROR(msg) yyerror(NULL, NULL, msg)
+#define YY_FATAL_ERROR(msg) yyerror(NULL, yyscanner, msg)
 %}
 
 %x COMMENT
@@ -102,8 +102,8 @@ FALSE	{ yylval->intval = 0; return BOOL; }
 '(\\.|''|[^'\n])*'	|
 \"(\\.|\"\"|[^"\n])*\"  { yylval->strval = strdup(yytext); return STRING; }
 
-'(\\.|[^'\n])*$	        { yyerror(NULL, NULL, "Unterminated string %s", yytext); }
-\"(\\.|[^"\n])*$	{ yyerror(NULL, NULL, "Unterminated string %s", yytext); }
+'(\\.|[^'\n])*$	        { yyerror(NULL, yyscanner, "Unterminated string %s", yytext); }
+\"(\\.|[^"\n])*$	{ yyerror(NULL, yyscanner, "Unterminated string %s", yytext); }
 
    /* hex strings */
 X'[0-9A-F]+' |  
@@ -139,8 +139,8 @@ B'[01]+'     { yylval->strval = strdup(yytext); return STRING; }
 	/* 
          * peek ahead and return function if name(
          */
-COUNT    { int c = input(yylval); unput(c);
-           if(c == '(') return FCOUNT;
+COUNT    { int c = input(yyscanner); unput(c);
+           if(c == '(') {return FCOUNT;}
            yylval->strval = strdup(yytext);
            return NAME; }
 
@@ -150,7 +150,7 @@ COUNT    { int c = input(yylval); unput(c);
                           yylval->strval[yyleng-2] = 0;
                           return NAME; }
 
-`[^`\n]*$               { yyerror(NULL, NULL, "unterminated quoted name %s", yytext); }
+`[^`\n]*$               { yyerror(NULL, yyscanner, "unterminated quoted name %s", yytext); }
 
 
 	/* comments */   
@@ -160,10 +160,10 @@ COUNT    { int c = input(yylval); unput(c);
 "/*"            { oldstate = YY_START; BEGIN COMMENT; }
 <COMMENT>"*/"   { BEGIN oldstate; }
 <COMMENT>.|\n   ;
-<COMMENT><<EOF>> { yyerror(NULL, NULL, "unclosed comment"); }
+<COMMENT><<EOF>> { yyerror(NULL, yyscanner, "unclosed comment"); }
 
 	/* everything else */
 [ \t\n]         /* white space */
-.               { yyerror(NULL, NULL, "mystery character '%c'", *yytext); }
+.               { yyerror(NULL, yyscanner, "mystery character '%c'", *yytext); }
 
 %%

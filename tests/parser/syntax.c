@@ -114,6 +114,10 @@ static void test_insert_stmt(void)
 	// missing semi-column
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A VALUE (123)"), 0);
 
+	/* there is no support for built-in functions
+	 * wrong in so many ways lol (but on purpose) - as COUNT is the only built-in function I have for now
+	 */
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A (f1) VALUES (COUNT());"), 0);
 }
 
 void test_syntax_parse(void)

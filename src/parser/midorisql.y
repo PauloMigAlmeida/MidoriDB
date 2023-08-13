@@ -294,6 +294,7 @@ opt_col_names: /* nil */ { $$ = 0; }
 
 insert_vals_list: '(' insert_vals ')' { emit(result, "VALUES %d", $2); $$ = 1; }
    | insert_vals_list ',' '(' insert_vals ')' { emit(result, "VALUES %d", $4); $$ = $1 + 1; }
+   ;
 
 insert_vals:
      expr { $$ = 1; }
