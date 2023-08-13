@@ -310,7 +310,7 @@ insert_expr:
    | INTNUM        { emit(result, "NUMBER %d", $1); }
    | APPROXNUM     { emit(result, "FLOAT %g", $1); }
    | BOOL          { emit(result, "BOOL %d", $1); }
-   | NULLX { emit(result, "NULL"); }
+   | NULLX         { emit(result, "NULL"); }
    ;
 
 insert_expr: insert_expr '+' insert_expr { emit(result, "ADD"); }
