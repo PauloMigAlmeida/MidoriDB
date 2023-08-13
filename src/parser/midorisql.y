@@ -297,15 +297,30 @@ insert_vals_list: '(' insert_vals ')' { emit(result, "VALUES %d", $2); $$ = 1; }
    ;
 
 insert_vals:
-     expr { $$ = 1; }
-   | NULLX { emit(result, "NULL"); $$ = 1; }
-   | insert_vals ',' expr { $$ = $1 + 1; }
-   | insert_vals ',' NULLX { emit(result, "NULL"); $$ = $1 + 1; }
+     insert_expr                 { $$ = 1; }
+   | insert_vals ',' insert_expr { $$ = $1 + 1; }
    ;
 
 insert_stmt: INSERT opt_into NAME opt_col_names
     select_stmt { emit(result, "INSERTSELECT %s", $3); free($3); }
   ;
+
+insert_expr:
+     STRING        { emit(result, "STRING %s", $1); free($1); }
+   | INTNUM        { emit(result, "NUMBER %d", $1); }
+   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
+   | BOOL          { emit(result, "BOOL %d", $1); }
+   | NULLX { emit(result, "NULL"); }
+   ;
+
+insert_expr: insert_expr '+' insert_expr { emit(result, "ADD"); }
+   | insert_expr '-' insert_expr         { emit(result, "SUB"); }
+   | insert_expr '*' insert_expr         { emit(result, "MUL"); }
+   | insert_expr '/' insert_expr         { emit(result, "DIV"); }
+   | insert_expr '%' insert_expr         { emit(result, "MOD"); }
+   | '-' insert_expr %prec UMINUS        { emit(result, "NEG"); }      
+   | '(' insert_expr ')'
+   ;  
 
 /** update **/
 stmt: update_stmt { emit(result, "STMT"); }

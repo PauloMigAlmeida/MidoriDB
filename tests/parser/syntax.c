@@ -95,9 +95,6 @@ static void test_insert_stmt(void)
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (123, '456'),(789, '012');"), 0);
 	// insert from select
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) SELECT s1, s2 FROM B;"), 0);
-
-	//TODO This is valid but should be invalid - as I don't want to support that hideous MySQL feature
-	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (a + 1);"), 0);
 	// simple insert - precedence expr
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ((2 + 2) * 3, 4 * (3 + 1));"), 0);
 
@@ -113,6 +110,8 @@ static void test_insert_stmt(void)
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A (123);"), 0);
 	// missing semi-column
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A VALUE (123)"), 0);
+	// I don't want to support that hideous MySQL feature
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (1, f1 + 1);"), 0);
 
 	/* there is no support for built-in functions
 	 * wrong in so many ways lol (but on purpose) - as COUNT is the only built-in function I have for now
