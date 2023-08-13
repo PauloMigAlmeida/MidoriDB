@@ -167,6 +167,7 @@ static void insert_tests(void)
 	prep_helper(&db, "CREATE TABLE K (f1 DATE);");
 	helper(&db, "INSERT INTO K (f1) VALUES (1688253642);", true); // we don't support implicit conversion
 	helper(&db, "INSERT INTO K (f1) VALUES ('2023-07-02');", false);
+	helper(&db, "INSERT INTO K (f1) VALUES ('2023-07-02'), (1688253642);", true); // all values must be valid for column
 
 	/* invalid case - insert - invalid value for column - DATETIME */
 	prep_helper(&db, "CREATE TABLE L (f1 DATETIME);");
