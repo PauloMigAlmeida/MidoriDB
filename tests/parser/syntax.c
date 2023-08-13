@@ -95,8 +95,10 @@ static void test_insert_stmt(void)
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (123, '456'),(789, '012');"), 0);
 	// insert from select
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) SELECT s1, s2 FROM B;"), 0);
-	// simple insert - precedence expr
+	// simple insert - precedence insert_expr
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ((2 + 2) * 3, 4 * (3 + 1));"), 0);
+	// simple insert - explicit NULL
+	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES (NULL, 1), (NULL, NULL);"), 0);
 
 	/*
 	 * invalid tests
@@ -117,6 +119,8 @@ static void test_insert_stmt(void)
 	 * wrong in so many ways lol (but on purpose) - as COUNT is the only built-in function I have for now
 	 */
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A (f1) VALUES (COUNT());"), 0);
+	// bitwise operators (which are supported on expr but not on insert_expr)
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("INSERT INTO A VALUE (123 & 123 | 1)"), 0);
 }
 
 void test_syntax_parse(void)
