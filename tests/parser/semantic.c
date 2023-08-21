@@ -13,17 +13,20 @@ void helper(struct database *db, char *stmt, bool expect_to_fail)
 {
 	struct ast_node *node;
 	char err_msg[1024];
+	bool ret;
 
 	memzero(err_msg, sizeof(err_msg));
 
 	node = build_ast(stmt);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(node);
 
-	CU_ASSERT_FATAL(semantic_analyse(db, node, err_msg, sizeof(err_msg)) == !expect_to_fail);
+	ret = semantic_analyse(db, node, err_msg, sizeof(err_msg));
 
-	if (expect_to_fail) {
+	if (!ret) {
 		printf("err_msg: %s\n", err_msg);
 	}
+
+	CU_ASSERT_FATAL(ret == !expect_to_fail);
 
 	ast_free(node);
 }
@@ -117,9 +120,11 @@ static void insert_tests(void)
 	prep_helper(&db, "CREATE TABLE B (f1 INT, f2 VARCHAR(4));");
 	helper(&db, "INSERT INTO B (f1, f2) VALUES (123, '456'), (678, '901');", false);
 
-	/* valid case - insert - no col_names; single row; recursive math expr */
-	prep_helper(&db, "CREATE TABLE C (f1 INT, f2 INT);");
-	helper(&db, "INSERT INTO C VALUES ((2 + 2) * 3, 4 * (3 + 1));", false);
+	/* valid case - insert - no col_names; single row; recursive math insert_expr */
+	prep_helper(&db, "CREATE TABLE C_1 (f1 INT, f2 INT);");
+	helper(&db, "INSERT INTO C_1 VALUES ((2 + 2) * 3, 4 * (3 + 1));", false); // all integer
+	prep_helper(&db, "CREATE TABLE C_2 (f1 DOUBLE, f2 DOUBLE);");
+	helper(&db, "INSERT INTO C_2 VALUES ((2.0 + 2.0) * 3.0, 4.0 * (3.0 + 1.0));", false); // all double
 
 	/* invalid case - insert - with col_names; multiple rows; different num of terms */
 	prep_helper(&db, "CREATE TABLE D (f1 INT, f2 VARCHAR(4));");
@@ -201,6 +206,19 @@ static void insert_tests(void)
 	helper(&db, "INSERT INTO Q (f1, f2) VALUES (123, NULL);", true);
 	helper(&db, "INSERT INTO Q (f1, f2) VALUES (NULL, 789.0);", false);
 	helper(&db, "INSERT INTO Q (f1, f2) VALUES (123, NULL), (NULL, 789.0);", true);
+
+	//TODO uncomment tests as I implement those
+	/* invalid case - insert - invalid insert_expr*/
+	prep_helper(&db, "CREATE TABLE U_1 (f1 INT);");
+	helper(&db, "INSERT INTO U_1 VALUES (2.0 * 3.0);", true); // diff types than column supports
+	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) * 3.0);", true); // mix types
+	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) * 'a');", true); // string are not allowed, this isn't Python :-)
+//	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) / 0);", true); // division by zero (int)
+	prep_helper(&db, "CREATE TABLE U_2 (f1 DOUBLE);");
+	helper(&db, "INSERT INTO U_2 VALUES (2 * 3);", true); // diff types than column supports
+	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) * 3);", true); // mix types
+	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) * 'a');", true); // string are not allowed, this isn't Python :-)
+//	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) / 0.0);", true); // division by zero (float)
 
 	database_close(&db);
 }

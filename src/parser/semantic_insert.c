@@ -227,6 +227,50 @@ static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
 
 }
 
+static bool check_math_expr_type(struct column *column, struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	struct ast_ins_exprval_node *vals_node;
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (node->node_type == AST_TYPE_INS_EXPROP) {
+		// recurse
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			/* there shouldn't be anything else in insert_expr but OPS and VALS */
+			BUG_ON(node->node_type != AST_TYPE_INS_EXPROP && node->node_type != AST_TYPE_INS_EXPRVAL);
+
+			if (!check_math_expr_type(column, tmp_entry, out_err, out_err_len))
+				return false;
+
+		}
+	} else {
+		// validate
+		vals_node = (struct ast_ins_exprval_node*)node;
+
+		if (vals_node->is_bool) {
+			snprintf(out_err, out_err_len, "column: '%s' doesn't support BOOL values\n", column->name);
+			return false;
+		} else if (vals_node->is_null) {
+			snprintf(out_err, out_err_len, "column: '%s' doesn't support NULL values\n", column->name);
+			return false;
+		} else if (vals_node->is_str) {
+			snprintf(out_err, out_err_len, "column: '%s' doesn't support VARCHAR values\n", column->name);
+			return false;
+		} else if (vals_node->is_approxnum && (column->type == CT_INTEGER || column->type == CT_TINYINT)) {
+			snprintf(out_err, out_err_len, "column: '%s' doesn't support DOUBLE values\n", column->name);
+			return false;
+		} else if (vals_node->is_intnum && column->type == CT_DOUBLE) {
+			snprintf(out_err, out_err_len, "column: '%s' doesn't support INTEGER values\n", column->name);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_value_for_column(struct column *column, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct ast_ins_exprval_node *vals_node;
@@ -246,7 +290,7 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 				}
 			} else if (column->type == CT_VARCHAR) {
 				size_t len = strlen(vals_node->str_val) + 1;
-				if (len > (size_t)column->precision){
+				if (len > (size_t)column->precision) {
 					snprintf(out_err, out_err_len,
 							/* max str size would exceed buffer's size, so trim it */
 							"column: '%s' supports up to %d ASCII chars, "
@@ -283,6 +327,11 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 			snprintf(out_err, out_err_len, "math expressions requires either a INTEGER or DOUBLE column\n");
 			return false;
 		}
+
+		// math expressions have to abide by a series of data type constraints to be evaluated correctly
+		if (!check_math_expr_type(column, node, out_err, out_err_len))
+			return false;
+
 	} else {
 		BUG_ON_CUSTOM_MSG(true, "handler not implemented yet\n");
 	}

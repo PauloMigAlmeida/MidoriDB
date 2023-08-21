@@ -87,16 +87,18 @@ static void test_insert_stmt(void)
 	 * valid tests
 	 */
 
-	// simple insert - no column definition
+	// no column definition
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES (123, '456');"), 0);
-	// simple insert - with column definition
+	// with column definition
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2, f3, f4) VALUES (123, '456', true, 2 + 2 * 3);"), 0);
-	// simple insert - multiple rows
+	// multiple rows
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) VALUES (123, '456'),(789, '012');"), 0);
 	// insert from select
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A (f1, f2) SELECT s1, s2 FROM B;"), 0);
-	// simple insert - precedence insert_expr
+	// precedence insert_expr
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ((2 + 2) * 3, 4 * (3 + 1));"), 0);
+	// insert_expr that is syntactically correct but semantically invalid
+	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES ( 1 * 'a' - 3.0 / 0);"), 0);
 	// simple insert - explicit NULL
 	CU_ASSERT_EQUAL(try_parse_stmt("INSERT INTO A VALUES (NULL, 1), (NULL, NULL);"), 0);
 
