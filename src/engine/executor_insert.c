@@ -143,7 +143,7 @@ static int build_row(struct table *table,
 			}
 
 		} else {
-			BUG_ON_CUSTOM_MSG(true, "not implemented yet");
+			BUG_ON_CUSTOM_MSG(true, "not implemented yet\n");
 		}
 
 		if (!exprval_entry->is_null)
