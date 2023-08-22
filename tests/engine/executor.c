@@ -693,4 +693,19 @@ void test_executor_run(void)
 
 	/* insert table - mixed precision; single row; NULL and NOT NULL */
 	test_insert_3();
+
+	/*
+	 * TODO insert table - math expressions; fixed-precision; single row; NOT NULL cols; div by NOT 0 allowed (become NULL)
+	 *  Paulo: Add examples with both Div by 0 and without it...
+	 *	DIV by 0 becomes NULL rationale:
+	 *		this isn't something I can validate on the semantic phase because this expressions can become
+	 *		complex enough for instance: INSERT INTO X VALUES (2/(2-(1+1)));
+	 *
+	 *		Alternatively, if I want to keep execution phase free of this type of responsability then I can
+	 *		pre-calculate the value on optimisation phase (which isn't a bad idea actually)....
+	 */
+
+
+	//TODO insert table - math expressions; fixed-precision; single row; NULL cols; div by 0 allowed (become NULL)
+	// Paulo: Add examples with both Div by 0 and without it...
 }
