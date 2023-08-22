@@ -43,7 +43,7 @@ static void parse_bison_data_type(char *str, struct ast_crt_column_def_node *nod
 		node->precision = precision;
 		break;
 	default:
-		BUG_ON_CUSTOM_MSG(true, "type not implemented yet... dying!");
+		BUG_ON_CUSTOM_MSG(true, "type not implemented yet... dying!\n");
 	}
 }
 
