@@ -10,6 +10,7 @@
 #include <parser/ast.h>
 #include <parser/semantic.h>
 #include <datastructure/queue.h>
+#include <engine/optimiser.h>
 #include <engine/executor.h>
 
 /**
@@ -72,7 +73,8 @@ struct query_output* query_execute(struct database *db, char *query)
 	}
 
 	/* optimisation */
-	//TODO add optimisation
+	if (optimiser_run(db, node, output))
+		goto err_optimisation_phase;
 
 	/* execution */
 	if (executor_run(db, node, output))
@@ -88,6 +90,7 @@ struct query_output* query_execute(struct database *db, char *query)
 	return output;
 
 err_execution_phase:
+err_optimisation_phase:
 err_semantic_analysis:
 	ast_free(node);
 err_build_ast:
