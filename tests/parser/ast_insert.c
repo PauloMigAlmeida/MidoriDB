@@ -48,16 +48,16 @@ static void insert_table_case_1(void)
 			CU_ASSERT_EQUAL(list_length(expval_entry->node_children_head), 0);
 
 			if (i == 0) {
-				CU_ASSERT(expval_entry->is_intnum);
+				CU_ASSERT(expval_entry->value_type.is_intnum);
 				CU_ASSERT_EQUAL(expval_entry->int_val, 123);
 			} else if (i == 1) {
-				CU_ASSERT(expval_entry->is_str);
+				CU_ASSERT(expval_entry->value_type.is_str);
 				CU_ASSERT_STRING_EQUAL(expval_entry->str_val, "456");
 			} else if (i == 2) {
-				CU_ASSERT(expval_entry->is_bool);
+				CU_ASSERT(expval_entry->value_type.is_bool);
 				CU_ASSERT(expval_entry->bool_val);
 			} else {
-				CU_ASSERT(expval_entry->is_approxnum);
+				CU_ASSERT(expval_entry->value_type.is_approxnum);
 				CU_ASSERT_EQUAL(expval_entry->double_val, 1.0);
 			}
 			i++;
@@ -137,7 +137,7 @@ static void insert_table_case_2(void)
 				CU_ASSERT_EQUAL(list_length(expval_entry->node_children_head), 0);
 
 				if (j == 0) {
-					CU_ASSERT(expval_entry->is_intnum);
+					CU_ASSERT(expval_entry->value_type.is_intnum);
 
 					if (i == 1) {
 						CU_ASSERT_EQUAL(expval_entry->int_val, 123);
@@ -145,7 +145,7 @@ static void insert_table_case_2(void)
 						CU_ASSERT_EQUAL(expval_entry->int_val, 789);
 					}
 				} else {
-					CU_ASSERT(expval_entry->is_str);
+					CU_ASSERT(expval_entry->value_type.is_str);
 
 					if (i == 1) {
 						CU_ASSERT_STRING_EQUAL(expval_entry->str_val, "456");
@@ -210,7 +210,7 @@ static void insert_table_case_3(void)
 			{
 				if (i == 0) {
 					expval_entry1 = list_entry(pos3, typeof(*expval_entry1), head);
-					CU_ASSERT(expval_entry1->is_intnum);
+					CU_ASSERT(expval_entry1->value_type.is_intnum);
 					CU_ASSERT_EQUAL(expval_entry1->int_val, 3);
 					CU_ASSERT_FALSE(list_is_empty(&expval_entry1->head));
 					CU_ASSERT_EQUAL(list_length(expval_entry1->node_children_head), 0);
@@ -225,7 +225,7 @@ static void insert_table_case_3(void)
 					{
 						// the 2 entries have the same value -> 2 , 2
 						expval_entry2 = list_entry(pos4, typeof(*expval_entry2), head);
-						CU_ASSERT(expval_entry2->is_intnum);
+						CU_ASSERT(expval_entry2->value_type.is_intnum);
 						CU_ASSERT_EQUAL(expval_entry2->int_val, 2);
 						CU_ASSERT_FALSE(list_is_empty(&expval_entry2->head));
 						CU_ASSERT_EQUAL(list_length(expval_entry2->node_children_head), 0);

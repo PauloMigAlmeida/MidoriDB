@@ -115,15 +115,15 @@ static int build_row(struct table *table,
 
 		exprval_entry = (struct ast_ins_exprval_node*)entry;
 
-		if (exprval_entry->is_intnum) {
+		if (exprval_entry->value_type.is_intnum) {
 			memcpy(row_out->data + row_pos, &exprval_entry->int_val, col_space);
-		} else if (exprval_entry->is_approxnum) {
+		} else if (exprval_entry->value_type.is_approxnum) {
 			memcpy(row_out->data + row_pos, &exprval_entry->double_val, col_space);
-		} else if (exprval_entry->is_bool) {
+		} else if (exprval_entry->value_type.is_bool) {
 			memcpy(row_out->data + row_pos, &exprval_entry->bool_val, col_space);
-		} else if (exprval_entry->is_null) {
+		} else if (exprval_entry->value_type.is_null) {
 			/* do nothing */
-		} else if (exprval_entry->is_str) {
+		} else if (exprval_entry->value_type.is_str) {
 
 			/*
 			 * okay, we know that the value is a string, the question is whether this value should
@@ -146,7 +146,7 @@ static int build_row(struct table *table,
 			BUG_ON_CUSTOM_MSG(true, "not implemented yet\n");
 		}
 
-		if (!exprval_entry->is_null)
+		if (!exprval_entry->value_type.is_null)
 			bit_clear(row_out->null_bitmap, column_order[val_pos], sizeof(row_out->null_bitmap));
 
 		val_pos++;

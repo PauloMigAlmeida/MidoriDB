@@ -250,19 +250,19 @@ static bool check_math_expr_type(struct column *column, struct ast_node *node, c
 		// validate
 		vals_node = (struct ast_ins_exprval_node*)node;
 
-		if (vals_node->is_bool) {
+		if (vals_node->value_type.is_bool) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support BOOL values\n", column->name);
 			return false;
-		} else if (vals_node->is_null) {
+		} else if (vals_node->value_type.is_null) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support NULL values\n", column->name);
 			return false;
-		} else if (vals_node->is_str) {
+		} else if (vals_node->value_type.is_str) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support VARCHAR values\n", column->name);
 			return false;
-		} else if (vals_node->is_approxnum && (column->type == CT_INTEGER || column->type == CT_TINYINT)) {
+		} else if (vals_node->value_type.is_approxnum && (column->type == CT_INTEGER || column->type == CT_TINYINT)) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support DOUBLE values\n", column->name);
 			return false;
-		} else if (vals_node->is_intnum && column->type == CT_DOUBLE) {
+		} else if (vals_node->value_type.is_intnum && column->type == CT_DOUBLE) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support INTEGER values\n", column->name);
 			return false;
 		}
@@ -278,7 +278,7 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 	if (node->node_type == AST_TYPE_INS_EXPRVAL) {
 		vals_node = (struct ast_ins_exprval_node*)node;
 
-		if (vals_node->is_str) {
+		if (vals_node->value_type.is_str) {
 			// strings can be interpreted/parsed for other types such as DATE and DATETIME
 			if (column->type == CT_DATE || column->type == CT_DATETIME) {
 				if (!try_parse_date_type(vals_node->str_val, column->type)) {
@@ -307,17 +307,17 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 			}
 		}
 
-		if (vals_node->is_intnum && column->type != CT_INTEGER) {
+		if (vals_node->value_type.is_intnum && column->type != CT_INTEGER) {
 			snprintf(out_err, out_err_len, "val: '%ld' requires an INTEGER column\n", vals_node->int_val);
 			return false;
 		}
 
-		if (vals_node->is_approxnum && column->type != CT_DOUBLE) {
+		if (vals_node->value_type.is_approxnum && column->type != CT_DOUBLE) {
 			snprintf(out_err, out_err_len, "val: '%f' requires a DOUBLE column\n", vals_node->double_val);
 			return false;
 		}
 
-		if (vals_node->is_bool && column->type != CT_TINYINT) {
+		if (vals_node->value_type.is_bool && column->type != CT_TINYINT) {
 			snprintf(out_err, out_err_len, "val: '%d' requires a TINYINT column\n", vals_node->bool_val);
 			return false;
 		}
@@ -484,7 +484,7 @@ static bool check_not_null_columns(struct database *db, struct ast_ins_insvals_n
 				if (tmp_entry2->node_type == AST_TYPE_INS_EXPRVAL) {
 					exprval_node = (struct ast_ins_exprval_node*)tmp_entry2;
 
-					if (exprval_node->is_null && !column->nullable) {
+					if (exprval_node->value_type.is_null && !column->nullable) {
 						snprintf(out_err, out_err_len, "NOT NULL constraint failed: %s.%s\n",
 								table->name,
 								column->name);

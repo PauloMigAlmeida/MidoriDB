@@ -130,19 +130,19 @@ static struct ast_ins_exprval_node* build_expr_val_node(struct queue *parser, en
 	node->node_type = AST_TYPE_INS_EXPRVAL;
 
 	if (type == AST_INS_EXPR_VAL_INTNUM) {
-		node->is_intnum = true;
+		node->value_type.is_intnum = true;
 		reg_exp = "NUMBER (-{0,1}[0-9]+)";
 	} else if (type == AST_INS_EXPR_VAL_STRING) {
-		node->is_str = true;
+		node->value_type.is_str = true;
 		reg_exp = "STRING '(.+)'";
 	} else if (type == AST_INS_EXPR_VAL_APPROXNUM) {
-		node->is_approxnum = true;
+		node->value_type.is_approxnum = true;
 		reg_exp = "FLOAT (-{0,1}[0-9\\.]+)";
 	} else if (type == AST_INS_EXPR_VAL_BOOL) {
-		node->is_bool = true;
+		node->value_type.is_bool = true;
 		reg_exp = "BOOL ([0-1])";
 	} else if (type == AST_INS_EXPR_VAL_NULL) {
-		node->is_null = true;
+		node->value_type.is_null = true;
 	} else {
 		die("handler not implemented for type: %d\n", type);
 	}

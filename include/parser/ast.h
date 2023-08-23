@@ -139,11 +139,14 @@ struct ast_ins_exprval_node {
 	/* doubly-linked list head */
 	struct list_head head;
 	/* value type */
-	bool is_intnum;
-	bool is_str;
-	bool is_approxnum;
-	bool is_bool;
-	bool is_null;
+
+	struct {
+		bool is_intnum;
+		bool is_str;
+		bool is_approxnum;
+		bool is_bool;
+		bool is_null;
+	} value_type;
 	/* raw values */
 	union {
 		int64_t int_val;
