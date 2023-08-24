@@ -7,7 +7,7 @@
 
 #include <engine/optimiser.h>
 
-static void handle_negation(struct ast_ins_exprval_node *in, struct ast_ins_exprval_node *out)
+static void negate(struct ast_ins_exprval_node *in, struct ast_ins_exprval_node *out)
 {
 	if (in->value_type.is_intnum) {
 		out->int_val = in->int_val * -1;
@@ -138,8 +138,8 @@ static int resolve_math_expr(struct ast_node **node, struct query_output *output
 	val_2 = (typeof(val_2))tmp_entry_2;
 
 	/* calculating the result of that operation */
-	if (op->op_type == AST_INS_EXPR_OP_NEG) {
-		handle_negation(val_2, val_1);
+	if (val_1->value_type.is_negation) {
+		negate(val_2, val_1);
 	} else if (val_1->value_type.is_intnum) {
 		calci(op, val_1, val_2, val_1);
 	} else if (val_1->value_type.is_approxnum) {

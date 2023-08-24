@@ -299,7 +299,7 @@ static void insert_table_case_4(void)
 				} else {
 					expop_entry2 = list_entry(pos3, typeof(*expop_entry2), head);
 					CU_ASSERT_EQUAL(expop_entry2->node_type, AST_TYPE_INS_EXPROP);
-					CU_ASSERT_EQUAL(expop_entry2->op_type, AST_INS_EXPR_OP_NEG);
+					CU_ASSERT_EQUAL(expop_entry2->op_type, AST_INS_EXPR_OP_MUL); // Negation
 					CU_ASSERT_FALSE(list_is_empty(&expop_entry2->head));
 					CU_ASSERT_EQUAL(list_length(expop_entry2->node_children_head), 2);
 

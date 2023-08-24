@@ -242,7 +242,7 @@ static struct ast_ins_exprop_node* build_expr_neg_node(struct queue *parser, str
 		goto err_node;
 
 	node->node_type = AST_TYPE_INS_EXPROP;
-	node->op_type = AST_INS_EXPR_OP_NEG;
+	node->op_type = AST_INS_EXPR_OP_MUL;
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
