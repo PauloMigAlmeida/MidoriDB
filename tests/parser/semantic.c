@@ -215,12 +215,14 @@ static void insert_tests(void)
 	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) * 'a');", true); // string are not allowed, this isn't Python :-)
 	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) / 0);", false); // mathematically invalid, but semantically valid (and would be translated to NULL)
 	helper(&db, "INSERT INTO U_1 VALUES ((2 + 2) / 0.0);", true); // division by zero with mix types
+	helper(&db, "INSERT INTO U_1 VALUES (-(2 + 2));", false); // negation
 	prep_helper(&db, "CREATE TABLE U_2 (f1 DOUBLE);");
 	helper(&db, "INSERT INTO U_2 VALUES (2 * 3);", true); // diff types than column supports
 	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) * 3);", true); // mix types
 	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) * 'a');", true); // string are not allowed, this isn't Python :-)
 	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) / 0.0);", false); // mathematically invalid, but semantically valid (and would be translated to NULL)
 	helper(&db, "INSERT INTO U_2 VALUES ((2.0 + 2.0) / 0);", true); // division by zero with mix types
+	helper(&db, "INSERT INTO U_2 VALUES (-(2.0 + 2.0));", false); // negation
 
 	database_close(&db);
 }

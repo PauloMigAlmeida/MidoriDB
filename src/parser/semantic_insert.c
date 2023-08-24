@@ -265,6 +265,8 @@ static bool check_math_expr_type(struct column *column, struct ast_node *node, c
 		} else if (vals_node->value_type.is_intnum && column->type == CT_DOUBLE) {
 			snprintf(out_err, out_err_len, "column: '%s' doesn't support INTEGER values\n", column->name);
 			return false;
+		} else if (vals_node->value_type.is_negation){
+			/* negation type has an special treatment - do nothing */
 		}
 	}
 

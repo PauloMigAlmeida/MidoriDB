@@ -105,6 +105,7 @@ enum ast_ins_expr_op_type {
 	AST_INS_EXPR_OP_MUL,
 	AST_INS_EXPR_OP_DIV,
 	AST_INS_EXPR_OP_MOD,
+	AST_INS_EXPR_OP_NEG,
 };
 
 /* columns referenced in the INSERT statement */
@@ -146,6 +147,7 @@ struct ast_ins_exprval_node {
 		bool is_approxnum;
 		bool is_bool;
 		bool is_null;
+		bool is_negation;
 	} value_type;
 	/* raw values */
 	union {

@@ -7,6 +7,18 @@
 
 #include <engine/optimiser.h>
 
+static void handle_negation(struct ast_ins_exprval_node *in, struct ast_ins_exprval_node *out)
+{
+	if (in->value_type.is_intnum) {
+		out->int_val = in->int_val * -1;
+	} else if (in->value_type.is_approxnum) {
+		out->double_val = in->double_val * -1;
+	} else {
+		BUG_ON_CUSTOM_MSG(true, "Operation not implemented yet\n");
+	}
+	memcpy(&out->value_type, &in->value_type, sizeof(out->value_type));
+}
+
 static void calcd(struct ast_ins_exprop_node *op, struct ast_ins_exprval_node *val_1,
 		struct ast_ins_exprval_node *val_2, struct ast_ins_exprval_node *out)
 {
@@ -104,6 +116,9 @@ static int resolve_math_expr(struct ast_node **node, struct query_output *output
 			tmp_entry_2 = list_entry(pos, typeof(*tmp_entry_2), head);
 	}
 
+	BUG_ON(tmp_entry_1->node_type != AST_TYPE_INS_EXPROP && tmp_entry_1->node_type != AST_TYPE_INS_EXPRVAL);
+	BUG_ON(tmp_entry_2->node_type != AST_TYPE_INS_EXPROP && tmp_entry_2->node_type != AST_TYPE_INS_EXPRVAL);
+
 	// recursive cases
 	if (!list_is_empty(tmp_entry_1->node_children_head)) {
 
@@ -123,7 +138,9 @@ static int resolve_math_expr(struct ast_node **node, struct query_output *output
 	val_2 = (typeof(val_2))tmp_entry_2;
 
 	/* calculating the result of that operation */
-	if (val_1->value_type.is_intnum) {
+	if (op->op_type == AST_INS_EXPR_OP_NEG) {
+		handle_negation(val_2, val_1);
+	} else if (val_1->value_type.is_intnum) {
 		calci(op, val_1, val_2, val_1);
 	} else if (val_1->value_type.is_approxnum) {
 		calcd(op, val_1, val_2, val_1);

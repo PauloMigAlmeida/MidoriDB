@@ -5,10 +5,6 @@ bool engine_init_suite(void)
 	CU_pSuite suite = NULL;
 
 	ADD_SUITE(suite, "engine");
-	if (!suite) {
-		CU_cleanup_registry();
-		return true;
-	}
 
 	/* midoridb */
 	ADD_UNITTEST(suite, test_database_open);

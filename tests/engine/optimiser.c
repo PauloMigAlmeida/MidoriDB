@@ -286,7 +286,8 @@ static void test_insert_6(void)
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 	CU_ASSERT_EQUAL(db.tables->count, 0);
 
-	node = build_ast("INSERT INTO A VALUES (-((2+2)*2));");
+	node = build_ast("INSERT INTO A VALUES (-(2+2)*2);");
+
 	CU_ASSERT_EQUAL(optimiser_run(&db, node, &output), MIDORIDB_OK);
 
 	insert_node = (typeof(insert_node))node;

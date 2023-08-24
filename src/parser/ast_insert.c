@@ -228,6 +228,59 @@ err_node:
 	return NULL;
 }
 
+static struct ast_ins_exprop_node* build_expr_neg_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_ins_exprop_node *node;
+	struct ast_node *operand1;
+	struct ast_ins_exprval_node *operand2;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_INS_EXPROP;
+	node->op_type = AST_INS_EXPR_OP_NEG;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	operand2 = zalloc(sizeof(*operand2));
+	if (!operand2)
+		goto err_operand1;
+
+	if (!(operand2->node_children_head = malloc(sizeof(*operand2->node_children_head))))
+		goto err_operand1_head;
+
+	list_head_init(&operand2->head);
+	list_head_init(operand2->node_children_head);
+
+	operand2->node_type = AST_TYPE_INS_EXPRVAL;
+	operand2->int_val = -1;
+	operand2->value_type.is_negation = true;
+
+	operand1 = (struct ast_node*)stack_pop(tmp_st);
+
+	list_add(&operand1->head, node->node_children_head);
+	list_add(&operand2->head, node->node_children_head);
+
+	return node;
+
+err_operand1_head:
+	free(operand2);
+err_operand1:
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
 static struct ast_ins_values_node* build_values_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_ins_values_node *node;
@@ -369,6 +422,8 @@ struct ast_node* ast_insert_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_MUL);
 		} else if (strstarts(str, "MOD")) {
 			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_INS_EXPR_OP_MOD);
+		} else if (strstarts(str, "NEG")) {
+			curr = (struct ast_node*)build_expr_neg_node(parser, &st);
 		} else if (strstarts(str, "VALUES")) {
 			curr = (struct ast_node*)build_values_node(parser, &st);
 		} else if (strstarts(str, "INSERTVALS")) {
