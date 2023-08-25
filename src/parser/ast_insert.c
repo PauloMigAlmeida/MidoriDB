@@ -386,9 +386,9 @@ err:
 
 struct ast_node* ast_insert_build_tree(struct queue *parser)
 {
-	struct ast_node *root = NULL;
-	struct ast_node *curr = NULL;
-	char *str = NULL;
+	struct ast_node *root;
+	struct ast_node *curr;
+	char *str;
 	struct stack st = {0};
 
 	root = NULL;
