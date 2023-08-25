@@ -270,9 +270,7 @@ table_subquery: '(' select_stmt ')' { emit(result, "SUBQUERY"); }
 stmt: delete_stmt { emit(result, "STMT"); }
    ;
 
-delete_stmt: DELETE FROM NAME
-    opt_where opt_orderby opt_limit
-                  { emit(result, "DELETEONE %s", $3); free($3); }
+delete_stmt: DELETE FROM NAME opt_where { emit(result, "DELETEONE %s", $3); free($3); }
 ;
 
    /* statements: insert statement */
@@ -329,8 +327,7 @@ stmt: update_stmt { emit(result, "STMT"); }
 update_stmt: UPDATE table_references
     SET update_asgn_list
     opt_where
-    opt_orderby
-opt_limit { emit(result, "UPDATE %d %d", $2, $4); }
+    { emit(result, "UPDATE %d %d", $2, $4); }
 ;
 
 update_asgn_list:
