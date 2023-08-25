@@ -29,6 +29,26 @@ enum ast_node_type {
 	AST_TYPE_INS_EXPROP,
 	AST_TYPE_INS_VALUES,
 	AST_TYPE_INS_INSVALS,
+	/* DELETE */
+	AST_TYPE_DEL_DELETEONE,
+	AST_TYPE_DEL_EXPRVAL,
+};
+
+enum ast_comparison_type {
+	// '='
+	AST_CMP_EQUALS_OP = 4,
+	// '<=>'
+	AST_CMP_SPACESHIP_OP = 12,
+	// '>='
+	AST_CMP_GTE_OP = 6,
+	// '>'
+	AST_CMP_GT_OP = 2,
+	// '<='
+	AST_CMP_LTE_OP = 5,
+	// '<'
+	AST_CMP_LT_OP = 1,
+	// '<>' or '!='
+	AST_CMP_DIFF_OP = 3,
 };
 
 struct ast_node {
@@ -200,6 +220,49 @@ struct ast_ins_insvals_node {
 };
 
 /* Insert Statements - end */
+
+/* Delete Statements - start */
+
+struct ast_del_exprval_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* value type */
+
+	struct {
+		bool is_intnum;
+		bool is_str;
+		bool is_approxnum;
+		bool is_bool;
+		bool is_null;
+		bool is_negation;
+	} value_type;
+	/* raw values */
+	union {
+		int64_t int_val;
+		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
+		double double_val;
+		bool bool_val;
+	};
+	/* synthetic value - hold intermediate values extracted from raw values in the SQL stmt */
+	time_t date_val;
+};
+
+struct ast_del_deleteone_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* table name */
+	char table_name[255 + 1 /*NUL char */];
+};
+
+/* Delete Statements - end */
 
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
