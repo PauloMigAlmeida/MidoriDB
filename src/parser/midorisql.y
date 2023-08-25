@@ -270,8 +270,34 @@ table_subquery: '(' select_stmt ')' { emit(result, "SUBQUERY"); }
 stmt: delete_stmt { emit(result, "STMT"); }
    ;
 
-delete_stmt: DELETE FROM NAME opt_where { emit(result, "DELETEONE %s", $3); free($3); }
-;
+delete_stmt: DELETE FROM NAME del_opt_where { emit(result, "DELETEONE %s", $3); free($3); }
+   ;
+
+del_opt_where: /* nil */ 
+	     | WHERE delete_expr { emit(result, "WHERE"); };   
+
+delete_expr: NAME          { emit(result, "NAME %s", $1); free($1); }
+	   | STRING        { emit(result, "STRING %s", $1); free($1); }
+	   | INTNUM        { emit(result, "NUMBER %d", $1); }
+	   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
+   	   | BOOL          { emit(result, "BOOL %d", $1); }
+   	   ;
+
+delete_expr: delete_expr ANDOP delete_expr { emit(result, "AND"); }
+   	   | delete_expr OR delete_expr { emit(result, "OR"); }
+	   | delete_expr XOR delete_expr { emit(result, "XOR"); }
+	   | delete_expr COMPARISON delete_expr { emit(result, "CMP %d", $2); }
+   	   | '(' delete_expr ')'
+	   ;    
+
+delete_expr:  delete_expr IS NULLX     { emit(result, "ISNULL"); }
+	   |  delete_expr IS NOT NULLX { emit(result, "ISNULL"); emit(result, "NOT"); }
+	   ;
+
+delete_expr: delete_expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
+   	   | delete_expr NOT IN '(' val_list ')'    { emit(result, "ISIN %d", $5); emit(result, "NOT"); }
+   	   ;
+
 
    /* statements: insert statement */
 

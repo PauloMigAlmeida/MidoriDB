@@ -203,5 +203,8 @@ struct ast_ins_insvals_node {
 
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
+struct ast_node* ast_create_build_tree(struct queue *parser);
+struct ast_node* ast_insert_build_tree(struct queue *parser);
+struct ast_node* ast_delete_build_tree(struct queue *parser);
 
 #endif /* INCLUDE_PARSER_AST_H_ */

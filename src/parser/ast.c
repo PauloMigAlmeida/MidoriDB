@@ -8,9 +8,6 @@
 #include <parser/ast.h>
 #include <lib/string.h>
 
-extern struct ast_node* ast_create_build_tree(struct queue *parser);
-extern struct ast_node* ast_insert_build_tree(struct queue *parser);
-
 struct ast_node* ast_build_tree(struct queue *parser)
 {
 	char *str = NULL;
@@ -46,9 +43,11 @@ struct ast_node* ast_build_tree(struct queue *parser)
 		return ast_create_build_tree(parser);
 	} else if (strstarts(str, "INSERTVALS")) {
 		return ast_insert_build_tree(parser);
+	} else if (strstarts(str, "DELETEONE")) {
+		return ast_delete_build_tree(parser);
 	} else {
 		fprintf(stderr, "%s: %s handler not implement yet\n", __func__, str);
-		exit(1);
+		return NULL;
 	}
 }
 
