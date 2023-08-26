@@ -264,6 +264,7 @@ struct ast_del_exprval_node {
 	/* value type */
 
 	struct {
+		bool is_name;
 		bool is_intnum;
 		bool is_str;
 		bool is_approxnum;
@@ -273,6 +274,7 @@ struct ast_del_exprval_node {
 	} value_type;
 	/* raw values */
 	union {
+		char name_val[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
 		int64_t int_val;
 		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
 		double double_val;

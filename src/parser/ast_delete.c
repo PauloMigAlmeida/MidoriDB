@@ -16,7 +16,57 @@ enum ast_del_expr_val_type {
 	AST_DEL_EXPR_VAL_APPROXNUM,
 	AST_DEL_EXPR_VAL_BOOL,
 	AST_DEL_EXPR_VAL_NULL,
+	AST_DEL_EXPR_VAL_NAME, // column name
 };
+
+static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, enum ast_comparison_type cmp_type)
+{
+	struct ast_del_cmp_node *cmp_node;
+	struct ast_del_exprval_node *val_node;
+
+	/* discard entry */
+	free(queue_poll(parse));
+
+	/* val node initialisation */
+	val_node = zalloc(sizeof(*val_node));
+	if (!val_node)
+		goto err_val_node;
+
+	val_node->node_type = AST_TYPE_DEL_EXPRVAL;
+	val_node->value_type.is_null = true;
+
+	if (!(val_node->node_children_head = malloc(sizeof(*val_node->node_children_head))))
+		goto err_val_head;
+
+	list_head_init(&val_node->head);
+	list_head_init(val_node->node_children_head);
+
+	/* cmp node initialisation */
+	cmp_node = zalloc(sizeof(*cmp_node));
+	if (!cmp_node)
+		goto err_cmp_node;
+
+	cmp_node->node_type = AST_TYPE_DEL_CMP;
+	cmp_node->cmp_type = cmp_type;
+
+	if (!(cmp_node->node_children_head = malloc(sizeof(*cmp_node->node_children_head))))
+		goto err_cmp_head;
+
+	list_head_init(&cmp_node->head);
+	list_head_init(cmp_node->node_children_head);
+
+	list_add(&val_node->head, cmp_node->node_children_head);
+
+	return cmp_node;
+err_cmp_head:
+	free(cmp_node);
+err_cmp_node:
+	free(val_node->node_children_head);
+err_val_head:
+	free(val_node);
+err_val_node:
+	return NULL;
+}
 
 static struct ast_del_exprval_node* build_expr_val_node(struct queue *parser, enum ast_del_expr_val_type type)
 {
@@ -49,6 +99,9 @@ static struct ast_del_exprval_node* build_expr_val_node(struct queue *parser, en
 		reg_exp = "BOOL ([0-1])";
 	} else if (type == AST_DEL_EXPR_VAL_NULL) {
 		node->value_type.is_null = true;
+	} else if (type == AST_DEL_EXPR_VAL_NAME) {
+		node->value_type.is_name = true;
+		reg_exp = "NAME (.+)";
 	} else {
 		die("handler not implemented for type: %d\n", type);
 	}
@@ -71,6 +124,8 @@ static struct ast_del_exprval_node* build_expr_val_node(struct queue *parser, en
 			node->int_val = atoi(ext_val);
 		} else if (type == AST_DEL_EXPR_VAL_STRING) {
 			strncpy(node->str_val, ext_val, sizeof(node->str_val) - 1);
+		} else if (type == AST_DEL_EXPR_VAL_NAME) {
+			strncpy(node->name_val, ext_val, sizeof(node->name_val) - 1);
 		} else if (type == AST_DEL_EXPR_VAL_APPROXNUM) {
 			node->double_val = atof(ext_val);
 		} else if (type == AST_DEL_EXPR_VAL_BOOL) {
@@ -123,7 +178,7 @@ static struct ast_del_cmp_node* build_cmp_node(struct queue *parser, struct stac
 
 	str = (char*)queue_poll(parser);
 
-	if (!regex_ext_match_grp(str, "CMP ([0-9]*)", &reg_pars))
+	if (!regex_ext_match_grp(str, "CMP ([0-9]+)", &reg_pars))
 		goto err_regex;
 
 	node->cmp_type = atoi((char*)stack_peek_pos(&reg_pars, 0));
@@ -221,7 +276,7 @@ static struct ast_del_deleteone_node* build_deleteone_node(struct queue *parser,
 
 	if (!stack_empty(tmp_st)) {
 		/* sanity check, it means we went beyond the boundaries of this statement */
-		BUG_ON(strstarts((char*)stack_peek(tmp_st), "STMT"));
+		BUG_ON(strstarts((char* )stack_peek(tmp_st), "STMT"));
 
 		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
 		where_node = (struct ast_node*)stack_pop(tmp_st);
@@ -259,7 +314,9 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 	while (!queue_empty(parser)) {
 		str = (char*)queue_peek(parser);
 
-		if (strstarts(str, "NUMBER")) {
+		if (strstarts(str, "NAME")) {
+			curr = (struct ast_node*)build_expr_val_node(parser, AST_DEL_EXPR_VAL_NAME);
+		} else if (strstarts(str, "NUMBER")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_DEL_EXPR_VAL_INTNUM);
 		} else if (strstarts(str, "STRING")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_DEL_EXPR_VAL_STRING);
@@ -277,6 +334,10 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_OR);
 		} else if (strstarts(str, "XOR")) {
 			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
+		} else if (strstarts(str, "ISNULL")) {
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_EQUALS_OP);
+		} else if (strstarts(str, "ISNOTNULL")) {
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_DIFF_OP);
 		} else if (strstarts(str, "WHERE")) {
 			/* "WHERE" entry doesn't have any value for AST tree, so discard it */
 			free(queue_poll(parser));

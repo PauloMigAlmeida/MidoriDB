@@ -281,6 +281,7 @@ delete_expr: NAME          { emit(result, "NAME %s", $1); free($1); }
 	   | INTNUM        { emit(result, "NUMBER %d", $1); }
 	   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
    	   | BOOL          { emit(result, "BOOL %d", $1); }
+   	   | NULLX         { emit(result, "NULL"); }
    	   ;
 
 delete_expr: delete_expr ANDOP delete_expr { emit(result, "AND"); }
@@ -291,7 +292,7 @@ delete_expr: delete_expr ANDOP delete_expr { emit(result, "AND"); }
 	   ;    
 
 delete_expr:  delete_expr IS NULLX     { emit(result, "ISNULL"); }
-	   |  delete_expr IS NOT NULLX { emit(result, "ISNULL"); emit(result, "NOT"); }
+	   |  delete_expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
 	   ;
 
 delete_expr: delete_expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
