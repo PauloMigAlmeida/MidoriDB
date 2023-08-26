@@ -98,9 +98,102 @@ err:
 	return NULL;
 }
 
+static struct ast_del_cmp_node* build_cmp_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_del_cmp_node *node;
+	struct ast_node *lhs;
+	struct ast_node *rhs;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_DEL_CMP;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "CMP ([0-9]*)", &reg_pars))
+		goto err_regex;
+
+	node->cmp_type = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	rhs = (struct ast_node*)stack_pop(tmp_st);
+	lhs = (struct ast_node*)stack_pop(tmp_st);
+
+	/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+	list_add(&lhs->head, node->node_children_head);
+	list_add(&rhs->head, node->node_children_head);
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+
+}
+
+static struct ast_del_logop_node* build_logop_node(struct queue *parser, struct stack *tmp_st, enum ast_logop_type logop_type)
+{
+	struct ast_del_logop_node *node;
+	struct ast_node *condition1;
+	struct ast_node *condition2;
+
+	/* discard entry from parser */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_DEL_LOGOP;
+	node->logop_type = logop_type;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	condition1 = (struct ast_node*)stack_pop(tmp_st);
+	condition2 = (struct ast_node*)stack_pop(tmp_st);
+
+	/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+	list_add(&condition1->head, node->node_children_head);
+	list_add(&condition2->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+
+}
+
 static struct ast_del_deleteone_node* build_deleteone_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_del_deleteone_node *node;
+	struct ast_node *where_node;
 	struct stack reg_pars = {0};
 	char *str;
 
@@ -126,12 +219,13 @@ static struct ast_del_deleteone_node* build_deleteone_node(struct queue *parser,
 
 	strncpy(node->table_name, (char*)stack_peek_pos(&reg_pars, 0), sizeof(node->table_name) - 1 /* NUL-char */);
 
-//	//TODO I started from the opposite direction...so when I implement WHERE I can check if
-//	// it exists and add as a node to node_children
 	if (!stack_empty(tmp_st)) {
-//		struct ast_del_where_node *val = (struct ast_del_where_node*)stack_pop(tmp_st);
-//		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
-//		list_add(&val->head, node->node_children_head);
+		/* sanity check, it means we went beyond the boundaries of this statement */
+		BUG_ON(strstarts((char*)stack_peek(tmp_st), "STMT"));
+
+		/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+		where_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&where_node->head, node->node_children_head);
 	}
 
 	free(str);
@@ -175,6 +269,18 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_DEL_EXPR_VAL_BOOL);
 		} else if (strstarts(str, "NULL")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_DEL_EXPR_VAL_NULL);
+		} else if (strstarts(str, "CMP")) {
+			curr = (struct ast_node*)build_cmp_node(parser, &st);
+		} else if (strstarts(str, "AND")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_AND);
+		} else if (strstarts(str, "OR")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_OR);
+		} else if (strstarts(str, "XOR")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
+		} else if (strstarts(str, "WHERE")) {
+			/* "WHERE" entry doesn't have any value for AST tree, so discard it */
+			free(queue_poll(parser));
+			continue;
 		} else if (strstarts(str, "DELETEONE")) {
 			curr = (struct ast_node*)build_deleteone_node(parser, &st);
 		} else if (strstarts(str, "STMT")) {

@@ -142,6 +142,8 @@ void test_delete_stmt(void)
 	CU_ASSERT_EQUAL(try_parse_stmt("DELETE FROM A WHERE (id = 1 AND name = 'paulo') OR "
 					"(surname = 'almeida' XOR surname='midori') AND sex <> 'xablau';"),
 			0);
+
+	CU_ASSERT_EQUAL(try_parse_stmt("DELETE FROM A WHERE id = 1 OR id = 2 OR id = 3 ;"), 0);
 	// in values
 	CU_ASSERT_EQUAL(try_parse_stmt("DELETE FROM A WHERE id in (1,2,3);"), 0);
 	// IS NULL

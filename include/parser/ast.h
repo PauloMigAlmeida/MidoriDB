@@ -32,6 +32,8 @@ enum ast_node_type {
 	/* DELETE */
 	AST_TYPE_DEL_DELETEONE,
 	AST_TYPE_DEL_EXPRVAL,
+	AST_TYPE_DEL_CMP,
+	AST_TYPE_DEL_LOGOP,
 };
 
 enum ast_comparison_type {
@@ -49,6 +51,13 @@ enum ast_comparison_type {
 	AST_CMP_LT_OP = 1,
 	// '<>' or '!='
 	AST_CMP_DIFF_OP = 3,
+};
+
+/* Logical Operation type */
+enum ast_logop_type {
+	AST_LOGOP_TYPE_AND,
+	AST_LOGOP_TYPE_OR,
+	AST_LOGOP_TYPE_XOR,
 };
 
 struct ast_node {
@@ -222,6 +231,28 @@ struct ast_ins_insvals_node {
 /* Insert Statements - end */
 
 /* Delete Statements - start */
+
+struct ast_del_logop_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* logical operator type */
+	enum ast_logop_type logop_type;
+};
+
+struct ast_del_cmp_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* comparison type */
+	enum ast_comparison_type cmp_type;
+};
 
 struct ast_del_exprval_node {
 	/* type of node */
