@@ -20,10 +20,6 @@ void test_syntax_parse(void);
 void test_ast_build_tree(void);
 void test_semantic_analyze(void);
 
-/* tests routines by statement type - to make test files smaller really */
-void test_ast_build_tree_create(void);
-void test_ast_build_tree_insert(void);
-
 /* utility functions which are shared among tests */
 void print_queue(struct queue *ct);
 void parse_stmt(char *stmt, struct queue *out);

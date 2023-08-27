@@ -7,6 +7,9 @@
 
 #include <tests/parser.h>
 
+extern void test_ast_build_tree_create(void);
+extern void test_ast_build_tree_insert(void);
+extern void test_ast_build_tree_delete(void);
 
 void test_ast_build_tree(void)
 {
@@ -16,6 +19,9 @@ void test_ast_build_tree(void)
 
 	/* INSERT tests */
 	test_ast_build_tree_insert();
+
+	/* DELETE tests */
+	test_ast_build_tree_delete();
 
 	/**
 	 *
