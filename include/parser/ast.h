@@ -34,6 +34,7 @@ enum ast_node_type {
 	AST_TYPE_DEL_EXPRVAL,
 	AST_TYPE_DEL_CMP,
 	AST_TYPE_DEL_LOGOP,
+	AST_TYPE_DEL_EXPRISXIN,
 };
 
 enum ast_comparison_type {
@@ -231,6 +232,18 @@ struct ast_ins_insvals_node {
 /* Insert Statements - end */
 
 /* Delete Statements - start */
+
+// used for: "IS IN" and "IS NOT IN" WHERE-clauses
+struct ast_del_isxin_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* NOT in? */
+	bool is_negation;
+};
 
 struct ast_del_logop_node {
 	/* type of node */

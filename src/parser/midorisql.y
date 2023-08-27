@@ -132,7 +132,7 @@ int yylex(void*, void*);
 %token FCOUNT
 
 %type <intval> select_opts select_expr_list
-%type <intval> val_list case_list
+%type <intval> val_list case_list delete_val_list
 %type <intval> groupby_list opt_asc_desc
 %type <intval> table_references opt_inner_cross opt_outer
 %type <intval> left_or_right column_list
@@ -284,10 +284,10 @@ delete_expr: NAME          { emit(result, "NAME %s", $1); free($1); }
    	   | NULLX         { emit(result, "NULL"); }
    	   ;
 
-delete_expr: delete_expr ANDOP delete_expr { emit(result, "AND"); }
-   	   | delete_expr OR delete_expr { emit(result, "OR"); }
-	   | delete_expr XOR delete_expr { emit(result, "XOR"); }
-	   | delete_expr COMPARISON delete_expr { emit(result, "CMP %d", $2); }
+delete_expr: delete_expr ANDOP delete_expr	{ emit(result, "AND"); }
+   	   | delete_expr OR delete_expr		{ emit(result, "OR"); }
+	   | delete_expr XOR delete_expr	{ emit(result, "XOR"); }
+	   | delete_expr COMPARISON delete_expr	{ emit(result, "CMP %d", $2); }
    	   | '(' delete_expr ')'
 	   ;    
 
@@ -295,10 +295,13 @@ delete_expr:  delete_expr IS NULLX     { emit(result, "ISNULL"); }
 	   |  delete_expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
 	   ;
 
-delete_expr: delete_expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
-   	   | delete_expr NOT IN '(' val_list ')'    { emit(result, "ISIN %d", $5); emit(result, "NOT"); }
+delete_expr: delete_expr IN '(' delete_val_list ')'	{ emit(result, "ISIN %d", $4); }
+   	   | delete_expr NOT IN '(' delete_val_list ')'	{ emit(result, "ISNOTIN %d", $5); }
    	   ;
 
+delete_val_list: delete_expr				{ $$ = 1; }
+	       | delete_expr ',' delete_val_list	{ $$ = 1 + $3; }
+	       ;
 
    /* statements: insert statement */
 

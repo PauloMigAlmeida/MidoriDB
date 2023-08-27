@@ -19,6 +19,65 @@ enum ast_del_expr_val_type {
 	AST_DEL_EXPR_VAL_NAME, // column name
 };
 
+static struct ast_del_isxin_node* build_expr_isxin_node(struct queue *parser, struct stack *tmp_st, bool negation)
+{
+	struct ast_del_isxin_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *reg_exp;
+	char *str;
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_DEL_EXPRISXIN;
+	node->is_negation = negation;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (negation)
+		reg_exp = "ISNOTIN ([0-9]+)";
+	else
+		reg_exp = "ISIN ([0-9]+)";
+
+	if (!regex_ext_match_grp(str, reg_exp, &reg_pars))
+		goto err_regex;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+
+}
+
 static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, enum ast_comparison_type cmp_type)
 {
 	struct ast_del_cmp_node *cmp_node;
@@ -338,6 +397,10 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_EQUALS_OP);
 		} else if (strstarts(str, "ISNOTNULL")) {
 			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_DIFF_OP);
+		} else if (strstarts(str, "ISIN")) {
+			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, false);
+		} else if (strstarts(str, "ISNOTIN")) {
+			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, true);
 		} else if (strstarts(str, "WHERE")) {
 			/* "WHERE" entry doesn't have any value for AST tree, so discard it */
 			free(queue_poll(parser));
