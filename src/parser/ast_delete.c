@@ -56,10 +56,15 @@ static struct ast_del_isxin_node* build_expr_isxin_node(struct queue *parser, st
 
 	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
 
+	/* values */
 	for (int i = 0; i < count; i++) {
 		tmp_node = (struct ast_node*)stack_pop(tmp_st);
 		list_add(&tmp_node->head, node->node_children_head);
 	}
+
+	/* field */
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
 
 	free(str);
 	stack_free(&reg_pars);
@@ -78,10 +83,11 @@ err:
 
 }
 
-static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, enum ast_comparison_type cmp_type)
+static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, struct stack *tmp_st, enum ast_comparison_type cmp_type)
 {
 	struct ast_del_cmp_node *cmp_node;
 	struct ast_del_exprval_node *val_node;
+	struct ast_node *tmp_node;
 
 	/* discard entry */
 	free(queue_poll(parse));
@@ -114,7 +120,12 @@ static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, enu
 	list_head_init(&cmp_node->head);
 	list_head_init(cmp_node->node_children_head);
 
+	/* value */
 	list_add(&val_node->head, cmp_node->node_children_head);
+
+	/* field */
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, cmp_node->node_children_head);
 
 	return cmp_node;
 err_cmp_head:
@@ -394,9 +405,9 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 		} else if (strstarts(str, "XOR")) {
 			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
 		} else if (strstarts(str, "ISNULL")) {
-			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_EQUALS_OP);
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, AST_CMP_EQUALS_OP);
 		} else if (strstarts(str, "ISNOTNULL")) {
-			curr = (struct ast_node*)build_expr_isxnull_node(parser, AST_CMP_DIFF_OP);
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, AST_CMP_DIFF_OP);
 		} else if (strstarts(str, "ISIN")) {
 			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, false);
 		} else if (strstarts(str, "ISNOTIN")) {
