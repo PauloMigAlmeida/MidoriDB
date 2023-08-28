@@ -283,7 +283,6 @@ struct ast_del_exprval_node {
 		bool is_approxnum;
 		bool is_bool;
 		bool is_null;
-		bool is_negation;
 	} value_type;
 	/* raw values */
 	union {
