@@ -207,7 +207,6 @@ static void insert_tests(void)
 	helper(&db, "INSERT INTO Q (f1, f2) VALUES (NULL, 789.0);", false);
 	helper(&db, "INSERT INTO Q (f1, f2) VALUES (123, NULL), (NULL, 789.0);", true);
 
-	//TODO uncomment tests as I implement those
 	/* invalid case - insert - invalid insert_expr*/
 	prep_helper(&db, "CREATE TABLE U_1 (f1 INT);");
 	helper(&db, "INSERT INTO U_1 VALUES (2.0 * 3.0);", true); // diff types than column supports
@@ -227,8 +226,34 @@ static void insert_tests(void)
 	database_close(&db);
 }
 
+static void delete_tests(void)
+{
+	struct database db = {0};
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* valid case - delete all */
+	prep_helper(&db, "CREATE TABLE V_A (f1 INT, f2 VARCHAR(4));");
+	helper(&db, "DELETE FROM V_A;", false);
+
+	/* valid case - single condition */
+	prep_helper(&db, "CREATE TABLE V_B (f1 INT, f2 VARCHAR(4));");
+	helper(&db, "DELETE FROM V_B WHERE f1 = 1;", false);
+
+	/* invalid case - delete all */
+	prep_helper(&db, "CREATE TABLE I_A (f1 INT);");
+	helper(&db, "DELETE FROM I_AHKSDJ;", true);
+
+	/* invalid case - single condition; invalid column */
+	prep_helper(&db, "CREATE TABLE I_B (f1 INT);");
+	helper(&db, "DELETE FROM I_B WHERE f2 = 1;", true);
+
+	database_close(&db);
+}
+
 void test_semantic_analyze(void)
 {
 	create_tests();
 	insert_tests();
+	delete_tests();
 }
