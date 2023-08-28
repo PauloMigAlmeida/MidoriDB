@@ -246,11 +246,19 @@ static void delete_tests(void)
 
 	/* valid case - single condition; IN-clause */
 	prep_helper(&db, "CREATE TABLE V_D (f1 INT);");
-	helper(&db, "DELETE FROM V_D WHERE f1 IN (1,2,3,4);", false);
+	helper(&db, "DELETE FROM V_D WHERE f1 IN (1,2,3,NULL);", false);
 
 	/* valid case - multiple conditions; IN-clause  */
 	prep_helper(&db, "CREATE TABLE V_E (f1 INT, f2 VARCHAR(4), f3 double, f4 int);");
 	helper(&db, "DELETE FROM V_E WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,12));", false);
+
+	/* valid case - single condition; NULL comparison */
+	prep_helper(&db, "CREATE TABLE V_F (f1 INT);");
+	helper(&db, "DELETE FROM V_F WHERE f1 IS NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE f1 IS NOT NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE f1 = NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE f1 <> NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE f1 != NULL;", false);
 
 	/* invalid case - delete all */
 	prep_helper(&db, "CREATE TABLE I_A (f1 INT);");
@@ -271,6 +279,14 @@ static void delete_tests(void)
 	/* invalid case - multiple conditions; IN-clause  */
 	prep_helper(&db, "CREATE TABLE I_E (f1 INT, f2 VARCHAR(4), f3 double, f4 int);");
 	helper(&db, "DELETE FROM I_E WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,f1));", true);
+
+	/* invalid case - single condition; NULL comparison */
+	prep_helper(&db, "CREATE TABLE I_F (f1 INT);");
+	helper(&db, "DELETE FROM I_F WHERE f1 > NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE f1 < NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE f1 <=> NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE f1 >= NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE f1 <= NULL;", true);
 
 	database_close(&db);
 }

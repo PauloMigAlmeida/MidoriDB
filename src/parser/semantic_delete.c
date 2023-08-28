@@ -121,6 +121,41 @@ static bool check_isxin_entries(struct database *db, struct ast_node *root, char
 	return true;
 }
 
+static bool check_null_cmp(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_del_cmp_node *cmp_node;
+	struct ast_del_exprval_node *val_node;
+	struct ast_node *tmp_entry;
+
+	list_for_each(pos, root->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		// base case
+		if (list_is_empty(tmp_entry->node_children_head)) {
+			if (root->node_type == AST_TYPE_DEL_CMP && tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+				cmp_node = (typeof(cmp_node))root;
+				val_node = (typeof(val_node))tmp_entry;
+
+				if (val_node->value_type.is_null && (cmp_node->cmp_type != AST_CMP_DIFF_OP
+						&& cmp_node->cmp_type != AST_CMP_EQUALS_OP)) {
+					snprintf(out_err,
+							out_err_len,
+							"NULL fields can only be compared using '=' or '<>' operators\n");
+					return false;
+				}
+
+			}
+		} else {
+			if (!check_null_cmp(db, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
 {
 	struct tm time_struct = {0};
@@ -132,14 +167,14 @@ static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
 	else
 		fmt = COLUMN_CTDATETIME_FMT;
 
-	// Parse the string into a time structure
+// Parse the string into a time structure
 	if (strptime(str, fmt, &time_struct) == NULL)
 		return false;
 
-	// Convert the time structure to a time_t value
+// Convert the time structure to a time_t value
 	time_out = mktime(&time_struct);
 
-	// Check if the conversion was successful
+// Check if the conversion was successful
 	if (time_out == -1)
 		return false;
 
@@ -163,6 +198,10 @@ bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, ch
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
 	if (!check_isxin_entries(db, (struct ast_node*)deleteone_node, out_err, out_err_len))
+		return false;
+
+	/* NULL should only be compared using = or <> operators, anything else is wrong */
+	if (!check_null_cmp(db, (struct ast_node*)deleteone_node, out_err, out_err_len))
 		return false;
 
 	return true;
