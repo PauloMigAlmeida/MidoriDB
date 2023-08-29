@@ -12,6 +12,18 @@
 #include <datastructure/hashtable.h>
 #include <datastructure/linkedlist.h>
 
+static void free_hashmap_entries(struct hashtable *hashtable, const void *key, size_t klen,
+		const void *value, size_t vlen, void *arg)
+{
+	struct hashtable_entry *entry = NULL;
+	UNUSED(arg);
+	UNUSED(value);
+	UNUSED(vlen);
+
+	entry = hashtable_remove(hashtable, key, klen);
+	hashtable_free_entry(entry);
+}
+
 static bool check_table_name(struct database *db, struct ast_del_deleteone_node *deleteone_node, char *out_err, size_t out_err_len)
 {
 	if (!table_validate_name(deleteone_node->table_name)) {
@@ -47,6 +59,7 @@ static bool __check_column_exists(struct database *db, struct ast_del_deleteone_
 	struct list_head *pos;
 	struct ast_del_exprval_node *val_node;
 	struct ast_node *tmp_entry;
+
 	// base case
 	if (list_is_empty(node->node_children_head)) {
 		if (node->node_type == AST_TYPE_DEL_EXPRVAL) {
@@ -167,19 +180,180 @@ static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
 	else
 		fmt = COLUMN_CTDATETIME_FMT;
 
-// Parse the string into a time structure
+	// Parse the string into a time structure
 	if (strptime(str, fmt, &time_struct) == NULL)
 		return false;
 
-// Convert the time structure to a time_t value
+	// Convert the time structure to a time_t value
 	time_out = mktime(&time_struct);
 
-// Check if the conversion was successful
+	// Check if the conversion was successful
 	if (time_out == -1)
 		return false;
 
 	return true;
 
+}
+
+static bool check_value_for_field(struct ast_del_exprval_node *field_node, struct ast_del_exprval_node *value_node,
+		struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct hashtable_value *ht_value;
+	enum COLUMN_TYPE *type;
+
+	ht_value = hashtable_get(ht, field_node->name_val, strlen(field_node->name_val) + 1);
+	type = (typeof(type))ht_value->content;
+
+	if (value_node->value_type.is_str) {
+		if (*type == CT_DATE || *type == CT_DATETIME) {
+			if (!try_parse_date_type(value_node->str_val, *type)) {
+				snprintf(out_err, out_err_len,
+						/* max str size would exceed buffer's size, so trim it */
+						"val: '%.256s' can't be parsed for DATE | DATETIME column\n",
+						value_node->str_val);
+				return false;
+			}
+		} else if (*type != CT_VARCHAR) {
+			snprintf(out_err, out_err_len,
+					/* max str size would exceed buffer's size, so trim it */
+					"val: '%.256s' requires an VARCHAR() column\n",
+					value_node->str_val);
+			return false;
+		}
+	} else if (value_node->value_type.is_intnum && *type != CT_INTEGER) {
+		snprintf(out_err, out_err_len, "val: '%ld' requires an INTEGER column\n", value_node->int_val);
+		return false;
+	} else if (value_node->value_type.is_approxnum && *type != CT_DOUBLE) {
+		snprintf(out_err, out_err_len, "val: '%f' requires a DOUBLE column\n", value_node->double_val);
+		return false;
+	} else if (value_node->value_type.is_bool && *type != CT_TINYINT) {
+		snprintf(out_err, out_err_len, "val: '%d' requires a TINYINT column\n", value_node->bool_val);
+		return false;
+	}
+
+	return true;
+
+}
+
+static bool __check_value_types(struct ast_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct ast_del_exprval_node *field_node = NULL, *value_node = NULL, *tmpval_node = NULL;
+	struct ast_node *tmp_entry;
+	struct list_head *pos;
+
+	if (list_is_empty(root->node_children_head)) {
+		// base case -> we can't go any further
+		return true;
+	} else {
+		if (root->node_type == AST_TYPE_DEL_CMP) {
+			/*
+			 * while not guaranteed, CMP node will generally have [FIELD, VAL] as children.
+			 * This is because "field1 CMP field2" or "value1 CMP value2" are technically valid..
+			 * Although, I must say that "value1 CMP value2" is stupid and also potentially the biggest
+			 * culprit when it comes to most SQL injections cases in the world...
+			 *
+			 * I wonder if I should forbid "value1 CMP value2" in the semantic phase??
+			 */
+
+			list_for_each(pos, root->node_children_head)
+			{
+				tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+				if (tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+					tmpval_node = (typeof(tmpval_node))tmp_entry;
+
+					if (tmpval_node->value_type.is_name) {
+						field_node = tmpval_node;
+					} else {
+						value_node = tmpval_node;
+					}
+				}
+			}
+
+			if (field_node && value_node) {
+				return check_value_for_field(field_node, value_node, ht, out_err, out_err_len);
+			}
+		} else if (root->node_type == AST_TYPE_DEL_EXPRISXIN) {
+
+			/* find field first */
+			list_for_each(pos, root->node_children_head)
+			{
+				tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+				if (tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+					tmpval_node = (typeof(tmpval_node))tmp_entry;
+
+					if (tmpval_node->value_type.is_name) {
+						field_node = tmpval_node;
+						break;
+					}
+				}
+			}
+
+			/* go through values now*/
+			list_for_each(pos, root->node_children_head)
+			{
+				tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+				if (tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+					tmpval_node = (typeof(tmpval_node))tmp_entry;
+
+					if (!tmpval_node->value_type.is_name) {
+						if (!check_value_for_field(field_node,
+										tmpval_node,
+										ht, out_err,
+										out_err_len))
+							return false; /* fail fast */
+					}
+				}
+			}
+
+		} else {
+			// traverse the tree
+			list_for_each(pos, root->node_children_head)
+			{
+				tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+				if (!__check_value_types(tmp_entry, ht, out_err, out_err_len))
+					return false;
+			}
+		}
+		return true;
+	}
+}
+
+static bool check_value_types(struct database *db, struct ast_del_deleteone_node *root, char *out_err, size_t out_err_len)
+{
+	bool valid = true;
+	struct hashtable ht = {0};
+	struct table *table;
+
+	if (!hashtable_init(&ht, &hashtable_str_compare, &hashtable_str_hash)) {
+		snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+		valid = false;
+		goto err;
+	}
+
+	table = database_table_get(db, root->table_name);
+
+	for (int i = 0; i < table->column_count; i++) {
+		char *key = table->columns[i].name;
+		enum COLUMN_TYPE value = table->columns[i].type;
+
+		if (!hashtable_put(&ht, key, strlen(key) + 1, &value, sizeof(value))) {
+			snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+			valid = false;
+			goto err_ht_put_col;
+		}
+	}
+
+	valid = __check_value_types((struct ast_node*)root, &ht, out_err, out_err_len);
+
+err_ht_put_col:
+	/* clean up */
+	hashtable_foreach(&ht, &free_hashmap_entries, NULL);
+	hashtable_free(&ht);
+err:
+	return valid;
 }
 
 bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
@@ -202,6 +376,10 @@ bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, ch
 
 	/* NULL should only be compared using = or <> operators, anything else is wrong */
 	if (!check_null_cmp(db, (struct ast_node*)deleteone_node, out_err, out_err_len))
+		return false;
+
+	/* are value types correct? Ex.: "DELETE FROM A where age > 'paulo'" shouldn't be allowed */
+	if (!(check_value_types(db, deleteone_node, out_err, out_err_len)))
 		return false;
 
 	return true;
