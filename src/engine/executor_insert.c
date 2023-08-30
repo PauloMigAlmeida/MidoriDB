@@ -57,16 +57,6 @@ err_convert:
 	return rc;
 }
 
-static struct ast_ins_exprval_node* eval_expr(struct ast_node *node)
-{
-	/*
-	 * TODO move this to the optimisation phase.
-	 * I want to keep the execution phase as simple as possible.
-	 */
-	UNUSED(node);
-	return NULL;
-}
-
 static int build_row(struct table *table,
 		struct ast_ins_values_node *vals_node,
 		int *column_order,
@@ -105,12 +95,6 @@ static int build_row(struct table *table,
 		/* calculate column displacement in row's payload, then again user can fiddle with opt_column_list */
 		for (int i = 0; i < column_order[val_pos]; i++) {
 			row_pos += table_calc_column_space(&table->columns[i]);
-		}
-
-		// TODO I will possibly move this to the optimisation phase
-		if (entry->node_type == AST_TYPE_INS_EXPROP) {
-			exprval_entry = eval_expr(entry);
-			//TODO implement error handling
 		}
 
 		exprval_entry = (struct ast_ins_exprval_node*)entry;
