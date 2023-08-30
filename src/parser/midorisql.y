@@ -53,7 +53,7 @@ int yylex(void*, void*);
 %nonassoc IN IS LIKE REGEXP
 %left NOT '!'
 %left BETWEEN
-%left <subtok> COMPARISON /* = <> < > <= >= <=> */
+%left <subtok> COMPARISON /* = <> < > <= >= */
 %left '|'
 %left '&'
 %left <subtok> SHIFT /* << >> */

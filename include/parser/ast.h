@@ -40,8 +40,6 @@ enum ast_node_type {
 enum ast_comparison_type {
 	// '='
 	AST_CMP_EQUALS_OP = 4,
-	// '<=>'
-	AST_CMP_SPACESHIP_OP = 12,
 	// '>='
 	AST_CMP_GTE_OP = 6,
 	// '>'
