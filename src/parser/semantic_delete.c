@@ -86,7 +86,7 @@ static bool check_column_exists(struct database *db, struct ast_del_deleteone_no
 	return __check_column_exists(db, root, (struct ast_node*)root, out_err, out_err_len);
 }
 
-static bool check_isxin_entries(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len)
+static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_del_isxin_node *isxin_node;
@@ -126,7 +126,7 @@ static bool check_isxin_entries(struct database *db, struct ast_node *root, char
 		list_for_each(pos, root->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-			if (!check_isxin_entries(db, tmp_entry, out_err, out_err_len))
+			if (!check_isxin_entries(tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
@@ -134,7 +134,7 @@ static bool check_isxin_entries(struct database *db, struct ast_node *root, char
 	return true;
 }
 
-static bool check_null_cmp(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len)
+static bool check_null_cmp(struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_del_cmp_node *cmp_node;
@@ -161,12 +161,91 @@ static bool check_null_cmp(struct database *db, struct ast_node *root, char *out
 
 			}
 		} else {
-			if (!check_null_cmp(db, tmp_entry, out_err, out_err_len))
+			if (!check_null_cmp(tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
 
 	return true;
+}
+
+static bool __check_str_cmp(struct ast_node *root, struct hashtable *ht, char *err, size_t err_len)
+{
+	struct list_head *pos;
+	struct ast_del_cmp_node *cmp_node;
+	struct ast_del_exprval_node *val_node;
+	struct ast_node *tmp_entry;
+	struct hashtable_value *ht_val;
+	enum COLUMN_TYPE *col_type;
+
+	list_for_each(pos, root->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		// base case
+		if (list_is_empty(tmp_entry->node_children_head)) {
+			if (root->node_type == AST_TYPE_DEL_CMP && tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+				cmp_node = (typeof(cmp_node))root;
+				val_node = (typeof(val_node))tmp_entry;
+
+				if (val_node->value_type.is_name) {
+
+					ht_val = hashtable_get(ht, val_node->name_val, strlen(val_node->name_val) + 1);
+					col_type = (typeof(col_type))ht_val->content;
+
+					if (*col_type == CT_VARCHAR
+							&& cmp_node->cmp_type != AST_CMP_DIFF_OP
+							&& cmp_node->cmp_type != AST_CMP_EQUALS_OP) {
+
+						snprintf(err, err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
+						return false;
+					}
+
+				}
+
+			}
+		} else {
+			if (!__check_str_cmp(tmp_entry, ht, err, err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_str_cmp(struct database *db, struct ast_del_deleteone_node *root, char *out_err, size_t out_err_len)
+{
+	bool valid = true;
+	struct hashtable ht = {0};
+	struct table *table;
+
+	if (!hashtable_init(&ht, &hashtable_str_compare, &hashtable_str_hash)) {
+		snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+		valid = false;
+		goto err;
+	}
+
+	table = database_table_get(db, root->table_name);
+
+	for (int i = 0; i < table->column_count; i++) {
+		char *key = table->columns[i].name;
+		enum COLUMN_TYPE value = table->columns[i].type;
+
+		if (!hashtable_put(&ht, key, strlen(key) + 1, &value, sizeof(value))) {
+			snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+			valid = false;
+			goto err_ht_put_col;
+		}
+	}
+
+	valid = __check_str_cmp((struct ast_node*)root, &ht, out_err, out_err_len);
+
+err_ht_put_col:
+	/* clean up */
+	hashtable_foreach(&ht, &free_hashmap_entries, NULL);
+	hashtable_free(&ht);
+err:
+	return valid;
 }
 
 static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
@@ -371,11 +450,15 @@ bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, ch
 		return false;
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
-	if (!check_isxin_entries(db, (struct ast_node*)deleteone_node, out_err, out_err_len))
+	if (!check_isxin_entries((struct ast_node*)deleteone_node, out_err, out_err_len))
 		return false;
 
 	/* NULL should only be compared using = or <> operators, anything else is wrong */
-	if (!check_null_cmp(db, (struct ast_node*)deleteone_node, out_err, out_err_len))
+	if (!check_null_cmp((struct ast_node*)deleteone_node, out_err, out_err_len))
+		return false;
+
+	/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
+	if (!check_str_cmp(db, deleteone_node, out_err, out_err_len))
 		return false;
 
 	/* are value types correct? Ex.: "DELETE FROM A where age > 'paulo'" shouldn't be allowed */

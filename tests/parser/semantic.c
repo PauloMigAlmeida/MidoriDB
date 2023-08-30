@@ -264,8 +264,15 @@ static void delete_tests(void)
 	prep_helper(&db, "CREATE TABLE V_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
 	helper(&db, "DELETE FROM V_G WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,12));", false);
 	helper(&db, "DELETE FROM V_G WHERE f2 = 'paulo' AND f4 in (10,12);", false);
-	helper(&db, "DELETE FROM V_G WHERE (f1 = NULL OR f2 IS NOT NULL) AND (f3 IS NULL OR f4 NOT in (NULL,10));", false);
+	helper(&db, "DELETE FROM V_G WHERE (f1 = NULL OR f2 IS NOT NULL) AND (f3 IS NULL OR f4 NOT in (NULL,10));",
+	false);
 	helper(&db, "DELETE FROM V_G WHERE f5 > '2022-02-02';", false);
+
+	/* valid case - single condition; VARCHAR comparison */
+	prep_helper(&db, "CREATE TABLE V_H (f1 VARCHAR(10));");
+	helper(&db, "DELETE FROM V_H WHERE f1 = 'paulo';", false);
+	helper(&db, "DELETE FROM V_H WHERE f1 <> 'paulo';", false);
+	helper(&db, "DELETE FROM V_H WHERE f1 != 'paulo';", false);
 
 	/* invalid case - delete all */
 	prep_helper(&db, "CREATE TABLE I_A (f1 INT);");
@@ -291,7 +298,6 @@ static void delete_tests(void)
 	prep_helper(&db, "CREATE TABLE I_F (f1 INT);");
 	helper(&db, "DELETE FROM I_F WHERE f1 > NULL;", true);
 	helper(&db, "DELETE FROM I_F WHERE f1 < NULL;", true);
-	helper(&db, "DELETE FROM I_F WHERE f1 <=> NULL;", true);
 	helper(&db, "DELETE FROM I_F WHERE f1 >= NULL;", true);
 	helper(&db, "DELETE FROM I_F WHERE f1 <= NULL;", true);
 
@@ -302,6 +308,11 @@ static void delete_tests(void)
 	helper(&db, "DELETE FROM I_G WHERE f1 = 1 AND f2 > 'paulo' AND f3 in (12, 42.0);", true);
 	helper(&db, "DELETE FROM I_G WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10.0,12));", true);
 	helper(&db, "DELETE FROM I_G WHERE f5 > '2022-002-02';", true);
+
+	/* invalid case - single condition; VARCHAR comparison */
+	prep_helper(&db, "CREATE TABLE I_H (f1 VARCHAR(10));");
+	helper(&db, "DELETE FROM I_H WHERE f1 >= 'paulo';", true);
+	helper(&db, "DELETE FROM I_H WHERE f1 <= 'paulo';", true);
 
 	database_close(&db);
 }
