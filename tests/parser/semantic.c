@@ -259,6 +259,10 @@ static void delete_tests(void)
 	helper(&db, "DELETE FROM V_F WHERE f1 = NULL;", false);
 	helper(&db, "DELETE FROM V_F WHERE f1 <> NULL;", false);
 	helper(&db, "DELETE FROM V_F WHERE f1 != NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE NULL != NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE NULL <> NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE NULL = NULL;", false);
+	helper(&db, "DELETE FROM V_F WHERE NULL IS NULL;", false);
 
 	/* valid case - multiple conditions; valid field->value types configuration  */
 	prep_helper(&db, "CREATE TABLE V_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
@@ -273,6 +277,75 @@ static void delete_tests(void)
 	helper(&db, "DELETE FROM V_H WHERE f1 = 'paulo';", false);
 	helper(&db, "DELETE FROM V_H WHERE f1 <> 'paulo';", false);
 	helper(&db, "DELETE FROM V_H WHERE f1 != 'paulo';", false);
+
+	/* valid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE V_I (f1 int, f2 double, f3 VARCHAR(10));");
+	// int
+	helper(&db, "DELETE FROM V_I WHERE f1 = 1;", false); // field-to-value
+	helper(&db, "DELETE FROM V_I WHERE f1 > 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 >= 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 < 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 <= 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 <> 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 = f1;", false); // value-to-field
+	helper(&db, "DELETE FROM V_I WHERE 1 > f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 >= f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 < f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 <= f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 <> f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 = f1;", false); // field-to-field
+	helper(&db, "DELETE FROM V_I WHERE f1 > f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 >= f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 < f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 <= f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE f1 <> f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 = 1;", false); // value-to-value
+	helper(&db, "DELETE FROM V_I WHERE 1 > 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 >= 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 < 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 <= 1;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1 <> 1;", false);
+	// double
+	helper(&db, "DELETE FROM V_I WHERE f2 = 1.0;", false); // field-to-value
+	helper(&db, "DELETE FROM V_I WHERE f2 > 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 >= 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 < 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 <= 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 <> 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 = f2;", false); // value-to-field
+	helper(&db, "DELETE FROM V_I WHERE 1.0 > f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 >= f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 < f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 <= f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 <> f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 = f2;", false); // field-to-field
+	helper(&db, "DELETE FROM V_I WHERE f2 > f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 >= f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 < f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 <= f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE f2 <> f2;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 = 1.0;", false); // value-to-value
+	helper(&db, "DELETE FROM V_I WHERE 1.0 > 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 >= 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 < 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 <= 1.0;", false);
+	helper(&db, "DELETE FROM V_I WHERE 1.0 <> 1.0;", false);
+	// string
+	helper(&db, "DELETE FROM V_I WHERE f3 = 'test';", false); // field-to-value
+	helper(&db, "DELETE FROM V_I WHERE f3 <> 'test';", false);
+	helper(&db, "DELETE FROM V_I WHERE 'test' = f3;", false); // value-to-field
+	helper(&db, "DELETE FROM V_I WHERE 'test' <> f3;", false);
+	helper(&db, "DELETE FROM V_I WHERE f3 = f3;", false); // field-to-field
+	helper(&db, "DELETE FROM V_I WHERE f3 <> f3;", false);
+	helper(&db, "DELETE FROM V_I WHERE 'test' = 'test';", false); // value-to-value
+	helper(&db, "DELETE FROM V_I WHERE 'test' <> 'test';", false);
+	// null
+	helper(&db, "DELETE FROM V_I WHERE f1 = NULL;", false); // field-to-value
+	helper(&db, "DELETE FROM V_I WHERE f1 <> NULL;", false);
+	helper(&db, "DELETE FROM V_I WHERE NULL = f1;", false); // value-to-field
+	helper(&db, "DELETE FROM V_I WHERE NULL <> f1;", false);
+	helper(&db, "DELETE FROM V_I WHERE NULL = NULL;", false); // value-to-value
+	helper(&db, "DELETE FROM V_I WHERE NULL <> NULL;", false);
 
 	/* invalid case - delete all */
 	prep_helper(&db, "CREATE TABLE I_A (f1 INT);");
@@ -313,6 +386,39 @@ static void delete_tests(void)
 	prep_helper(&db, "CREATE TABLE I_H (f1 VARCHAR(10));");
 	helper(&db, "DELETE FROM I_H WHERE f1 >= 'paulo';", true);
 	helper(&db, "DELETE FROM I_H WHERE f1 <= 'paulo';", true);
+
+	/* invalid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE I_I (f1 int, f3 VARCHAR(10));");
+	// string
+	helper(&db, "DELETE FROM I_I WHERE f3 > 'test';", true); // field-to-value
+	helper(&db, "DELETE FROM I_I WHERE f3 >= 'test';", true);
+	helper(&db, "DELETE FROM I_I WHERE f3 < 'test';", true);
+	helper(&db, "DELETE FROM I_I WHERE f3 <= 'test';", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' > f3;", true); // value-to-field
+	helper(&db, "DELETE FROM I_I WHERE 'test' >= f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' < f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' <= f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE f3 > f3;", true); // field-to-field
+	helper(&db, "DELETE FROM I_I WHERE f3 >= f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE f3 < f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE f3 <= f3;", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' > 'test';", true); // value-to-value
+	helper(&db, "DELETE FROM I_I WHERE 'test' >= 'test';", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' < 'test';", true);
+	helper(&db, "DELETE FROM I_I WHERE 'test' <= 'test';", true);
+	// null
+	helper(&db, "DELETE FROM I_I WHERE f1 > NULL;", true); // field-to-value
+	helper(&db, "DELETE FROM I_I WHERE f1 >= NULL;", true);
+	helper(&db, "DELETE FROM I_I WHERE f1 < NULL;", true);
+	helper(&db, "DELETE FROM I_I WHERE f1 <= NULL;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL > f1;", true); // value-to-field
+	helper(&db, "DELETE FROM I_I WHERE NULL >= f1;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL < f1;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL <= f1;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL > NULL;", true); // value-to-value
+	helper(&db, "DELETE FROM I_I WHERE NULL >= NULL;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL < NULL;", true);
+	helper(&db, "DELETE FROM I_I WHERE NULL <= NULL;", true);
 
 	database_close(&db);
 }
