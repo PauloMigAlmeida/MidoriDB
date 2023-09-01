@@ -96,8 +96,6 @@ static bool cmp_str_value_to_value(enum ast_comparison_type cmp_type, char *val_
 	case AST_CMP_EQUALS_OP:
 		return strcmp(val_1, val_2) == 0;
 	default:
-		/* something went really wrong here */
-		BUG_ON(true);
 		return false;
 	}
 }

@@ -1307,53 +1307,43 @@ static void test_delete_22(void)
 static void test_delete_23(void)
 {
 	struct fp_types_row {
-		double val_1;
+		time_t val_1;
 	} __packed;
 
 	struct database db = {0};
 	struct table *table;
 
-	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4, *exp_row_5, *exp_row_6;
-	struct fp_types_row fp_data_1 = {123.0};
-	struct fp_types_row fp_data_2 = {456.0};
-	struct fp_types_row fp_data_3 = {789.0};
-	struct fp_types_row fp_data_4 = {101112.0};
-	struct fp_types_row fp_data_5 = {-789.0};
-	struct fp_types_row fp_data_6 = {-12345.0};
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+	struct fp_types_row fp_data_1 = {631108800};
+	struct fp_types_row fp_data_2 = {662644800};
+	struct fp_types_row fp_data_3 = {694180800};
+	struct fp_types_row fp_data_4 = {725803200};
 
 	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
 	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
 	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
 	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), NULL, 0);
-	exp_row_5 = build_row(&fp_data_5, sizeof(fp_data_5), NULL, 0);
-	exp_row_6 = build_row(&fp_data_6, sizeof(fp_data_6), NULL, 0);
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 
-	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 DOUBLE);");
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (123.0);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (456.0);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (789.0);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (101112.0);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (-789.0);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (-12345.0);"), ST_OK_EXECUTED);
+	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 DATE);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('1990-01-01');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('1991-01-01');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('1992-01-01');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('1993-01-01');"), ST_OK_EXECUTED);
 
 	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
 	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
 	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
 	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
-	CU_ASSERT(check_row(table, 4, &header_used, exp_row_5));
-	CU_ASSERT(check_row(table, 5, &header_used, exp_row_6));
-	CU_ASSERT(check_row_flags(table, 6, &header_empty));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
 
-	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 <> 123.0;"), ST_OK_EXECUTED);
-	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 <> '1992-01-01';"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
 	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
-	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
 	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
-	CU_ASSERT(check_row_flags(table, 4, &header_deleted));
-	CU_ASSERT(check_row_flags(table, 5, &header_deleted));
-	CU_ASSERT(check_row_flags(table, 6, &header_empty));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
 
 	/* database_close will take care of freeing table reference so free(table) is a noop */
 	database_close(&db);
@@ -1361,8 +1351,188 @@ static void test_delete_23(void)
 	free(exp_row_2);
 	free(exp_row_3);
 	free(exp_row_4);
-	free(exp_row_5);
-	free(exp_row_6);
+}
+
+static void test_delete_24(void)
+{
+	struct mix_types_row {
+		int64_t val_1;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+
+	char *data1_str = "123";
+	struct mix_types_row data_1 = {(uintptr_t)data1_str};
+
+	char *data2_str = "456";
+	struct mix_types_row data_2 = {(uintptr_t)data2_str};
+
+	char *data3_str = zalloc(4);
+	int data_3_null_field[] = {0};
+	struct mix_types_row data_3 = {(uintptr_t)data3_str};
+
+	char *data4_str = "789";
+	struct mix_types_row data_4 = {(uintptr_t)data4_str};
+
+	exp_row_1 = build_row(&data_1, sizeof(data_1), NULL, 0);
+	exp_row_2 = build_row(&data_2, sizeof(data_2), NULL, 0);
+	exp_row_3 = build_row(&data_3, sizeof(data_3), data_3_null_field, ARR_SIZE(data_3_null_field));
+	exp_row_4 = build_row(&data_4, sizeof(data_4), NULL, 0);
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 VARCHAR(4));");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('123');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('456');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (NULL);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('789');"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 = '123';"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+	free(data3_str);
+}
+
+static void test_delete_25(void)
+{
+	struct mix_types_row {
+		int64_t val_1;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+
+	char *data1_str = "123";
+	struct mix_types_row data_1 = {(uintptr_t)data1_str};
+
+	char *data2_str = "456";
+	struct mix_types_row data_2 = {(uintptr_t)data2_str};
+
+	char *data3_str = zalloc(4);
+	int data_3_null_field[] = {0};
+	struct mix_types_row data_3 = {(uintptr_t)data3_str};
+
+	char *data4_str = "789";
+	struct mix_types_row data_4 = {(uintptr_t)data4_str};
+
+	exp_row_1 = build_row(&data_1, sizeof(data_1), NULL, 0);
+	exp_row_2 = build_row(&data_2, sizeof(data_2), NULL, 0);
+	exp_row_3 = build_row(&data_3, sizeof(data_3), data_3_null_field, ARR_SIZE(data_3_null_field));
+	exp_row_4 = build_row(&data_4, sizeof(data_4), NULL, 0);
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 VARCHAR(4));");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('123');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('456');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (NULL);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('789');"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* semantic phase should complain about those */
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 > '123';"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 >= '456';"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 < NULL;"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 <= '789';"), ST_ERROR);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+	free(data3_str);
+}
+
+static void test_delete_26(void)
+{
+	struct mix_types_row {
+		int64_t val_1;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+
+	char *data1_str = "123";
+	struct mix_types_row data_1 = {(uintptr_t)data1_str};
+
+	char *data2_str = "456";
+	struct mix_types_row data_2 = {(uintptr_t)data2_str};
+
+	char *data3_str = zalloc(4);
+	int data_3_null_field[] = {0};
+	struct mix_types_row data_3 = {(uintptr_t)data3_str};
+
+	char *data4_str = "789";
+	struct mix_types_row data_4 = {(uintptr_t)data4_str};
+
+	exp_row_1 = build_row(&data_1, sizeof(data_1), NULL, 0);
+	exp_row_2 = build_row(&data_2, sizeof(data_2), NULL, 0);
+	exp_row_3 = build_row(&data_3, sizeof(data_3), data_3_null_field, ARR_SIZE(data_3_null_field));
+	exp_row_4 = build_row(&data_4, sizeof(data_4), NULL, 0);
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	table = run_create_stmt(&db, "CREATE TABLE TEST (f1 VARCHAR(4));");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('123');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('456');"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (NULL);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES ('789');"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 <> '123';"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3)); // NULL doesn't evaluate to true using CMP
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted))
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+	free(data3_str);
 }
 
 void test_executor_delete(void)
@@ -1436,4 +1606,13 @@ void test_executor_delete(void)
 
 	/* single condition - date - diff */
 	test_delete_23();
+
+	/* single condition - str - equals */
+	test_delete_24();
+
+	/* single condition - str - gt; gte; lt; lte */
+	test_delete_25();
+
+	/* single condition - str - diff */
+	test_delete_26();
 }
