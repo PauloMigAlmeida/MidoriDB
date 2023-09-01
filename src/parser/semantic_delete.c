@@ -108,7 +108,7 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 				return false;
 			}
 
-			val_node = list_entry(pos, typeof(*val_node), head);
+			val_node =(typeof(val_node))tmp_entry;
 			if (val_node->value_type.is_name) {
 				field_count++;
 			}
@@ -127,6 +127,39 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 			if (!check_isxin_entries(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_isxnull_entries(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_del_isxnull_node *isxnull_node;
+	struct ast_del_exprval_node *val_node;
+	struct ast_node *tmp_entry;
+
+	// base case
+	if (root->node_type == AST_TYPE_DEL_EXPRISXNULL) {
+		isxnull_node = (typeof(isxnull_node))root;
+
+		list_for_each(pos, root->node_children_head)
+		{
+			val_node = list_entry(pos, typeof(*val_node), head);
+
+			if (!val_node->value_type.is_name) {
+				snprintf(out_err, out_err_len, "only fields are allowed in IS NULL|IS NOT NULL\n");
+				return false;
+			}
+
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			if (!check_isxnull_entries(tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
@@ -209,30 +242,6 @@ static bool check_values_field_to_value(struct ast_del_cmp_node *cmp, struct ast
 		} else if (*type == CT_VARCHAR) {
 			/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
 			if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-				/*
-				 * if that's a value-to-value then I can only determine if the operation is supported.
-				 *
-				 * That means that '2020-02-02' > '2020-02-02' is 'invalid' from a semantic point-of-view
-				 * because I can't say for sure that this is a date. (unless we proactively try parsing
-				 * it).
-				 *
-				 * Notes to myself:
-				 *
-				 * 	Apparently SQLITE does that:
-				 *
-				 * 	sqlite> select '2020-02-02' > '2020-02-02';
-				 * 	0
-				 * 	sqlite> select '2020-02-02' < '2020-02-02';
-				 * 	0
-				 * 	sqlite> select '2020-02-03' > '2020-02-02';
-				 * 	1
-				 * 	sqlite> select '2020-02-13' > '2020-02-02';
-				 * 	1
-				 *
-				 * Maybe I will implement this in the future - right now this isn't too important as
-				 * I am not a  huge fan of value-to-value comparisons to begin with - they are just
-				 * silly
-				 */
 				snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
 				return false;
 			}
@@ -276,6 +285,31 @@ static bool check_values_value_to_value(struct ast_del_cmp_node *cmp, struct ast
 		return false;
 	} else {
 		cmp_cond = cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP;
+
+		/*
+		 * if that's a value-to-value then I can only determine if the operation is supported.
+		 *
+		 * That means that '2020-02-02' > '2020-02-02' is 'invalid' from a semantic point-of-view
+		 * because I can't say for sure that this is a date. (unless we proactively try parsing
+		 * it).
+		 *
+		 * Notes to myself:
+		 *
+		 * 	Apparently SQLITE does that:
+		 *
+		 * 	sqlite> select '2020-02-02' > '2020-02-02';
+		 * 	0
+		 * 	sqlite> select '2020-02-02' < '2020-02-02';
+		 * 	0
+		 * 	sqlite> select '2020-02-03' > '2020-02-02';
+		 * 	1
+		 * 	sqlite> select '2020-02-13' > '2020-02-02';
+		 * 	1
+		 *
+		 * Maybe I will implement this in the future - right now this isn't too important as
+		 * I am not a  huge fan of value-to-value comparisons to begin with - they are just
+		 * silly
+		 */
 
 		/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
 		if ((val_1->value_type.is_str || val_2->value_type.is_str) && cmp_cond) {
@@ -460,6 +494,14 @@ bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, ch
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
 	if (!check_isxin_entries((struct ast_node*)deleteone_node, out_err, out_err_len))
+		return false;
+
+	/*
+	 * check "IS NULL" and "IS NOT NULL" have fields.
+	 * Syntax-wise, "NULL IS NULL" and "NULL IS NOT NULL" is valid
+	 * Semantically, this is invalid.
+	 */
+	if (!check_isxnull_entries((struct ast_node*)deleteone_node, out_err, out_err_len))
 		return false;
 
 	/* are value types correct? Ex.: "DELETE FROM A where age > 'paulo'" shouldn't be allowed */

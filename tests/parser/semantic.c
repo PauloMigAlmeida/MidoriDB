@@ -262,7 +262,6 @@ static void delete_tests(void)
 	helper(&db, "DELETE FROM V_F WHERE NULL != NULL;", false);
 	helper(&db, "DELETE FROM V_F WHERE NULL <> NULL;", false);
 	helper(&db, "DELETE FROM V_F WHERE NULL = NULL;", false);
-	helper(&db, "DELETE FROM V_F WHERE NULL IS NULL;", false);
 
 	/* valid case - multiple conditions; valid field->value types configuration  */
 	prep_helper(&db, "CREATE TABLE V_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
@@ -373,6 +372,8 @@ static void delete_tests(void)
 	helper(&db, "DELETE FROM I_F WHERE f1 < NULL;", true);
 	helper(&db, "DELETE FROM I_F WHERE f1 >= NULL;", true);
 	helper(&db, "DELETE FROM I_F WHERE f1 <= NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE NULL IS NULL;", true);
+	helper(&db, "DELETE FROM I_F WHERE NULL IS NOT NULL;", true);
 
 	/* invalid case - multiple conditions; wrong field->value types configuration  */
 	prep_helper(&db, "CREATE TABLE I_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
