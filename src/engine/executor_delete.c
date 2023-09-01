@@ -84,8 +84,6 @@ static bool cmp_bool_value_to_value(enum ast_comparison_type cmp_type, bool val_
 	case AST_CMP_EQUALS_OP:
 		return val_1 == val_2;
 	default:
-		/* something went really wrong here */
-		BUG_ON(true);
 		return false;
 	}
 }
@@ -189,8 +187,8 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 						(int)row->data[offset_2]);
 	} else if (type == CT_DATE || type == CT_DATETIME) {
 		return cmp_time_value_to_value(node->cmp_type,
-						parse_date_type(*(char**)&row->data[offset_1], type),
-						parse_date_type(*(char**)&row->data[offset_2], type));
+						*(time_t*)&row->data[offset_1],
+						*(time_t*)&row->data[offset_2]);
 	} else if (type == CT_VARCHAR) {
 		return cmp_str_value_to_value(node->cmp_type,
 						*(char**)&row->data[offset_1],
@@ -207,7 +205,7 @@ static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_
 		struct ast_del_exprval_node *field, struct ast_del_exprval_node *value)
 {
 	enum COLUMN_TYPE type;
-	size_t offset;
+	size_t offset = 0;
 	int col_idx;
 	bool is_null;
 
@@ -224,18 +222,18 @@ static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_
 
 	is_null = bit_test(row->null_bitmap, col_idx, sizeof(row->null_bitmap));
 
-	if (is_null) {
+	if (is_null || value->value_type.is_null) {
 		/* no comparison evaluates to true if NULL is one of the operands */
 		return false;
 	} else if (type == CT_DOUBLE) {
-		return cmp_double_value_to_value(node->cmp_type, (double)row->data[offset], value->double_val);
+		return cmp_double_value_to_value(node->cmp_type, *(double*)&row->data[offset], value->double_val);
 	} else if (type == CT_TINYINT) {
-		return cmp_bool_value_to_value(node->cmp_type, (bool)row->data[offset], value->bool_val);
+		return cmp_bool_value_to_value(node->cmp_type, *(bool*)&row->data[offset], value->bool_val);
 	} else if (type == CT_INTEGER) {
-		return cmp_int_value_to_value(node->cmp_type, (int)row->data[offset], value->int_val);
+		return cmp_int_value_to_value(node->cmp_type, *(int*)&row->data[offset], value->int_val);
 	} else if (type == CT_DATE || type == CT_DATETIME) {
 		return cmp_time_value_to_value(node->cmp_type,
-						parse_date_type(*(char**)&row->data[offset], type),
+						*(time_t*)&row->data[offset],
 						parse_date_type(value->str_val, type));
 	} else if (type == CT_VARCHAR) {
 		return cmp_str_value_to_value(node->cmp_type, *(char**)&row->data[offset], value->str_val);
