@@ -83,58 +83,36 @@ err:
 
 }
 
-static struct ast_del_cmp_node* build_expr_isxnull_node(struct queue *parse, struct stack *tmp_st, enum ast_comparison_type cmp_type)
+static struct ast_del_isxnull_node* build_expr_isxnull_node(struct queue *parse, struct stack *tmp_st, bool negation)
 {
-	struct ast_del_cmp_node *cmp_node;
-	struct ast_del_exprval_node *val_node;
+	struct ast_del_isxnull_node *node;
 	struct ast_node *tmp_node;
 
 	/* discard entry */
 	free(queue_poll(parse));
 
-	/* val node initialisation */
-	val_node = zalloc(sizeof(*val_node));
-	if (!val_node)
-		goto err_val_node;
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
 
-	val_node->node_type = AST_TYPE_DEL_EXPRVAL;
-	val_node->value_type.is_null = true;
+	node->node_type = AST_TYPE_DEL_EXPRISXNULL;
+	node->is_negation = negation;
 
-	if (!(val_node->node_children_head = malloc(sizeof(*val_node->node_children_head))))
-		goto err_val_head;
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
 
-	list_head_init(&val_node->head);
-	list_head_init(val_node->node_children_head);
-
-	/* cmp node initialisation */
-	cmp_node = zalloc(sizeof(*cmp_node));
-	if (!cmp_node)
-		goto err_cmp_node;
-
-	cmp_node->node_type = AST_TYPE_DEL_CMP;
-	cmp_node->cmp_type = cmp_type;
-
-	if (!(cmp_node->node_children_head = malloc(sizeof(*cmp_node->node_children_head))))
-		goto err_cmp_head;
-
-	list_head_init(&cmp_node->head);
-	list_head_init(cmp_node->node_children_head);
-
-	/* value */
-	list_add(&val_node->head, cmp_node->node_children_head);
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
 
 	/* field */
 	tmp_node = (struct ast_node*)stack_pop(tmp_st);
-	list_add(&tmp_node->head, cmp_node->node_children_head);
+	list_add(&tmp_node->head, node->node_children_head);
 
-	return cmp_node;
-err_cmp_head:
-	free(cmp_node);
-err_cmp_node:
-	free(val_node->node_children_head);
-err_val_head:
-	free(val_node);
-err_val_node:
+	return node;
+
+err_head:
+	free(node);
+err_node:
 	return NULL;
 }
 
@@ -405,9 +383,9 @@ struct ast_node* ast_delete_build_tree(struct queue *parser)
 		} else if (strstarts(str, "XOR")) {
 			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
 		} else if (strstarts(str, "ISNULL")) {
-			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, AST_CMP_EQUALS_OP);
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, false);
 		} else if (strstarts(str, "ISNOTNULL")) {
-			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, AST_CMP_DIFF_OP);
+			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, true);
 		} else if (strstarts(str, "ISIN")) {
 			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, false);
 		} else if (strstarts(str, "ISNOTIN")) {

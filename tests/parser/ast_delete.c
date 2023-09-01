@@ -355,10 +355,9 @@ static void delete_case_7(void)
 	struct queue ct = {0};
 	struct ast_node *root;
 	struct ast_del_deleteone_node *delete_node;
-	struct ast_del_cmp_node *cmp_node;
+	struct ast_del_isxnull_node *isxnull;
 	struct ast_del_exprval_node *val_node;
 	struct list_head *pos1, *pos2;
-	int i = 0;
 
 	parse_stmt("DELETE FROM A WHERE dob IS NULL;", &ct);
 
@@ -373,27 +372,21 @@ static void delete_case_7(void)
 
 	list_for_each(pos1, delete_node->node_children_head)
 	{
-		cmp_node = list_entry(pos1, typeof(*cmp_node), head);
-		CU_ASSERT_EQUAL(cmp_node->node_type, AST_TYPE_DEL_CMP);
-		CU_ASSERT_EQUAL(cmp_node->cmp_type, AST_CMP_EQUALS_OP);
-		CU_ASSERT_EQUAL(list_length(cmp_node->node_children_head), 2);
-		CU_ASSERT_FALSE(list_is_empty(&cmp_node->head));
+		isxnull = list_entry(pos1, typeof(*isxnull), head);
+		CU_ASSERT_EQUAL(isxnull->node_type, AST_TYPE_DEL_EXPRISXNULL);
+		CU_ASSERT_FALSE(isxnull->is_negation);
+		CU_ASSERT_EQUAL(list_length(isxnull->node_children_head), 1);
+		CU_ASSERT_FALSE(list_is_empty(&isxnull->head));
 
-		list_for_each(pos2, cmp_node->node_children_head)
+		list_for_each(pos2, isxnull->node_children_head)
 		{
 			val_node = list_entry(pos2, typeof(*val_node), head);
 			CU_ASSERT_EQUAL(val_node->node_type, AST_TYPE_DEL_EXPRVAL);
 			CU_ASSERT_EQUAL(list_length(val_node->node_children_head), 0);
 			CU_ASSERT_FALSE(list_is_empty(&val_node->head));
 
-			if (i == 0) {
-				CU_ASSERT(val_node->value_type.is_name);
-				CU_ASSERT_STRING_EQUAL(val_node->name_val, "dob");
-			} else {
-				CU_ASSERT(val_node->value_type.is_null);
-				CU_ASSERT_EQUAL(val_node->int_val, 0);
-			}
-			i++;
+			CU_ASSERT(val_node->value_type.is_name);
+			CU_ASSERT_STRING_EQUAL(val_node->name_val, "dob");
 		}
 
 	}
@@ -407,10 +400,9 @@ static void delete_case_8(void)
 	struct queue ct = {0};
 	struct ast_node *root;
 	struct ast_del_deleteone_node *delete_node;
-	struct ast_del_cmp_node *cmp_node;
+	struct ast_del_isxnull_node *isxnull_node;
 	struct ast_del_exprval_node *val_node;
 	struct list_head *pos1, *pos2;
-	int i = 0;
 
 	parse_stmt("DELETE FROM A WHERE dob IS NOT NULL;", &ct);
 
@@ -425,27 +417,21 @@ static void delete_case_8(void)
 
 	list_for_each(pos1, delete_node->node_children_head)
 	{
-		cmp_node = list_entry(pos1, typeof(*cmp_node), head);
-		CU_ASSERT_EQUAL(cmp_node->node_type, AST_TYPE_DEL_CMP);
-		CU_ASSERT_EQUAL(cmp_node->cmp_type, AST_CMP_DIFF_OP);
-		CU_ASSERT_EQUAL(list_length(cmp_node->node_children_head), 2);
-		CU_ASSERT_FALSE(list_is_empty(&cmp_node->head));
+		isxnull_node = list_entry(pos1, typeof(*isxnull_node), head);
+		CU_ASSERT_EQUAL(isxnull_node->node_type, AST_TYPE_DEL_EXPRISXNULL);
+		CU_ASSERT(isxnull_node->is_negation);
+		CU_ASSERT_EQUAL(list_length(isxnull_node->node_children_head), 1);
+		CU_ASSERT_FALSE(list_is_empty(&isxnull_node->head));
 
-		list_for_each(pos2, cmp_node->node_children_head)
+		list_for_each(pos2, isxnull_node->node_children_head)
 		{
 			val_node = list_entry(pos2, typeof(*val_node), head);
 			CU_ASSERT_EQUAL(val_node->node_type, AST_TYPE_DEL_EXPRVAL);
 			CU_ASSERT_EQUAL(list_length(val_node->node_children_head), 0);
 			CU_ASSERT_FALSE(list_is_empty(&val_node->head));
 
-			if (i == 0) {
-				CU_ASSERT(val_node->value_type.is_name);
-				CU_ASSERT_STRING_EQUAL(val_node->name_val, "dob");
-			} else {
-				CU_ASSERT(val_node->value_type.is_null);
-				CU_ASSERT_EQUAL(val_node->int_val, 0);
-			}
-			i++;
+			CU_ASSERT(val_node->value_type.is_name);
+			CU_ASSERT_STRING_EQUAL(val_node->name_val, "dob");
 		}
 
 	}
