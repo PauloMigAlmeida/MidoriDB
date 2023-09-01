@@ -9,6 +9,7 @@
 
 extern void test_executor_create(void);
 extern void test_executor_insert(void);
+extern void test_executor_delete(void);
 
 void test_executor_run(void)
 {
@@ -17,4 +18,7 @@ void test_executor_run(void)
 
 	/* INSERT statements */
 	test_executor_insert();
+
+	/* DELETE statements */
+	test_executor_delete();
 }

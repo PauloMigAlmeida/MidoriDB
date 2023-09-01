@@ -7,7 +7,6 @@
 
 #include <engine/optimiser.h>
 
-
 /*
  * Notes to myself:
  * 	- if there are optimisations to be made then it's OPTMISER's responsibility to
@@ -24,6 +23,9 @@ int optimiser_run(struct database *db, struct ast_node *node, struct query_outpu
 		return MIDORIDB_OK;
 	else if (node->node_type == AST_TYPE_INS_INSVALS)
 		return optimiser_run_insertvals_stmt(db, (struct ast_ins_insvals_node*)node, output);
+	else if (node->node_type == AST_TYPE_DEL_DELETEONE)
+		/* TODO: Delete statements can be optimised to avoid full table scans */
+		return MIDORIDB_OK;
 	else
 		BUG_ON_CUSTOM_MSG(true, "optimiser is not implemented for that yet\n");
 
