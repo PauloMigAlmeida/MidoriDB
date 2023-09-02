@@ -124,9 +124,9 @@ static bool cmp_time_value_to_value(enum ast_comparison_type cmp_type, time_t va
 
 static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_del_cmp_node *node, struct ast_del_exprval_node *val_1, struct ast_del_exprval_node *val_2)
 {
-	enum COLUMN_TYPE type;
-	size_t tmp_offset = 0, offset_1, offset_2;
-	int col_idx_1, col_idx_2;
+	enum COLUMN_TYPE type = 0;
+	size_t tmp_offset = 0, offset_1 = 0, offset_2 = 0;
+	int col_idx_1 = -1, col_idx_2 = -1;
 	bool is_null_1, is_null_2;
 
 	for (int i = 0; i < table->column_count; i++) {
@@ -202,9 +202,9 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_del_cmp_node *node,
 		struct ast_del_exprval_node *field, struct ast_del_exprval_node *value)
 {
-	enum COLUMN_TYPE type;
+	enum COLUMN_TYPE type = 0;
 	size_t offset = 0;
-	int col_idx;
+	int col_idx = -1;
 	bool is_null;
 
 	for (int i = 0; i < table->column_count; i++) {
@@ -300,7 +300,7 @@ static bool eval_isxnull(struct table *table, struct row *row, struct ast_del_is
 {
 	struct list_head *pos;
 	struct ast_del_exprval_node *field = NULL;
-	int col_idx;
+	int col_idx = -1;
 
 	list_for_each(pos, node->node_children_head)
 	{
