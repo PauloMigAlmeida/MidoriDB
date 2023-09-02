@@ -2047,6 +2047,100 @@ static void test_delete_29(void)
 	free(exp_row_4);
 }
 
+static void test_delete_30(void)
+{
+	struct fp_types_row {
+		int64_t val_1;
+		int64_t val_2;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+	struct fp_types_row fp_data_1 = {123, 123};
+	struct fp_types_row fp_data_2 = {456, 123};
+	struct fp_types_row fp_data_3 = {789, 987};
+	struct fp_types_row fp_data_4 = {101112, 0};
+
+	int data_4_null_field[] = {1};
+
+	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
+	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
+	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
+	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), data_4_null_field, ARR_SIZE(data_4_null_field));
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* Equals */
+	table = run_create_stmt(&db, "CREATE TABLE A (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM A WHERE f1 in (123, 456);"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* IN - multiple condition */
+	table = run_create_stmt(&db, "CREATE TABLE B (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM B WHERE f1 in (123, 456) OR f2 in (NULL);"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4)); // NULL should have not effect here
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* NOT IN - multiple condition */
+	table = run_create_stmt(&db, "CREATE TABLE C (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM C WHERE f1 IN (456, 789) AND f2 NOT IN (123);"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+}
+
 void test_executor_delete(void)
 {
 
@@ -2136,4 +2230,7 @@ void test_executor_delete(void)
 
 	/* multiple condition - logical operators */
 	test_delete_29();
+
+	/* multiple condition - IN / NOT IN*/
+	test_delete_30();
 }
