@@ -1006,14 +1006,16 @@ static void test_delete_17(void)
 	struct fp_types_row fp_data_3 = {789};
 	struct fp_types_row fp_data_4 = {101112};
 	struct fp_types_row fp_data_5 = {-789};
-	struct fp_types_row fp_data_6 = {-12345};
+	struct fp_types_row fp_data_6 = {0};
+
+	int data_6_null_field[] = {0};
 
 	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
 	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
 	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
 	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), NULL, 0);
 	exp_row_5 = build_row(&fp_data_5, sizeof(fp_data_5), NULL, 0);
-	exp_row_6 = build_row(&fp_data_6, sizeof(fp_data_6), NULL, 0);
+	exp_row_6 = build_row(&fp_data_6, sizeof(fp_data_6), data_6_null_field, ARR_SIZE(data_6_null_field));
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
 
@@ -1023,7 +1025,7 @@ static void test_delete_17(void)
 	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (789);"), ST_OK_EXECUTED);
 	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (101112);"), ST_OK_EXECUTED);
 	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (-789);"), ST_OK_EXECUTED);
-	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (-12345);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO TEST VALUES (NULL);"), ST_OK_EXECUTED);
 
 	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
 	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
@@ -1047,6 +1049,28 @@ static void test_delete_17(void)
 	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
 	CU_ASSERT(check_row(table, 4, &header_used, exp_row_5));
 	CU_ASSERT(check_row(table, 5, &header_used, exp_row_6));
+	CU_ASSERT(check_row_flags(table, 6, &header_empty));
+
+	/* IS NULL */
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 IS NULL;"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row(table, 4, &header_used, exp_row_5));
+	CU_ASSERT(check_row_flags(table, 5, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 6, &header_empty));
+
+	/* IS NOT NULL */
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM TEST WHERE f1 IS NOT NULL;"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 5, &header_deleted));
 	CU_ASSERT(check_row_flags(table, 6, &header_empty));
 
 	/* database_close will take care of freeing table reference so free(table) is a noop */
@@ -1535,6 +1559,494 @@ static void test_delete_26(void)
 	free(data3_str);
 }
 
+static void test_delete_27(void)
+{
+	struct fp_types_row {
+		int64_t val_1;
+		int64_t val_2;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+	struct fp_types_row fp_data_1 = {123, 123};
+	struct fp_types_row fp_data_2 = {456, 123};
+	struct fp_types_row fp_data_3 = {789, 987};
+	struct fp_types_row fp_data_4 = {101112, 0};
+
+	int data_4_null_field[] = {1};
+
+	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
+	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
+	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
+	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), data_4_null_field, ARR_SIZE(data_4_null_field));
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* Equals */
+	table = run_create_stmt(&db, "CREATE TABLE A (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM A WHERE f1 = f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* GT */
+	table = run_create_stmt(&db, "CREATE TABLE B (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM B WHERE f1 > f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* GTE */
+	table = run_create_stmt(&db, "CREATE TABLE C (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM C WHERE f1 >= f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* LT */
+	table = run_create_stmt(&db, "CREATE TABLE D (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM D WHERE f1 < f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* LTE */
+	table = run_create_stmt(&db, "CREATE TABLE E (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM E WHERE f1 <= f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* Diff */
+	table = run_create_stmt(&db, "CREATE TABLE F (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM F WHERE f1 <> f2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4)); // NULL doesn't evaluate to true using CMP
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* NULL CMP - no effect expected */
+	table = run_create_stmt(&db, "CREATE TABLE G (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE f1 = NULL;"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE f1 <> NULL;"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE NULL = f1;"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE NULL <> f1;"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+}
+
+static void test_delete_28(void)
+{
+	struct fp_types_row {
+		int64_t val_1;
+		int64_t val_2;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+	struct fp_types_row fp_data_1 = {123, 123};
+	struct fp_types_row fp_data_2 = {456, 123};
+	struct fp_types_row fp_data_3 = {789, 987};
+	struct fp_types_row fp_data_4 = {101112, 0};
+
+	int data_4_null_field[] = {1};
+
+	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
+	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
+	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
+	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), data_4_null_field, ARR_SIZE(data_4_null_field));
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* Equals */
+	table = run_create_stmt(&db, "CREATE TABLE A (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM A WHERE 1 = 1;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* GT */
+	table = run_create_stmt(&db, "CREATE TABLE B (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM B WHERE 1 > 1;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* GTE */
+	table = run_create_stmt(&db, "CREATE TABLE C (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM C WHERE 1 >= 2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* LT */
+	table = run_create_stmt(&db, "CREATE TABLE D (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM D WHERE 1 < 2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* LTE */
+	table = run_create_stmt(&db, "CREATE TABLE E (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM E WHERE 1 <= 2;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* Diff */
+	table = run_create_stmt(&db, "CREATE TABLE F (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO F VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM F WHERE 1 <> 1;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* NULL CMP - no effect expected */
+	table = run_create_stmt(&db, "CREATE TABLE G (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO G VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE 1 = NULL;"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE 1 <> NULL;"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE NULL = 1;"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM G WHERE NULL <> 1;"), ST_ERROR);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+}
+
+static void test_delete_29(void)
+{
+	struct fp_types_row {
+		int64_t val_1;
+		int64_t val_2;
+	} __packed;
+
+	struct database db = {0};
+	struct table *table;
+
+	struct row *exp_row_1, *exp_row_2, *exp_row_3, *exp_row_4;
+	struct fp_types_row fp_data_1 = {123, 123};
+	struct fp_types_row fp_data_2 = {456, 123};
+	struct fp_types_row fp_data_3 = {789, 987};
+	struct fp_types_row fp_data_4 = {101112, 0};
+
+	int data_4_null_field[] = {1};
+
+	exp_row_1 = build_row(&fp_data_1, sizeof(fp_data_1), NULL, 0);
+	exp_row_2 = build_row(&fp_data_2, sizeof(fp_data_2), NULL, 0);
+	exp_row_3 = build_row(&fp_data_3, sizeof(fp_data_3), NULL, 0);
+	exp_row_4 = build_row(&fp_data_4, sizeof(fp_data_4), data_4_null_field, ARR_SIZE(data_4_null_field));
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* OR */
+	table = run_create_stmt(&db, "CREATE TABLE A (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM A WHERE f1 = 150 OR 1 = 1;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 2, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* AND */
+	table = run_create_stmt(&db, "CREATE TABLE B (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM B WHERE f1 = 150 AND 1 = 1;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* XOR */
+	table = run_create_stmt(&db, "CREATE TABLE C (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM C WHERE f1 > 0 XOR f2 > 100;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted)); // NULL evaluates to false
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* AND + OR */
+	table = run_create_stmt(&db, "CREATE TABLE D (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO D VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM D WHERE f1 > 100 AND f1 < 500 OR f2 is NULL;"), ST_OK_EXECUTED);
+	CU_ASSERT(check_row_flags(table, 0, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 1, &header_deleted));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* AND + OR + XOR */
+	table = run_create_stmt(&db, "CREATE TABLE E (f1 INT, f2 INT);");
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (123, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (456, 123);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (789, 987);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO E VALUES (101112, NULL);"), ST_OK_EXECUTED);
+
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row(table, 3, &header_used, exp_row_4));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "DELETE FROM E WHERE (f2 < 1000 AND f2 > 100) XOR (f1 > 100 OR f1 > 10000);"),
+			ST_OK_EXECUTED);
+	CU_ASSERT(check_row(table, 0, &header_used, exp_row_1));
+	CU_ASSERT(check_row(table, 1, &header_used, exp_row_2));
+	CU_ASSERT(check_row(table, 2, &header_used, exp_row_3));
+	CU_ASSERT(check_row_flags(table, 3, &header_deleted));
+	CU_ASSERT(check_row_flags(table, 4, &header_empty));
+
+	/* database_close will take care of freeing table reference so free(table) is a noop */
+	database_close(&db);
+	free(exp_row_1);
+	free(exp_row_2);
+	free(exp_row_3);
+	free(exp_row_4);
+}
+
 void test_executor_delete(void)
 {
 
@@ -1615,4 +2127,13 @@ void test_executor_delete(void)
 
 	/* single condition - str - diff */
 	test_delete_26();
+
+	/* single condition - field to field */
+	test_delete_27();
+
+	/* single condition - value to value */
+	test_delete_28();
+
+	/* multiple condition - logical operators */
+	test_delete_29();
 }

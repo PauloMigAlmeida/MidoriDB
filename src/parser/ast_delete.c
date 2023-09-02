@@ -235,8 +235,8 @@ static struct ast_del_cmp_node* build_cmp_node(struct queue *parser, struct stac
 	lhs = (struct ast_node*)stack_pop(tmp_st);
 
 	/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
-	list_add(&lhs->head, node->node_children_head);
 	list_add(&rhs->head, node->node_children_head);
+	list_add(&lhs->head, node->node_children_head);
 
 	free(str);
 	stack_free(&reg_pars);

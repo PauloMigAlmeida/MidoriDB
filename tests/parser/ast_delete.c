@@ -68,11 +68,11 @@ static void delete_case_2(void)
 			CU_ASSERT_FALSE(list_is_empty(&val_node->head));
 
 			if (i == 0) {
-				CU_ASSERT(val_node->value_type.is_intnum);
-				CU_ASSERT_EQUAL(val_node->int_val, 1);
-			} else {
 				CU_ASSERT(val_node->value_type.is_name);
 				CU_ASSERT_STRING_EQUAL(val_node->name_val, "id");
+			} else {
+				CU_ASSERT(val_node->value_type.is_intnum);
+				CU_ASSERT_EQUAL(val_node->int_val, 1);
 			}
 
 			i++;
@@ -121,11 +121,11 @@ static void delete_case_3(void)
 			CU_ASSERT_FALSE(list_is_empty(&val_node->head));
 
 			if (i == 0) {
-				CU_ASSERT(val_node->value_type.is_name);
-				CU_ASSERT_STRING_EQUAL(val_node->name_val, "id");
-			} else {
 				CU_ASSERT(val_node->value_type.is_intnum);
 				CU_ASSERT_EQUAL(val_node->int_val, 1);
+			} else {
+				CU_ASSERT(val_node->value_type.is_name);
+				CU_ASSERT_STRING_EQUAL(val_node->name_val, "id");
 			}
 
 			i++;
@@ -192,12 +192,15 @@ static void delete_case_4(void)
 						CU_ASSERT_FALSE(list_is_empty(&val_node_1->head));
 
 						if (j == 0) {
-							CU_ASSERT(val_node_1->value_type.is_intnum);
-							CU_ASSERT_EQUAL(val_node_1->int_val, 1);
-						} else if (j == 1 || j == 3) {
 							CU_ASSERT(val_node_1->value_type.is_name);
 							CU_ASSERT_STRING_EQUAL(val_node_1->name_val, "id");
+						} else if (j == 1) {
+							CU_ASSERT(val_node_1->value_type.is_intnum);
+							CU_ASSERT_EQUAL(val_node_1->int_val, 1);
 						} else if (j == 2) {
+							CU_ASSERT(val_node_1->value_type.is_name);
+							CU_ASSERT_STRING_EQUAL(val_node_1->name_val, "id");
+						} else if (j == 3) {
 							CU_ASSERT(val_node_1->value_type.is_intnum);
 							CU_ASSERT_EQUAL(val_node_1->int_val, 2);
 						}
@@ -222,11 +225,11 @@ static void delete_case_4(void)
 					CU_ASSERT_FALSE(list_is_empty(&val_node_2->head));
 
 					if (k == 0) {
-						CU_ASSERT(val_node_2->value_type.is_intnum);
-						CU_ASSERT_EQUAL(val_node_2->int_val, 3);
-					} else {
 						CU_ASSERT(val_node_2->value_type.is_name);
 						CU_ASSERT_STRING_EQUAL(val_node_2->name_val, "id");
+					} else {
+						CU_ASSERT(val_node_2->value_type.is_intnum);
+						CU_ASSERT_EQUAL(val_node_2->int_val, 3);
 					}
 
 					k++;

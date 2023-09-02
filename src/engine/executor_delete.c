@@ -173,16 +173,16 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 		return false;
 	} else if (type == CT_DOUBLE) {
 		return cmp_double_value_to_value(node->cmp_type,
-							(double)row->data[offset_1],
-							(double)row->data[offset_2]);
+							*(double*)&row->data[offset_1],
+							*(double*)&row->data[offset_2]);
 	} else if (type == CT_TINYINT) {
 		return cmp_bool_value_to_value(node->cmp_type,
-						(bool)row->data[offset_1],
-						(bool)row->data[offset_2]);
+						*(bool*)&row->data[offset_1],
+						*(bool*)&row->data[offset_2]);
 	} else if (type == CT_INTEGER) {
 		return cmp_int_value_to_value(node->cmp_type,
-						(int)row->data[offset_1],
-						(int)row->data[offset_2]);
+						*(int64_t*)&row->data[offset_1],
+						*(int64_t*)&row->data[offset_2]);
 	} else if (type == CT_DATE || type == CT_DATETIME) {
 		return cmp_time_value_to_value(node->cmp_type,
 						*(time_t*)&row->data[offset_1],
@@ -228,7 +228,7 @@ static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_
 	} else if (type == CT_TINYINT) {
 		return cmp_bool_value_to_value(node->cmp_type, *(bool*)&row->data[offset], value->bool_val);
 	} else if (type == CT_INTEGER) {
-		return cmp_int_value_to_value(node->cmp_type, *(int*)&row->data[offset], value->int_val);
+		return cmp_int_value_to_value(node->cmp_type, *(int64_t*)&row->data[offset], value->int_val);
 	} else if (type == CT_DATE || type == CT_DATETIME) {
 		return cmp_time_value_to_value(node->cmp_type,
 						*(time_t*)&row->data[offset],
@@ -363,6 +363,7 @@ static bool eval_delete_row(struct table *table, struct row *row, struct ast_nod
 	struct list_head *pos;
 	struct ast_node *tmp_node;
 	struct ast_del_logop_node *logop_node;
+	bool ret = true;
 
 	if (node->node_type == AST_TYPE_DEL_CMP) {
 		return eval_cmp(table, row, (struct ast_del_cmp_node*)node);
@@ -371,40 +372,41 @@ static bool eval_delete_row(struct table *table, struct row *row, struct ast_nod
 	} else if (node->node_type == AST_TYPE_DEL_EXPRISXIN) {
 		return eval_isxin(table, row, (struct ast_del_isxin_node*)node);
 	} else if (node->node_type == AST_TYPE_DEL_DELETEONE) {
-		bool ret = true;
-
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
 			ret = ret && eval_delete_row(table, row, tmp_node);
-
 		}
 
-		return ret;
 	} else {
 		/* sanity check */
 		BUG_ON(node->node_type != AST_TYPE_DEL_LOGOP);
 
 		logop_node = (typeof(logop_node))node;
 
-		bool ret = true;
+		bool gate_init = false;
 
 		list_for_each(pos, logop_node->node_children_head)
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
 
-			if (logop_node->logop_type == AST_LOGOP_TYPE_AND)
-				ret = ret && eval_delete_row(table, row, node);
+			bool eval = eval_delete_row(table, row, tmp_node);
+
+			if (!gate_init) {
+				gate_init = true;
+				ret = eval;
+			} else if (logop_node->logop_type == AST_LOGOP_TYPE_AND)
+				ret = ret && eval;
 			else if (logop_node->logop_type == AST_LOGOP_TYPE_OR)
-				ret = ret || eval_delete_row(table, row, node);
+				ret = ret || eval;
 			else if (logop_node->logop_type == AST_LOGOP_TYPE_XOR)
-				ret = ret ^ eval_delete_row(table, row, node);
+				ret = ret ^ eval;
 			else
 				BUG_ON_CUSTOM_MSG(true, "LOGOP not implemented yet\n");
 		}
 
-		return ret;
 	}
+	return ret;
 }
 
 static int scan_delete(struct table *table, struct ast_node *node, struct query_output *output)
