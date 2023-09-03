@@ -24,29 +24,29 @@ static void free_hashmap_entries(struct hashtable *hashtable, const void *key, s
 	hashtable_free_entry(entry);
 }
 
-static bool check_table_name(struct database *db, struct ast_del_deleteone_node *deleteone_node, char *out_err, size_t out_err_len)
+static bool check_table_name(struct database *db, struct ast_upd_update_node *update_node, char *out_err, size_t out_err_len)
 {
-	if (!table_validate_name(deleteone_node->table_name)) {
-		snprintf(out_err, out_err_len, "table name '%s' is invalid\n", deleteone_node->table_name);
+	if (!table_validate_name(update_node->table_name)) {
+		snprintf(out_err, out_err_len, "table name '%s' is invalid\n", update_node->table_name);
 		return false;
 	}
 
-	if (!database_table_exists(db, deleteone_node->table_name)) {
-		snprintf(out_err, out_err_len, "table name '%s' doesn't exist\n", deleteone_node->table_name);
+	if (!database_table_exists(db, update_node->table_name)) {
+		snprintf(out_err, out_err_len, "table name '%s' doesn't exist\n", update_node->table_name);
 		return false;
 	}
 
 	return true;
 }
 
-static bool column_exists(struct database *db, struct ast_del_deleteone_node *deleteone_node, struct ast_del_exprval_node *val_node)
+static bool column_exists(struct database *db, struct ast_upd_update_node *update_node, char *col_name, size_t col_nam_len)
 {
 	struct table *table;
 
-	table = database_table_get(db, deleteone_node->table_name);
+	table = database_table_get(db, update_node->table_name);
 
 	for (int i = 0; i < table->column_count; i++) {
-		if (strncmp(table->columns[i].name, val_node->name_val, sizeof(table->columns[i].name)) == 0) {
+		if (strncmp(table->columns[i].name, col_name, MIN(sizeof(table->columns[i].name), col_nam_len)) == 0) {
 			return true;
 		}
 	}
@@ -54,19 +54,23 @@ static bool column_exists(struct database *db, struct ast_del_deleteone_node *de
 	return false;
 }
 
-static bool __check_column_exists(struct database *db, struct ast_del_deleteone_node *root, struct ast_node *node, char *out_err, size_t out_err_len)
+static bool __check_column_exists(struct database *db, struct ast_upd_update_node *root, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
-	struct ast_del_exprval_node *val_node;
+	struct ast_upd_exprval_node *val_node;
+	struct ast_upd_assign_node *assign_node;
 	struct ast_node *tmp_entry;
 
-	// base case
-	if (node->node_type == AST_TYPE_DEL_EXPRVAL) {
+	if (node->node_type == AST_TYPE_UPD_EXPRVAL) {
 		val_node = (typeof(val_node))node;
 
 		if (val_node->value_type.is_name) {
-			return column_exists(db, root, val_node);
+			return column_exists(db, root, val_node->name_val, sizeof(val_node->name_val));
 		}
+	} else if (node->node_type == AST_TYPE_UPD_ASSIGN) {
+		assign_node = (typeof(assign_node))node;
+
+		return column_exists(db, root, assign_node->field_name, sizeof(assign_node->field_name));
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
@@ -79,7 +83,7 @@ static bool __check_column_exists(struct database *db, struct ast_del_deleteone_
 	return true;
 }
 
-static bool check_column_exists(struct database *db, struct ast_del_deleteone_node *root, char *out_err, size_t out_err_len)
+static bool check_column_exists(struct database *db, struct ast_upd_update_node *root, char *out_err, size_t out_err_len)
 {
 	return __check_column_exists(db, root, (struct ast_node*)root, out_err, out_err_len);
 }
@@ -87,13 +91,13 @@ static bool check_column_exists(struct database *db, struct ast_del_deleteone_no
 static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
-	struct ast_del_isxin_node *isxin_node;
-	struct ast_del_exprval_node *val_node;
+	struct ast_upd_isxin_node *isxin_node;
+	struct ast_upd_exprval_node *val_node;
 	struct ast_node *tmp_entry;
 	int field_count;
 
 	// base case
-	if (root->node_type == AST_TYPE_DEL_EXPRISXIN) {
+	if (root->node_type == AST_TYPE_UPD_EXPRISXIN) {
 		isxin_node = (typeof(isxin_node))root;
 
 		field_count = 0;
@@ -101,7 +105,7 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (tmp_entry->node_type != AST_TYPE_DEL_EXPRVAL) {
+			if (tmp_entry->node_type != AST_TYPE_UPD_EXPRVAL) {
 				snprintf(out_err, out_err_len, "IN-clause can only contain raw values\n");
 				return false;
 			}
@@ -112,7 +116,7 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 			}
 
 			/*
-			 * ast_del_isxin_node holds the field which is part of the expression in the
+			 * ast_upd_isxin_node holds the field which is part of the expression in the
 			 * linked-list. So it's expected to have 1 field but no more than that.
 			 */
 			if (field_count > 1) {
@@ -135,12 +139,11 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 static bool check_isxnull_entries(struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
-	struct ast_del_isxnull_node *isxnull_node;
-	struct ast_del_exprval_node *val_node;
+	struct ast_upd_isxnull_node *isxnull_node;
+	struct ast_upd_exprval_node *val_node;
 	struct ast_node *tmp_entry;
 
-	// base case
-	if (root->node_type == AST_TYPE_DEL_EXPRISXNULL) {
+	if (root->node_type == AST_TYPE_UPD_EXPRISXNULL) {
 		isxnull_node = (typeof(isxnull_node))root;
 
 		list_for_each(pos, root->node_children_head)
@@ -191,8 +194,8 @@ static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
 
 }
 
-static bool check_values_field_to_field(struct ast_del_cmp_node *cmp, struct ast_del_exprval_node *val_1,
-		struct ast_del_exprval_node *val_2, struct hashtable *ht, char *out_err, size_t out_err_len)
+static bool check_values_field_to_field(struct ast_upd_cmp_node *cmp, struct ast_upd_exprval_node *val_1,
+		struct ast_upd_exprval_node *val_2, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct hashtable_value *ht_value;
 	enum COLUMN_TYPE *type_1, *type_2;
@@ -219,8 +222,8 @@ static bool check_values_field_to_field(struct ast_del_cmp_node *cmp, struct ast
 	return true;
 }
 
-static bool check_values_field_to_value(struct ast_del_cmp_node *cmp, struct ast_del_exprval_node *field_node,
-		struct ast_del_exprval_node *value_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+static bool check_values_field_to_value(struct ast_upd_cmp_node *cmp, struct ast_upd_exprval_node *field_node,
+		struct ast_upd_exprval_node *value_node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct hashtable_value *ht_value;
 	enum COLUMN_TYPE *type;
@@ -270,8 +273,8 @@ static bool check_values_field_to_value(struct ast_del_cmp_node *cmp, struct ast
 
 }
 
-static bool check_values_value_to_value(struct ast_del_cmp_node *cmp, struct ast_del_exprval_node *val_1,
-		struct ast_del_exprval_node *val_2, char *out_err, size_t out_err_len)
+static bool check_values_value_to_value(struct ast_upd_cmp_node *cmp, struct ast_upd_exprval_node *val_1,
+		struct ast_upd_exprval_node *val_2, char *out_err, size_t out_err_len)
 {
 	bool ret;
 	bool cmp_cond;
@@ -326,12 +329,12 @@ static bool check_values_value_to_value(struct ast_del_cmp_node *cmp, struct ast
 	return true;
 }
 
-static bool check_values_for_cmp(struct ast_del_cmp_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
+static bool check_values_for_cmp(struct ast_upd_cmp_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
-	struct ast_del_exprval_node *val_1 = NULL;
-	struct ast_del_exprval_node *val_2 = NULL;
-	struct ast_del_exprval_node *tmp_entry;
+	struct ast_upd_exprval_node *val_1 = NULL;
+	struct ast_upd_exprval_node *val_2 = NULL;
+	struct ast_upd_exprval_node *tmp_entry;
 
 	/*
 	 * while not guaranteed, CMP node will generally have [FIELD, VAL] as children.
@@ -347,7 +350,7 @@ static bool check_values_for_cmp(struct ast_del_cmp_node *root, struct hashtable
 		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
 		/* sanity check */
-		BUG_ON(tmp_entry->node_type != AST_TYPE_DEL_EXPRVAL);
+		BUG_ON(tmp_entry->node_type != AST_TYPE_UPD_EXPRVAL);
 
 		if (!val_1)
 			val_1 = tmp_entry;
@@ -371,19 +374,19 @@ static bool check_values_for_cmp(struct ast_del_cmp_node *root, struct hashtable
 
 }
 
-static bool check_values_for_isxin(struct ast_del_isxin_node *isxin_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+static bool check_values_for_isxin(struct ast_upd_isxin_node *isxin_node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_del_cmp_node cmp_node = {0};
-	struct ast_del_exprval_node *field_node = NULL, *tmpval_node = NULL;
+	struct ast_upd_cmp_node cmp_node = {0};
+	struct ast_upd_exprval_node *field_node = NULL, *tmpval_node = NULL;
 
 	/* find field first */
 	list_for_each(pos, isxin_node->node_children_head)
 	{
 		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		if (tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+		if (tmp_entry->node_type == AST_TYPE_UPD_EXPRVAL) {
 			tmpval_node = (typeof(tmpval_node))tmp_entry;
 
 			if (tmpval_node->value_type.is_name) {
@@ -398,7 +401,7 @@ static bool check_values_for_isxin(struct ast_del_isxin_node *isxin_node, struct
 	{
 		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		if (tmp_entry->node_type == AST_TYPE_DEL_EXPRVAL) {
+		if (tmp_entry->node_type == AST_TYPE_UPD_EXPRVAL) {
 			tmpval_node = (typeof(tmpval_node))tmp_entry;
 
 			if (!tmpval_node->value_type.is_name) {
@@ -419,16 +422,49 @@ static bool check_values_for_isxin(struct ast_del_isxin_node *isxin_node, struct
 	return true;
 }
 
+static bool check_values_for_assign(struct ast_upd_assign_node *assign_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_upd_cmp_node cmp_node = {0};
+	struct ast_upd_exprval_node field_node = {0};
+	struct ast_upd_exprval_node *tmpval_node = NULL;
+
+	/* synthesise field */
+	size_t name_len = MIN(sizeof(field_node.name_val), sizeof(assign_node->field_name));
+	field_node.value_type.is_name = true;
+	strncpy(field_node.name_val, assign_node->field_name, name_len);
+
+	/* synthesise comparison */
+	cmp_node.cmp_type = AST_CMP_DIFF_OP; // Parser ensures that no other CMP passes parsing phase.
+
+	/* go through values now*/
+	list_for_each(pos, assign_node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_UPD_EXPRVAL) {
+			tmpval_node = (typeof(tmpval_node))tmp_entry;
+
+			if (!check_values_field_to_value(&cmp_node, &field_node, tmpval_node, ht, out_err, out_err_len))
+				return false; /* fail fast */
+		}
+	}
+	return true;
+}
+
 static bool __check_value_types(struct ast_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 
 	struct ast_node *tmp_entry;
 	struct list_head *pos;
 
-	if (root->node_type == AST_TYPE_DEL_CMP) {
-		return check_values_for_cmp((struct ast_del_cmp_node*)root, ht, out_err, out_err_len);
-	} else if (root->node_type == AST_TYPE_DEL_EXPRISXIN) {
-		return check_values_for_isxin((struct ast_del_isxin_node*)root, ht, out_err, out_err_len);
+	if (root->node_type == AST_TYPE_UPD_CMP) {
+		return check_values_for_cmp((struct ast_upd_cmp_node*)root, ht, out_err, out_err_len);
+	} else if (root->node_type == AST_TYPE_UPD_EXPRISXIN) {
+		return check_values_for_isxin((struct ast_upd_isxin_node*)root, ht, out_err, out_err_len);
+	} else if (root->node_type == AST_TYPE_UPD_ASSIGN) {
+		return check_values_for_assign((struct ast_upd_assign_node*)root, ht, out_err, out_err_len);
 	} else {
 		// traverse the tree
 		list_for_each(pos, root->node_children_head)
@@ -441,7 +477,7 @@ static bool __check_value_types(struct ast_node *root, struct hashtable *ht, cha
 	return true;
 }
 
-static bool check_value_types(struct database *db, struct ast_del_deleteone_node *root, char *out_err, size_t out_err_len)
+static bool check_value_types(struct database *db, struct ast_upd_update_node *root, char *out_err, size_t out_err_len)
 {
 	bool valid = true;
 	struct hashtable ht = {0};
@@ -476,22 +512,22 @@ err:
 	return valid;
 }
 
-bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
+bool semantic_analyse_update_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
-	struct ast_del_deleteone_node *deleteone_node;
+	struct ast_upd_update_node *update_node;
 
-	deleteone_node = (typeof(deleteone_node))node;
+	update_node = (typeof(update_node))node;
 
 	/* does table exist? */
-	if (!check_table_name(db, deleteone_node, out_err, out_err_len))
+	if (!check_table_name(db, update_node, out_err, out_err_len))
 		return false;
 
 	/* do all columns specified in the statement exist in the table? */
-	if (!check_column_exists(db, deleteone_node, out_err, out_err_len))
+	if (!check_column_exists(db, update_node, out_err, out_err_len))
 		return false;
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
-	if (!check_isxin_entries((struct ast_node*)deleteone_node, out_err, out_err_len))
+	if (!check_isxin_entries((struct ast_node*)update_node, out_err, out_err_len))
 		return false;
 
 	/*
@@ -499,11 +535,11 @@ bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, ch
 	 * Syntax-wise, "NULL IS NULL" and "NULL IS NOT NULL" is valid
 	 * Semantically, this is invalid.
 	 */
-	if (!check_isxnull_entries((struct ast_node*)deleteone_node, out_err, out_err_len))
+	if (!check_isxnull_entries((struct ast_node*)update_node, out_err, out_err_len))
 		return false;
 
 	/* are value types correct? Ex.: "DELETE FROM A where age > 'paulo'" shouldn't be allowed */
-	if (!(check_value_types(db, deleteone_node, out_err, out_err_len)))
+	if (!(check_value_types(db, update_node, out_err, out_err_len)))
 		return false;
 
 	return true;

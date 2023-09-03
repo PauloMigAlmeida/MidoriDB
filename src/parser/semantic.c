@@ -6,13 +6,8 @@
  */
 
 #include <parser/semantic.h>
-#include <datastructure/hashtable.h>
-#include <datastructure/linkedlist.h>
-#include <primitive/table.h>
-
-bool semantic_analyse_create_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len);
-bool semantic_analyse_insert_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len);
-bool semantic_analyse_delete_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len);
+#include <engine/database.h>
+#include <parser/ast.h>
 
 bool semantic_analyse(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
@@ -25,6 +20,8 @@ bool semantic_analyse(struct database *db, struct ast_node *node, char *out_err,
 		return semantic_analyse_insert_stmt(db, node, out_err, out_err_len);
 	else if (node->node_type == AST_TYPE_DEL_DELETEONE)
 		return semantic_analyse_delete_stmt(db, node, out_err, out_err_len);
+	else if (node->node_type == AST_TYPE_UPD_UPDATE)
+		return semantic_analyse_update_stmt(db, node, out_err, out_err_len);
 	else
 		/* semantic analysis not implemented for that yet */
 		BUG_ON(true);

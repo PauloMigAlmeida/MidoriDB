@@ -424,9 +424,211 @@ static void delete_tests(void)
 	database_close(&db);
 }
 
+static void update_tests(void)
+{
+	struct database db = {0};
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* valid case - update all */
+	prep_helper(&db, "CREATE TABLE V_A (f1 INT, f2 VARCHAR(4));");
+	helper(&db, "UPDATE V_A SET f1 = 42;", false);
+
+	/* valid case - single condition */
+	prep_helper(&db, "CREATE TABLE V_B (f1 INT, f2 VARCHAR(4));");
+	helper(&db, "UPDATE V_B SET f1 = 42 WHERE f1 = 1;", false);
+
+	/* valid case - multiple conditions */
+	prep_helper(&db, "CREATE TABLE V_C (f1 INT, f2 VARCHAR(4), f3 double);");
+	helper(&db, "UPDATE V_C SET f1 = 42 WHERE (f1 = 1 OR f2 = 'paulo') AND f3 = 42.0;", false);
+
+	/* valid case - single condition; IN-clause */
+	prep_helper(&db, "CREATE TABLE V_D (f1 INT);");
+	helper(&db, "UPDATE V_D SET f1 = 42 WHERE f1 IN (1,2,3,NULL);", false);
+
+	/* valid case - multiple conditions; IN-clause  */
+	prep_helper(&db, "CREATE TABLE V_E (f1 INT, f2 VARCHAR(4), f3 double, f4 int);");
+	helper(&db, "UPDATE V_E SET f1 = 42 WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,12));", false);
+
+	/* valid case - single condition; NULL comparison */
+	prep_helper(&db, "CREATE TABLE V_F (f1 INT);");
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE f1 IS NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE f1 IS NOT NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE f1 = NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE f1 <> NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE f1 != NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE NULL != NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE NULL <> NULL;", false);
+	helper(&db, "UPDATE V_F SET f1 = 42 WHERE NULL = NULL;", false);
+
+	/* valid case - multiple conditions; valid field->value types configuration  */
+	prep_helper(&db, "CREATE TABLE V_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
+	helper(&db, "UPDATE V_G SET f1 = 42 WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,12));", false);
+	helper(&db, "UPDATE V_G SET f1 = 42 WHERE f2 = 'paulo' AND f4 in (10,12);", false);
+	helper(&db,
+		"UPDATE V_G SET f1 = 42 WHERE (f1 = NULL OR f2 IS NOT NULL) AND (f3 IS NULL OR f4 NOT in (NULL,10));",
+		false);
+	helper(&db, "UPDATE V_G SET f1 = 42 WHERE f5 > '2022-02-02';", false);
+
+	/* valid case - single condition; VARCHAR comparison */
+	prep_helper(&db, "CREATE TABLE V_H (f1 VARCHAR(10));");
+	helper(&db, "UPDATE V_H SET f1 = '42' WHERE f1 = 'paulo';", false);
+	helper(&db, "UPDATE V_H SET f1 = '42' WHERE f1 <> 'paulo';", false);
+	helper(&db, "UPDATE V_H SET f1 = '42' WHERE f1 != 'paulo';", false);
+
+	/* valid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE V_I (f1 int, f2 double, f3 VARCHAR(10));");
+	// int
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 = 1;", false); // field-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 > 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 >= 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 < 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 <= 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 <> 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 = f1;", false); // value-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 > f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 >= f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 < f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 <= f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 <> f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 = f1;", false); // field-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 > f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 >= f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 < f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 <= f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 <> f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 = 1;", false); // value-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 > 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 >= 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 < 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 <= 1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1 <> 1;", false);
+	// double
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 = 1.0;", false); // field-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 > 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 >= 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 < 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 <= 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 <> 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 = f2;", false); // value-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 > f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 >= f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 < f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 <= f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 <> f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 = f2;", false); // field-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 > f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 >= f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 < f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 <= f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f2 <> f2;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 = 1.0;", false); // value-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 > 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 >= 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 < 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 <= 1.0;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 1.0 <> 1.0;", false);
+	// string
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f3 = 'test';", false); // field-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f3 <> 'test';", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 'test' = f3;", false); // value-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 'test' <> f3;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f3 = f3;", false); // field-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f3 <> f3;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 'test' = 'test';", false); // value-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE 'test' <> 'test';", false);
+	// null
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 = NULL;", false); // field-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE f1 <> NULL;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE NULL = f1;", false); // value-to-field
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE NULL <> f1;", false);
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE NULL = NULL;", false); // value-to-value
+	helper(&db, "UPDATE V_I SET f1 = 42 WHERE NULL <> NULL;", false);
+
+	/* invalid case - update all; invalid table*/
+	prep_helper(&db, "CREATE TABLE I_A (f1 INT);");
+	helper(&db, "UPDATE I_AHKSDJ SET f1=1;", true);
+
+	/* invalid case - single condition; invalid column */
+	prep_helper(&db, "CREATE TABLE I_B (f1 INT);");
+	helper(&db, "UPDATE I_B SET f1 = 42 WHERE f2 = 1;", true);
+	helper(&db, "UPDATE I_B SET f2 = 42 WHERE f1 = 1;", true);
+
+	/* invalid case - multiple conditions; invalid column */
+	prep_helper(&db, "CREATE TABLE I_C (f1 INT, f2 VARCHAR(4), f3 double);");
+	helper(&db, "UPDATE I_C SET f1 = 42 WHERE (f1 = 1 OR f4 = 'paulo') AND f3 = 42.0 OR 1=1;", true);
+
+	/* invalid case - single condition; IN-clause */
+	prep_helper(&db, "CREATE TABLE I_D (f1 INT);");
+	helper(&db, "UPDATE I_D SET f1 = 42 WHERE f1 IN (1,2,3,f1);", true);
+
+	/* invalid case - multiple conditions; IN-clause  */
+	prep_helper(&db, "CREATE TABLE I_E (f1 INT, f2 VARCHAR(4), f3 double, f4 int);");
+	helper(&db, "UPDATE I_E SET f1 = 42 WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10,f1));", true);
+
+	/* invalid case - single condition; NULL comparison */
+	prep_helper(&db, "CREATE TABLE I_F (f1 INT);");
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE f1 > NULL;", true);
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE f1 < NULL;", true);
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE f1 >= NULL;", true);
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE f1 <= NULL;", true);
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE NULL IS NULL;", true);
+	helper(&db, "UPDATE I_F SET f1 = 42 WHERE NULL IS NOT NULL;", true);
+
+	/* invalid case - multiple conditions; wrong field->value types configuration  */
+	prep_helper(&db, "CREATE TABLE I_G (f1 INT, f2 VARCHAR(4), f3 double, f4 int, f5 DATE);");
+	helper(&db, "UPDATE I_G SET f1 = 42 WHERE f1 = 'paulo';", true);
+	helper(&db, "UPDATE I_G SET f1 = 42 WHERE f1 = 1 AND f3 > 'paulo';", true);
+	helper(&db, "UPDATE I_G SET f1 = 42 WHERE f1 = 1 AND f2 > 'paulo' AND f3 in (12, 42.0);", true);
+	helper(&db, "UPDATE I_G SET f1 = 42 WHERE (f1 = 1 OR f2 = 'paulo') AND (f3 = 42.0 OR f4 in (10.0,12));", true);
+	helper(&db, "UPDATE I_G SET f1 = 42 WHERE f5 > '2022-002-02';", true);
+	helper(&db, "UPDATE I_G SET f1 = '42' WHERE f1 = 1;", true);
+
+	/* invalid case - single condition; VARCHAR comparison */
+	prep_helper(&db, "CREATE TABLE I_H (f1 VARCHAR(10));");
+	helper(&db, "UPDATE I_H SET f1 = 42 WHERE f1 >= 'paulo';", true);
+	helper(&db, "UPDATE I_H SET f1 = 42 WHERE f1 <= 'paulo';", true);
+
+	/* invalid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE I_I (f1 int, f3 VARCHAR(10));");
+	// string
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 > 'test';", true); // field-to-value
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 >= 'test';", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 < 'test';", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 <= 'test';", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' > f3;", true); // value-to-field
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' >= f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' < f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' <= f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 > f3;", true); // field-to-field
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 >= f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 < f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f3 <= f3;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' > 'test';", true); // value-to-value
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' >= 'test';", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' < 'test';", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE 'test' <= 'test';", true);
+	// null
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f1 > NULL;", true); // field-to-value
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f1 >= NULL;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f1 < NULL;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE f1 <= NULL;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL > f1;", true); // value-to-field
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL >= f1;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL < f1;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL <= f1;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL > NULL;", true); // value-to-value
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL >= NULL;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL < NULL;", true);
+	helper(&db, "UPDATE I_I SET f1 = 42 WHERE NULL <= NULL;", true);
+
+	database_close(&db);
+}
+
 void test_semantic_analyze(void)
 {
 	create_tests();
 	insert_tests();
 	delete_tests();
+	update_tests();
 }
