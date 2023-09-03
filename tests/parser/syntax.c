@@ -171,9 +171,56 @@ void test_delete_stmt(void)
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("DELETE FROM A WHERE value BETWEEN 1 AND 10;"), 0);
 }
 
+void test_update_stmt(void)
+{
+	/*
+	 * valid tests
+	 */
+
+	// update all (no where clause)
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 1;"), 0);
+	// simple condition
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE id = 1;"), 0);
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE 1 = id;"), 0); // yep, this is valid
+	// field to field condition
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE f1 = f2;"), 0);
+	// complex condition
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE (id = 1 AND name = 'paulo') OR "
+					"(surname = 'almeida' XOR surname='midori') AND sex <> 'xablau';"),
+			0);
+
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE id = 1 OR id = 2 OR id = 3;"), 0);
+	// in values
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE id in (1,2,3);"), 0);
+	// IS NULL
+	CU_ASSERT_EQUAL(try_parse_stmt("UPDATE A SET id = 42 WHERE dob is NULL;"), 0);
+
+	/*
+	 * invalid tests
+	 */
+
+	// missing table name
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE;"), 0);
+	// missing update assignment
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A;"), 0);
+	// missing semi-colon
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1"), 0);
+	// missing expression
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 WHERE;"), 0);
+	// in select - I don't wanna support this for a toy db really. (Pull requests welcome)
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 WHERE id in (select id from A);"), 0);
+	// recursive math expression
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 WHERE id = (0 + 1 * 10);"), 0);
+	// bitwise operations
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 WHERE id = (0 | 1);"), 0);
+	// IS BOOL
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 exists IS BOOL;"), 0);
+	// between - that's just some syntax flavour without actual benefits
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("UPDATE A SET id = 1 WHERE value BETWEEN 1 AND 10;"), 0);
+}
+
 void test_syntax_parse(void)
 {
-	printf("\n\n");
 	/* create statements */
 	test_create_stmt();
 
@@ -182,4 +229,7 @@ void test_syntax_parse(void)
 
 	/* delete statements */
 	test_delete_stmt();
+
+	/* update statements */
+	test_update_stmt();
 }
