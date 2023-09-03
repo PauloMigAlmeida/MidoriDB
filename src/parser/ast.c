@@ -45,6 +45,8 @@ struct ast_node* ast_build_tree(struct queue *parser)
 		return ast_insert_build_tree(parser);
 	} else if (strstarts(str, "DELETEONE")) {
 		return ast_delete_build_tree(parser);
+	} else if (strstarts(str, "UPDATE")) {
+		return ast_update_build_tree(parser);
 	} else {
 		fprintf(stderr, "%s: %s handler not implement yet\n", __func__, str);
 		return NULL;

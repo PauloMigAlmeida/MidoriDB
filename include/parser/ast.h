@@ -36,6 +36,14 @@ enum ast_node_type {
 	AST_TYPE_DEL_LOGOP,
 	AST_TYPE_DEL_EXPRISXIN,
 	AST_TYPE_DEL_EXPRISXNULL,
+	/* UPDATE */
+	AST_TYPE_UPD_UPDATE,
+	AST_TYPE_UPD_ASSIGN,
+	AST_TYPE_UPD_EXPRVAL,
+	AST_TYPE_UPD_CMP,
+	AST_TYPE_UPD_LOGOP,
+	AST_TYPE_UPD_EXPRISXIN,
+	AST_TYPE_UPD_EXPRISXNULL,
 };
 
 enum ast_comparison_type {
@@ -320,10 +328,112 @@ struct ast_del_deleteone_node {
 
 /* Delete Statements - end */
 
+/* Update Statements - start */
+
+// used for: "IS NULL" and "IS NOT NULL"
+struct ast_upd_isxnull_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* NOT null? */
+	bool is_negation;
+};
+
+// used for: "IS IN" and "IS NOT IN" WHERE-clauses
+struct ast_upd_isxin_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* NOT in? */
+	bool is_negation;
+};
+
+struct ast_upd_logop_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* logical operator type */
+	enum ast_logop_type logop_type;
+};
+
+struct ast_upd_cmp_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* comparison type */
+	enum ast_comparison_type cmp_type;
+};
+
+struct ast_upd_exprval_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* value type */
+
+	struct {
+		bool is_name;
+		bool is_intnum;
+		bool is_str;
+		bool is_approxnum;
+		bool is_bool;
+		bool is_null;
+	} value_type;
+	/* raw values */
+	union {
+		char name_val[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+		int64_t int_val;
+		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
+		double double_val;
+		bool bool_val;
+	};
+	/* synthetic value - hold intermediate values extracted from raw values in the SQL stmt */
+	time_t date_val;
+};
+
+struct ast_upd_assign_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* field name */
+	char field_name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+};
+
+struct ast_upd_update_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* table name */
+	char table_name[255 + 1 /*NUL char */];
+};
+
+/* Update Statements - end */
+
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
 struct ast_node* ast_create_build_tree(struct queue *parser);
 struct ast_node* ast_insert_build_tree(struct queue *parser);
 struct ast_node* ast_delete_build_tree(struct queue *parser);
+struct ast_node* ast_update_build_tree(struct queue *parser);
 
 #endif /* INCLUDE_PARSER_AST_H_ */

@@ -25,4 +25,10 @@ void print_queue(struct queue *ct);
 void parse_stmt(char *stmt, struct queue *out);
 struct ast_node* build_ast(char *stmt);
 
+/* sub tests */
+void test_ast_build_tree_create(void);
+void test_ast_build_tree_insert(void);
+void test_ast_build_tree_delete(void);
+void test_ast_build_tree_update(void);
+
 #endif /* INCLUDE_TESTS_PARSER_H_ */

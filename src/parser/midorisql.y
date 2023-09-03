@@ -131,7 +131,7 @@ int yylex(void*, void*);
 /* functions with special syntax */
 %token FCOUNT
 
-%type <intval> select_opts select_expr_list
+%type <intval> select_opts select_expr_list update_opt_where
 %type <intval> val_list case_list delete_val_list update_val_list
 %type <intval> groupby_list opt_asc_desc
 %type <intval> table_references opt_inner_cross opt_outer
@@ -357,7 +357,7 @@ stmt: update_stmt { emit(result, "STMT"); }
 update_stmt: UPDATE NAME
     SET update_asgn_list
     update_opt_where
-    { emit(result, "UPDATE %s %d", $2, $4); free($2);}
+    { emit(result, "UPDATE %s %d %d", $2, $4, $5); free($2);}
 ;
 
 update_asgn_list:
@@ -369,8 +369,8 @@ update_asgn_list:
 	 emit(result, "ASSIGN %s.%s", $3); free($3); $$ = $1 + 1; }   
    ;
 
-update_opt_where: /* nil */ 
-	     | WHERE update_expr { emit(result, "WHERE"); };   
+update_opt_where: /* nil */ 	{ $$ = 0; }
+	     | WHERE update_expr { emit(result, "WHERE"); $$ = 1;};   
 
 update_expr: NAME          { emit(result, "NAME %s", $1); free($1); }
 	   | STRING        { emit(result, "STRING %s", $1); free($1); }
