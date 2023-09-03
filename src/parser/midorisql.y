@@ -361,12 +361,12 @@ update_stmt: UPDATE NAME
 ;
 
 update_asgn_list:
-     NAME COMPARISON expr 
+     NAME COMPARISON update_expr 
        { if ($2 != 4) yyerror(result, scanner, "bad insert assignment to %s", $1);
 	 emit(result, "ASSIGN %s", $1); free($1); $$ = 1; }   
-   | update_asgn_list ',' NAME COMPARISON expr
+   | update_asgn_list ',' NAME COMPARISON update_expr
        { if ($4 != 4) yyerror(result, scanner, "bad insert assignment to %s", $3);
-	 emit(result, "ASSIGN %s.%s", $3); free($3); $$ = $1 + 1; }   
+	 emit(result, "ASSIGN %s", $3); free($3); $$ = $1 + 1; }   
    ;
 
 update_opt_where: /* nil */ 	{ $$ = 0; }

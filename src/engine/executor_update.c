@@ -1,7 +1,7 @@
 /*
- * executor_delete.c
+ * executor_update.c
  *
- *  Created on: 27/06/2023
+ *  Created on: 03/09/2023
  *	Author: paulo
  */
 
@@ -122,7 +122,7 @@ static bool cmp_time_value_to_value(enum ast_comparison_type cmp_type, time_t va
 	}
 }
 
-static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_del_cmp_node *node, struct ast_del_exprval_node *val_1, struct ast_del_exprval_node *val_2)
+static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_upd_cmp_node *node, struct ast_upd_exprval_node *val_1, struct ast_upd_exprval_node *val_2)
 {
 	enum COLUMN_TYPE type = 0;
 	size_t tmp_offset = 0, offset_1 = 0, offset_2 = 0;
@@ -149,27 +149,7 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 	is_null_2 = bit_test(row->null_bitmap, col_idx_2, sizeof(row->null_bitmap));
 
 	if (is_null_1 || is_null_2) {
-		/*
-		 * if even one field is NULL, then no comparison would evaluate to true.
-		 *
-		 * That one was a bit odd as I felt tempted to use a truth table, then again if 2 fields where NULL,
-		 * they ought to return True if I compare field1 = field2, right?
-		 *
-		 * Wrong! (let that sink in for a moment.............. I know, right?)
-		 *
-		 * I noticed that SQLITE implements the following:
-		 *
-		 * sqlite> create table a(f1 int, f2 int);
-		 * sqlite> insert into a values (1,1), (1, NULL), (NULL,1), (NULL,NULL);
-		 * sqlite> select * from a where f1 <> f2;
-		 * 	<nothing...> - baffling, right?
-		 * sqlite> select * from a where f1 == f2;
-		 * f1  f2
-		 * --  --
-		 * 1   1
-		 * 	<I would expect to see NULL, NULL here... but this isn't how it works >
-		 * sqlite>
-		 */
+		/* if even one field is NULL, then no comparison would evaluate to true */
 		return false;
 	} else if (type == CT_DOUBLE) {
 		return cmp_double_value_to_value(node->cmp_type,
@@ -199,8 +179,8 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 
 }
 
-static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_del_cmp_node *node,
-		struct ast_del_exprval_node *field, struct ast_del_exprval_node *value)
+static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_upd_cmp_node *node,
+		struct ast_upd_exprval_node *field, struct ast_upd_exprval_node *value)
 {
 	enum COLUMN_TYPE type = 0;
 	size_t offset = 0;
@@ -240,10 +220,9 @@ static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_
 		BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n");
 		return false;
 	}
-
 }
 
-static bool cmp_value_to_value(struct ast_del_cmp_node *node, struct ast_del_exprval_node *val_1, struct ast_del_exprval_node *val_2)
+static bool cmp_value_to_value(struct ast_upd_cmp_node *node, struct ast_upd_exprval_node *val_1, struct ast_upd_exprval_node *val_2)
 {
 	if (val_1->value_type.is_approxnum) {
 		return cmp_double_value_to_value(node->cmp_type, val_1->double_val, val_2->double_val);
@@ -264,11 +243,11 @@ static bool cmp_value_to_value(struct ast_del_cmp_node *node, struct ast_del_exp
 
 }
 
-static bool eval_cmp(struct table *table, struct row *row, struct ast_del_cmp_node *node)
+static bool eval_cmp(struct table *table, struct row *row, struct ast_upd_cmp_node *node)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_node;
-	struct ast_del_exprval_node *val_1 = NULL, *val_2 = NULL;
+	struct ast_upd_exprval_node *val_1 = NULL, *val_2 = NULL;
 
 	list_for_each(pos, node->node_children_head)
 	{
@@ -296,10 +275,10 @@ static bool eval_cmp(struct table *table, struct row *row, struct ast_del_cmp_no
 
 }
 
-static bool eval_isxnull(struct table *table, struct row *row, struct ast_del_isxnull_node *node)
+static bool eval_isxnull(struct table *table, struct row *row, struct ast_upd_isxnull_node *node)
 {
 	struct list_head *pos;
-	struct ast_del_exprval_node *field = NULL;
+	struct ast_upd_exprval_node *field = NULL;
 	int col_idx = -1;
 
 	list_for_each(pos, node->node_children_head)
@@ -321,12 +300,12 @@ static bool eval_isxnull(struct table *table, struct row *row, struct ast_del_is
 	return bit_test(row->null_bitmap, col_idx, sizeof(row->null_bitmap)) ^ node->is_negation;
 }
 
-static bool eval_isxin(struct table *table, struct row *row, struct ast_del_isxin_node *node)
+static bool eval_isxin(struct table *table, struct row *row, struct ast_upd_isxin_node *node)
 {
 	struct list_head *pos;
-	struct ast_del_exprval_node *tmp_entry;
-	struct ast_del_exprval_node *field = NULL;
-	struct ast_del_cmp_node cmp_node = {0};
+	struct ast_upd_exprval_node *tmp_entry;
+	struct ast_upd_exprval_node *field = NULL;
+	struct ast_upd_cmp_node cmp_node = {0};
 
 	if (node->is_negation) {
 		cmp_node.cmp_type = AST_CMP_DIFF_OP;
@@ -358,29 +337,32 @@ static bool eval_isxin(struct table *table, struct row *row, struct ast_del_isxi
 	return false;
 }
 
-static bool eval_delete_row(struct table *table, struct row *row, struct ast_node *node)
+static bool should_update_row(struct table *table, struct row *row, struct ast_node *node)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_node;
-	struct ast_del_logop_node *logop_node;
+	struct ast_upd_logop_node *logop_node;
 	bool ret = true;
 
-	if (node->node_type == AST_TYPE_DEL_CMP) {
-		return eval_cmp(table, row, (struct ast_del_cmp_node*)node);
-	} else if (node->node_type == AST_TYPE_DEL_EXPRISXNULL) {
-		return eval_isxnull(table, row, (struct ast_del_isxnull_node*)node);
-	} else if (node->node_type == AST_TYPE_DEL_EXPRISXIN) {
-		return eval_isxin(table, row, (struct ast_del_isxin_node*)node);
-	} else if (node->node_type == AST_TYPE_DEL_DELETEONE) {
+	if (node->node_type == AST_TYPE_UPD_CMP) {
+		return eval_cmp(table, row, (struct ast_upd_cmp_node*)node);
+	} else if (node->node_type == AST_TYPE_UPD_EXPRISXNULL) {
+		return eval_isxnull(table, row, (struct ast_upd_isxnull_node*)node);
+	} else if (node->node_type == AST_TYPE_UPD_EXPRISXIN) {
+		return eval_isxin(table, row, (struct ast_upd_isxin_node*)node);
+	} else if (node->node_type == AST_TYPE_UPD_UPDATE) {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
-			ret = ret && eval_delete_row(table, row, tmp_node);
+			ret = ret && should_update_row(table, row, tmp_node);
 		}
 
+	} else if (node->node_type == AST_TYPE_UPD_ASSIGN) {
+		/* ASSIGN nodes are not important at this stage, we simply ignore it */
+		return true;
 	} else {
 		/* sanity check */
-		BUG_ON(node->node_type != AST_TYPE_DEL_LOGOP);
+		BUG_ON(node->node_type != AST_TYPE_UPD_LOGOP);
 
 		logop_node = (typeof(logop_node))node;
 
@@ -390,7 +372,7 @@ static bool eval_delete_row(struct table *table, struct row *row, struct ast_nod
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
 
-			bool eval = eval_delete_row(table, row, tmp_node);
+			bool eval = should_update_row(table, row, tmp_node);
 
 			if (!gate_init) {
 				gate_init = true;
@@ -409,7 +391,73 @@ static bool eval_delete_row(struct table *table, struct row *row, struct ast_nod
 	return ret;
 }
 
-static int scan_delete(struct table *table, struct ast_node *node, struct query_output *output)
+static void set_field_to_value(struct table *table, struct row *row, struct ast_upd_assign_node *field, struct ast_upd_exprval_node *value)
+{
+	struct column *column = NULL;
+	size_t offset = 0;
+	int col_idx = -1;
+
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *tmp_col = &table->columns[i];
+
+		if (strcmp(tmp_col->name, field->field_name) == 0) {
+			column = tmp_col;
+			col_idx = i;
+			break;
+		}
+		offset += table_calc_column_space(tmp_col);
+	}
+
+	BUG_ON(!column);
+
+	bit_clear(row->null_bitmap, col_idx, sizeof(row->null_bitmap));
+
+	if (value->value_type.is_null) {
+		bit_set(row->null_bitmap, col_idx, sizeof(row->null_bitmap));
+	} else if (column->type == CT_DOUBLE) {
+		*(double*)&row->data[offset] = value->double_val;
+	} else if (column->type == CT_TINYINT) {
+		*(bool*)&row->data[offset] = value->bool_val;
+	} else if (column->type == CT_INTEGER) {
+		*(int64_t*)&row->data[offset] = value->int_val;
+	} else if (column->type == CT_DATE || column->type == CT_DATETIME) {
+		*(time_t*)&row->data[offset] = parse_date_type(value->str_val, column->type);
+	} else if (column->type == CT_VARCHAR) {
+		strncpy(*(char**)&row->data[offset], value->str_val, column->precision - 1 /* NULL */);
+	} else {
+		/* something went really wrong here */
+		BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n");
+	}
+}
+
+static void update_row(struct table *table, struct row *row, struct ast_node *node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_upd_assign_node *assign_node;
+	struct ast_upd_exprval_node *val_node = NULL;
+
+	if (node->node_type == AST_TYPE_UPD_ASSIGN) {
+		assign_node = (typeof(assign_node))node;
+
+		list_for_each(pos, assign_node->node_children_head)
+		{
+			val_node = list_entry(pos, typeof(*val_node), head);
+		}
+
+		BUG_ON(!val_node);
+
+		set_field_to_value(table, row, assign_node, val_node);
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			update_row(table, row, tmp_entry);
+		}
+	}
+}
+
+static int scan_update(struct table *table, struct ast_node *node, struct query_output *output)
 {
 	struct list_head *pos;
 	struct datablock *block;
@@ -425,12 +473,8 @@ static int scan_delete(struct table *table, struct ast_node *node, struct query_
 		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 			row = (typeof(row))&block->data[row_size * i];
 
-			if (!row->flags.deleted && !row->flags.empty && eval_delete_row(table, row, node)) {
-
-				if (!table_delete_row(table, block, i * row_size)) {
-					return -MIDORIDB_INTERNAL;
-				}
-
+			if (!row->flags.deleted && !row->flags.empty && should_update_row(table, row, node)) {
+				update_row(table, row, node);
 				output->n_rows_aff++;
 			}
 
@@ -440,19 +484,19 @@ static int scan_delete(struct table *table, struct ast_node *node, struct query_
 	return MIDORIDB_OK;
 }
 
-int executor_run_deleteone_stmt(struct database *db, struct ast_del_deleteone_node *delete_node, struct query_output *output)
+int executor_run_update_stmt(struct database *db, struct ast_upd_update_node *update_node, struct query_output *output)
 {
 	struct table *table;
 	int rc = MIDORIDB_OK;
 
-	if (!database_table_exists(db, delete_node->table_name)) {
+	if (!database_table_exists(db, update_node->table_name)) {
 		rc = -MIDORIDB_INTERNAL;
 		goto out;
 	}
 
-	table = database_table_get(db, delete_node->table_name);
+	table = database_table_get(db, update_node->table_name);
 
-	rc = scan_delete(table, (struct ast_node*)delete_node, output);
+	rc = scan_update(table, (struct ast_node*)update_node, output);
 
 out:
 	return rc;

@@ -57,4 +57,16 @@ int executor_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_nod
  */
 int executor_run_deleteone_stmt(struct database *db, struct ast_del_deleteone_node *delete_node, struct query_output *output);
 
+/**
+ * Run the execution plan for UPDATE statements
+ * @param db database reference
+ * @param node The AST node to run.
+ * @param err_out The buffer to write the error message to.
+ * @param err_out_size The size of the error buffer.
+ *
+ * @return: 0 if successful, < 0 otherwise. See <error.h> for details.
+ */
+int executor_run_update_stmt(struct database *db, struct ast_upd_update_node *update_node, struct query_output *output);
+
+
 #endif /* INCLUDE_ENGINE_EXECUTOR_H_ */

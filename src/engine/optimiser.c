@@ -26,6 +26,9 @@ int optimiser_run(struct database *db, struct ast_node *node, struct query_outpu
 	else if (node->node_type == AST_TYPE_DEL_DELETEONE)
 		/* TODO: Delete statements can be optimised to avoid full table scans */
 		return MIDORIDB_OK;
+	else if (node->node_type == AST_TYPE_UPD_UPDATE)
+		/* TODO: UPDATE statements can be optimised to avoid full table scans */
+		return MIDORIDB_OK;
 	else
 		BUG_ON_CUSTOM_MSG(true, "optimiser is not implemented for that yet\n");
 
