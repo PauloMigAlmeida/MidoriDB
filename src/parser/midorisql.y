@@ -132,7 +132,7 @@ int yylex(void*, void*);
 %token FCOUNT
 
 %type <intval> select_opts select_expr_list
-%type <intval> val_list case_list delete_val_list
+%type <intval> val_list case_list delete_val_list update_val_list
 %type <intval> groupby_list opt_asc_desc
 %type <intval> table_references opt_inner_cross opt_outer
 %type <intval> left_or_right column_list
@@ -350,31 +350,54 @@ insert_expr: insert_expr '+' insert_expr { emit(result, "ADD"); }
    | '(' insert_expr ')'
    ;  
 
-/** update **/
+   /** update table **/
 stmt: update_stmt { emit(result, "STMT"); }
    ;
 
-update_stmt: UPDATE table_references
+update_stmt: UPDATE NAME
     SET update_asgn_list
-    opt_where
-    { emit(result, "UPDATE %d %d", $2, $4); }
+    update_opt_where
+    { emit(result, "UPDATE %s %d", $2, $4); free($2);}
 ;
 
 update_asgn_list:
      NAME COMPARISON expr 
        { if ($2 != 4) yyerror(result, scanner, "bad insert assignment to %s", $1);
-	 emit(result, "ASSIGN %s", $1); free($1); $$ = 1; }
-   | NAME '.' NAME COMPARISON expr 
-       { if ($4 != 4) yyerror(result, scanner, "bad insert assignment to %s", $1);
-	 emit(result, "ASSIGN %s.%s", $1, $3); free($1); free($3); $$ = 1; }
+	 emit(result, "ASSIGN %s", $1); free($1); $$ = 1; }   
    | update_asgn_list ',' NAME COMPARISON expr
        { if ($4 != 4) yyerror(result, scanner, "bad insert assignment to %s", $3);
-	 emit(result, "ASSIGN %s.%s", $3); free($3); $$ = $1 + 1; }
-   | update_asgn_list ',' NAME '.' NAME COMPARISON expr
-       { if ($6 != 4) yyerror(result, scanner, "bad insert assignment to %s.$s", $3, $5);
-	 emit(result, "ASSIGN %s.%s", $3, $5); free($3); free($5); $$ = 1; }
+	 emit(result, "ASSIGN %s.%s", $3); free($3); $$ = $1 + 1; }   
    ;
 
+update_opt_where: /* nil */ 
+	     | WHERE update_expr { emit(result, "WHERE"); };   
+
+update_expr: NAME          { emit(result, "NAME %s", $1); free($1); }
+	   | STRING        { emit(result, "STRING %s", $1); free($1); }
+	   | INTNUM        { emit(result, "NUMBER %d", $1); }
+	   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
+   	   | BOOL          { emit(result, "BOOL %d", $1); }
+   	   | NULLX         { emit(result, "NULL"); }
+   	   ;
+
+update_expr: update_expr ANDOP update_expr	{ emit(result, "AND"); }
+   	   | update_expr OR update_expr		{ emit(result, "OR"); }
+	   | update_expr XOR update_expr	{ emit(result, "XOR"); }
+	   | update_expr COMPARISON update_expr	{ emit(result, "CMP %d", $2); }
+   	   | '(' update_expr ')'
+	   ;    
+
+update_expr:  update_expr IS NULLX     { emit(result, "ISNULL"); }
+	   |  update_expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
+	   ;
+
+update_expr: update_expr IN '(' update_val_list ')'	{ emit(result, "ISIN %d", $4); }
+   	   | update_expr NOT IN '(' update_val_list ')'	{ emit(result, "ISNOTIN %d", $5); }
+   	   ;
+
+update_val_list: update_expr				{ $$ = 1; }
+	       | update_expr ',' update_val_list	{ $$ = 1 + $3; }
+	       ;
 
    /** create table **/
 
