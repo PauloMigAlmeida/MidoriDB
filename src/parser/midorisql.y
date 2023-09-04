@@ -156,12 +156,10 @@ stmt_list: stmt ';'
 stmt: select_stmt { emit(result, "STMT"); }
    ;
 
-select_stmt: SELECT select_opts select_expr_list
-                        { emit(result, "SELECTNODATA %d %d", $2, $3); } 
-    | SELECT select_opts select_expr_list
+select_stmt: SELECT select_opts select_expr_list		{ emit(result, "SELECTNODATA %d %d", $2, $3); } 
+   | SELECT select_opts select_expr_list
      FROM table_references
-     opt_where opt_groupby opt_having opt_orderby opt_limit
-     opt_into_list { emit(result, "SELECT %d %d %d", $2, $3, $5); } ;
+     opt_where opt_groupby opt_having opt_orderby opt_limit 	{ emit(result, "SELECT %d %d %d", $2, $3, $5); } ;
 ;
 
 opt_where: /* nil */ 
@@ -189,11 +187,7 @@ opt_orderby: /* nil */ | ORDER BY groupby_list { emit(result, "ORDERBY %d", $3);
 
 opt_limit: /* nil */ | LIMIT expr { emit(result, "LIMIT 1"); }
   | LIMIT expr ',' expr             { emit(result, "LIMIT 2"); }
-  ; 
-
-opt_into_list: /* nil */ 
-   | INTO column_list { emit(result, "INTO %d", $2); }
-   ;
+  ;
 
 column_list: NAME { emit(result, "COLUMN %s", $1); free($1); $$ = 1; }
   | column_list ',' NAME  { emit(result, "COLUMN %s", $3); free($3); $$ = $1 + 1; }
@@ -490,9 +484,6 @@ val_list: expr { $$ = 1; }
 
 expr: expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
    | expr NOT IN '(' val_list ')'    { emit(result, "ISIN %d", $5); emit(result, "NOT"); }
-   | expr IN '(' select_stmt ')'     { emit(result, "INSELECT"); }
-   | expr NOT IN '(' select_stmt ')' { emit(result, "INSELECT"); emit(result, "NOT"); }
-   | EXISTS '(' select_stmt ')'      { emit(result, "EXISTS"); if($1) emit(result, "NOT"); }
    ;
 
   /* functions with special syntax */
