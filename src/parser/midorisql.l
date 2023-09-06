@@ -13,7 +13,6 @@ int oldstate;
 
 %%
 	/* keywords */
-ALL	{ return ALL; }
 
   /* Hack for BETWEEN ... AND ... 
    * return special AND token if BETWEEN seen

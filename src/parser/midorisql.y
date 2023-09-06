@@ -62,7 +62,6 @@ int yylex(void*, void*);
 %left '^'
 %nonassoc UMINUS
 
-%token ALL
 %token AND
 %token AS
 %token ASC
@@ -132,7 +131,7 @@ int yylex(void*, void*);
 %type <intval> select_opts select_expr_list update_opt_where
 %type <intval> val_list case_list delete_val_list update_val_list
 %type <intval> groupby_list opt_asc_desc
-%type <intval> table_references opt_inner_cross opt_outer
+%type <intval> table_references opt_inner opt_outer
 %type <intval> left_or_right column_list
 
 %type <intval> insert_vals insert_vals_list opt_col_names
@@ -192,9 +191,8 @@ column_list: NAME { emit(result, "COLUMN %s", $1); free($1); $$ = 1; }
   ;
 
 select_opts:                          { $$ = 0; }
-| select_opts ALL                 { if($$ & 01) yyerror(result, scanner, "duplicate ALL option"); $$ = $1 | 01; }
-| select_opts DISTINCT            { if($$ & 02) yyerror(result, scanner, "duplicate DISTINCT option"); $$ = $1 | 02; }
-    ;
+   | select_opts DISTINCT            { if($$ & 02) yyerror(result, scanner, "duplicate DISTINCT option"); $$ = $1 | 02; }
+   ;
 
 select_expr_list: select_expr { $$ = 1; }
     | select_expr_list ',' select_expr {$$ = $1 + 1; }
@@ -224,16 +222,15 @@ opt_as_alias: AS NAME { emit (result, "ALIAS %s", $2); free($2); }
   ;
 
 join_table:
-    table_reference opt_inner_cross JOIN table_factor opt_join_condition
+    table_reference opt_inner JOIN table_factor join_condition
                   { emit(result, "JOIN %d", 0100+$2); }
   | table_reference left_or_right opt_outer JOIN table_factor join_condition
                   { emit(result, "JOIN %d", 0300+$2+$3); }
   ;
 
-opt_inner_cross: /* nil */ { $$ = 0; }
-   | INNER { $$ = 1; }
-   | CROSS  { $$ = 2; }
-;
+opt_inner: /* nil */ { $$ = 0; }
+   | INNER { $$ = 1; }   
+   ;
 
 opt_outer: /* nil */  { $$ = 0; }
    | OUTER {$$ = 4; }
@@ -242,8 +239,6 @@ opt_outer: /* nil */  { $$ = 0; }
 left_or_right: LEFT { $$ = 1; }
     | RIGHT { $$ = 2; }
     ;
-
-opt_join_condition: join_condition | /* nil */ ;
 
 join_condition:
     ON expr { emit(result, "ONEXPR"); }
