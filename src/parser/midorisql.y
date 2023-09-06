@@ -50,7 +50,7 @@ int yylex(void*, void*);
 %left OR
 %left XOR
 %left ANDOP
-%nonassoc IN IS LIKE REGEXP
+%nonassoc IN IS LIKE
 %left NOT '!'
 %left BETWEEN
 %left <subtok> COMPARISON /* = <> < > <= >= */
@@ -75,7 +75,6 @@ int yylex(void*, void*);
 %token CREATE
 %token CROSS
 %token CURRENT_DATE
-%token CURRENT_TIME
 %token CURRENT_TIMESTAMP
 %token DATE
 %token DATETIME
@@ -111,7 +110,6 @@ int yylex(void*, void*);
 %token ORDER
 %token OUTER
 %token PRIMARY
-%token REGEXP
 %token RIGHT
 %token SELECT
 %token SET
@@ -217,12 +215,7 @@ table_factor:
     NAME opt_as_alias { emit(result, "TABLE %s", $1); free($1); }
   | NAME '.' NAME opt_as_alias { emit(result, "TABLE %s.%s", $1, $3);
                                free($1); free($3); }
-  | table_subquery opt_as NAME { emit(result, "SUBQUERYAS %s", $3); free($3); }
   | '(' table_references ')' { emit(result, "TABLEREFERENCES %d", $2); }
-  ;
-
-opt_as: AS 
-  | /* nil */
   ;
 
 opt_as_alias: AS NAME { emit (result, "ALIAS %s", $2); free($2); }
@@ -255,9 +248,6 @@ opt_join_condition: join_condition | /* nil */ ;
 join_condition:
     ON expr { emit(result, "ONEXPR"); }
     ;
-
-table_subquery: '(' select_stmt ')' { emit(result, "SUBQUERY"); }
-   ;
 
    /* statements: delete statement */
 
@@ -470,8 +460,6 @@ expr: expr '+' expr { emit(result, "ADD"); }
 
 expr:  expr IS NULLX     { emit(result, "ISNULL"); }
    |   expr IS NOT NULLX { emit(result, "ISNULL"); emit(result, "NOT"); }
-   |   expr IS BOOL      { emit(result, "ISBOOL %d", $3); }
-   |   expr IS NOT BOOL  { emit(result, "ISBOOL %d", $4); emit(result, "NOT"); }
    ;
 
 expr: expr BETWEEN expr AND expr %prec BETWEEN { emit(result, "BETWEEN"); }
@@ -504,13 +492,8 @@ expr: expr LIKE expr { emit(result, "LIKE"); }
    | expr NOT LIKE expr { emit(result, "LIKE"); emit(result, "NOT"); }
    ;
 
-expr: expr REGEXP expr { emit(result, "REGEXP"); }
-   | expr NOT REGEXP expr { emit(result, "REGEXP"); emit(result, "NOT"); }
-   ;
-
 expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
    | CURRENT_DATE	{ emit(result, "NOW"); };
-   | CURRENT_TIME	{ emit(result, "NOW"); };
    ;
 
 %%

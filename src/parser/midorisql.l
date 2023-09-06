@@ -67,7 +67,6 @@ OR	{ return OR; }
 ORDER	{ return ORDER; }
 OUTER	{ return OUTER; }
 PRIMARY	{ return PRIMARY; }
-REGEXP|RLIKE	{ return REGEXP; }
 RIGHT	{ return RIGHT; }
 SELECT	{ return SELECT; }
 SET	{ return SET; }
