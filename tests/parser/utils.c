@@ -20,8 +20,8 @@ void parse_stmt(char *stmt, struct queue *out)
 {
 	CU_ASSERT_FATAL(queue_init(out));
 	CU_ASSERT_EQUAL(syntax_parse(stmt, out), 0);
-	printf("\n");
-	print_queue(out);
+//	printf("\n");
+//	print_queue(out);
 }
 
 struct ast_node* build_ast(char *stmt)

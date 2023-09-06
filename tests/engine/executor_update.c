@@ -1897,7 +1897,7 @@ static void test_update_25(void)
 	CU_ASSERT_EQUAL(run_stmt(&db, "UPDATE TEST SET f1='852' WHERE f1 > '123';"), ST_ERROR);
 	CU_ASSERT_EQUAL(run_stmt(&db, "UPDATE TEST SET f1='852' WHERE f1 >= '456';"), ST_ERROR);
 	CU_ASSERT_EQUAL(run_stmt(&db, "UPDATE TEST SET f1='852' WHERE f1 < NULL;"), ST_ERROR);
-	CU_ASSERT_EQUAL(run_stmt(&db, "UPDATE TEST SET f1='852' f1 <= '789';"), ST_ERROR);
+	CU_ASSERT_EQUAL(run_stmt(&db, "UPDATE TEST SET f1='852' WHERE f1 <= '789';"), ST_ERROR);
 
 	CU_ASSERT(check_row(table, 0, &header_used, bef_row_1));
 	CU_ASSERT(check_row(table, 1, &header_used, bef_row_2));
