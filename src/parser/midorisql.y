@@ -130,7 +130,7 @@ int yylex(void*, void*);
 
 %type <intval> select_opts select_expr_list update_opt_where
 %type <intval> val_list case_list delete_val_list update_val_list
-%type <intval> groupby_list opt_asc_desc
+%type <intval> groupby_list orderby_list opt_asc_desc
 %type <intval> table_references opt_inner opt_outer
 %type <intval> left_or_right column_list
 
@@ -163,14 +163,12 @@ opt_where: /* nil */
    | WHERE expr { emit(result, "WHERE"); };
 
 opt_groupby: /* nil */ 
-   | GROUP BY groupby_list	{ emit(result, "GROUPBYLIST %d", $3); }
-;
+	   | GROUP BY groupby_list	{ emit(result, "GROUPBYLIST %d", $3); }
+	   ;
 
-groupby_list: expr opt_asc_desc
-                             { emit(result, "GROUPBY %d",  $2); $$ = 1; }
-   | groupby_list ',' expr opt_asc_desc
-                             { emit(result, "GROUPBY %d",  $4); $$ = $1 + 1; }
-   ;
+groupby_list: expr opt_asc_desc				{ $$ = 1; }
+	    | groupby_list ',' expr opt_asc_desc	{ $$ = $1 + 1; }
+	    ;
 
 opt_asc_desc: /* nil */ { $$ = 0; }
    | ASC                { $$ = 0; }
@@ -179,8 +177,13 @@ opt_asc_desc: /* nil */ { $$ = 0; }
 
 opt_having: /* nil */ | HAVING expr { emit(result, "HAVING"); };
 
-opt_orderby: /* nil */ | ORDER BY groupby_list { emit(result, "ORDERBY %d", $3); }
-   ;
+opt_orderby: /* nil */
+	   | ORDER BY orderby_list { emit(result, "ORDERBYLIST %d", $3); }
+	   ;
+
+orderby_list: expr opt_asc_desc				{ $$ = 1; }
+	    | orderby_list ',' expr opt_asc_desc	{ $$ = $1 + 1; }
+	    ;
 
 opt_limit: /* nil */ | LIMIT expr { emit(result, "LIMIT 1"); }
   | LIMIT expr ',' expr             { emit(result, "LIMIT 2"); }
@@ -209,12 +212,8 @@ table_reference:  table_factor
   | join_table
   ;
 
-table_factor:
-    NAME opt_as_alias { emit(result, "TABLE %s", $1); free($1); }
-  | NAME '.' NAME opt_as_alias { emit(result, "TABLE %s.%s", $1, $3);
-                               free($1); free($3); }
-  | '(' table_references ')' { emit(result, "TABLEREFERENCES %d", $2); }
-  ;
+table_factor: NAME { emit(result, "TABLE %s", $1); free($1); } opt_as_alias  
+	    ;
 
 opt_as_alias: AS NAME { emit (result, "ALIAS %s", $2); free($2); }
   | NAME              { emit (result, "ALIAS %s", $1); free($1); }
