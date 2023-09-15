@@ -446,7 +446,7 @@ expr: expr '+' expr { emit(result, "ADD"); }
    ;    
 
 expr:  expr IS NULLX     { emit(result, "ISNULL"); }
-   |   expr IS NOT NULLX { emit(result, "ISNULL"); emit(result, "NOT"); }
+   |   expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
    ;
 
 expr: expr BETWEEN expr AND expr %prec BETWEEN { emit(result, "BETWEEN"); }

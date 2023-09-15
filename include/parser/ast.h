@@ -52,6 +52,8 @@ enum ast_node_type {
 	AST_TYPE_SEL_FIELDNAME,
 	AST_TYPE_SEL_CMP,
 	AST_TYPE_SEL_LOGOP,
+	AST_TYPE_SEL_EXPRISXNULL,
+	AST_TYPE_SEL_EXPRISXIN,
 };
 
 enum ast_comparison_type {
@@ -544,6 +546,30 @@ struct ast_sel_logop_node {
 	struct list_head head;
 	/* logical operator type */
 	enum ast_logop_type logop_type;
+};
+
+// used for: "IS NULL" and "IS NOT NULL"
+struct ast_sel_isxnull_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* NOT null? */
+	bool is_negation;
+};
+
+// used for: "IS IN" and "IS NOT IN" WHERE-clauses
+struct ast_sel_isxin_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* NOT in? */
+	bool is_negation;
 };
 
 /* Select Statements - end */
