@@ -341,7 +341,6 @@ err_head:
 	free(node);
 err_node:
 	return NULL;
-
 }
 
 static struct ast_upd_update_node* build_update_node(struct queue *parser, struct stack *tmp_st)

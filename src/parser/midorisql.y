@@ -442,13 +442,6 @@ expr: expr '+' expr { emit(result, "ADD"); }
    | expr OR expr { emit(result, "OR"); }
    | expr XOR expr { emit(result, "XOR"); }
    | expr COMPARISON expr { emit(result, "CMP %d", $2); }
-   | expr COMPARISON '(' select_stmt ')' { emit(result, "CMPSELECT %d", $2); }
-   | expr '|' expr { emit(result, "BITOR"); }
-   | expr '&' expr { emit(result, "BITAND"); }
-   | expr '^' expr { emit(result, "BITXOR"); }
-   | expr SHIFT expr { emit(result, "SHIFT %s", $2==1?"left":"right"); }
-   | NOT expr { emit(result, "NOT"); }
-   | '!' expr { emit(result, "NOT"); }
    | '(' expr ')'
    ;    
 

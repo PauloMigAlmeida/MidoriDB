@@ -46,9 +46,12 @@ enum ast_node_type {
 	AST_TYPE_UPD_EXPRISXNULL,
 	/* SELECT */
 	AST_TYPE_SEL_EXPRVAL,
+	AST_TYPE_SEL_EXPROP,
 	AST_TYPE_SEL_ALIAS,
 	AST_TYPE_SEL_TABLE,
 	AST_TYPE_SEL_FIELDNAME,
+	AST_TYPE_SEL_CMP,
+	AST_TYPE_SEL_LOGOP,
 };
 
 enum ast_comparison_type {
@@ -452,6 +455,7 @@ struct ast_sel_exprval_node {
 		bool is_approxnum;
 		bool is_bool;
 		bool is_null;
+		bool is_negation;
 	} value_type;
 	/* raw values */
 	union {
@@ -463,6 +467,26 @@ struct ast_sel_exprval_node {
 	};
 	/* synthetic value - hold intermediate values extracted from raw values in the SQL stmt */
 	time_t date_val;
+};
+
+enum ast_sel_expr_op_type {
+	AST_SEL_EXPR_OP_ADD,
+	AST_SEL_EXPR_OP_SUB,
+	AST_SEL_EXPR_OP_MUL,
+	AST_SEL_EXPR_OP_DIV,
+	AST_SEL_EXPR_OP_MOD,
+};
+
+/* math operators */
+struct ast_sel_exprop_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* math operator */
+	enum ast_sel_expr_op_type op_type;
 };
 
 struct ast_sel_alias_node {
@@ -498,6 +522,28 @@ struct ast_sel_table_node {
 	struct list_head head;
 	/* table name */
 	char table_name[TABLE_MAX_NAME + 1 /*NUL char */];
+};
+
+struct ast_sel_cmp_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* comparison type */
+	enum ast_comparison_type cmp_type;
+};
+
+struct ast_sel_logop_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* logical operator type */
+	enum ast_logop_type logop_type;
 };
 
 /* Select Statements - end */

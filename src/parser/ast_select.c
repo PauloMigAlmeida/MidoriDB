@@ -104,6 +104,95 @@ err:
 	return NULL;
 }
 
+static struct ast_sel_exprop_node* build_expr_op_node(struct queue *parser, struct stack *tmp_st, enum ast_sel_expr_op_type type)
+{
+	struct ast_sel_exprop_node *node;
+	struct ast_node *operand1;
+	struct ast_node *operand2;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_EXPROP;
+	node->op_type = type;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	operand2 = (struct ast_node*)stack_pop(tmp_st);
+	operand1 = (struct ast_node*)stack_pop(tmp_st);
+
+	list_add(&operand1->head, node->node_children_head);
+	list_add(&operand2->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+static struct ast_sel_exprop_node* build_expr_neg_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_exprop_node *node;
+	struct ast_node *operand1;
+	struct ast_sel_exprval_node *operand2;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_EXPROP;
+	node->op_type = AST_SEL_EXPR_OP_MUL;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	operand2 = zalloc(sizeof(*operand2));
+	if (!operand2)
+		goto err_operand1;
+
+	if (!(operand2->node_children_head = malloc(sizeof(*operand2->node_children_head))))
+		goto err_operand1_head;
+
+	list_head_init(&operand2->head);
+	list_head_init(operand2->node_children_head);
+
+	operand2->node_type = AST_TYPE_SEL_EXPRVAL;
+	operand2->int_val = -1;
+	operand2->value_type.is_negation = true;
+
+	operand1 = (struct ast_node*)stack_pop(tmp_st);
+
+	list_add(&operand1->head, node->node_children_head);
+	list_add(&operand2->head, node->node_children_head);
+
+	return node;
+
+err_operand1_head:
+	free(operand2);
+err_operand1:
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
 static struct ast_sel_alias_node* build_alias_node(struct queue *parser, struct stack *tmp_st)
 {
 	struct ast_sel_alias_node *node;
@@ -242,6 +331,98 @@ err:
 	return NULL;
 }
 
+static struct ast_sel_cmp_node* build_cmp_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_cmp_node *node;
+	struct ast_node *lhs;
+	struct ast_node *rhs;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_CMP;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "CMP ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->cmp_type = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	rhs = (struct ast_node*)stack_pop(tmp_st);
+	lhs = (struct ast_node*)stack_pop(tmp_st);
+
+	/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+	list_add(&rhs->head, node->node_children_head);
+	list_add(&lhs->head, node->node_children_head);
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+
+}
+
+static struct ast_sel_logop_node* build_logop_node(struct queue *parser, struct stack *tmp_st, enum ast_logop_type logop_type)
+{
+	struct ast_sel_logop_node *node;
+	struct ast_node *condition1;
+	struct ast_node *condition2;
+
+	/* discard entry from parser */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_LOGOP;
+	node->logop_type = logop_type;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	condition1 = (struct ast_node*)stack_pop(tmp_st);
+	condition2 = (struct ast_node*)stack_pop(tmp_st);
+
+	/* from now onwards, it's node's responsibility to free what was popped out of the stack. enjoy :-)*/
+	list_add(&condition1->head, node->node_children_head);
+	list_add(&condition2->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+
+}
+
 struct ast_node* ast_select_build_tree(struct queue *parser)
 {
 	struct ast_node *root;
@@ -268,22 +449,34 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_SEL_EXPR_VAL_BOOL);
 		} else if (strstarts(str, "NULL")) {
 			curr = (struct ast_node*)build_expr_val_node(parser, AST_SEL_EXPR_VAL_NULL);
+		} else if (strstarts(str, "ADD")) {
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_SEL_EXPR_OP_ADD);
+		} else if (strstarts(str, "SUB")) {
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_SEL_EXPR_OP_SUB);
+		} else if (strstarts(str, "DIV")) {
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_SEL_EXPR_OP_DIV);
+		} else if (strstarts(str, "MUL")) {
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_SEL_EXPR_OP_MUL);
+		} else if (strstarts(str, "MOD")) {
+			curr = (struct ast_node*)build_expr_op_node(parser, &st, AST_SEL_EXPR_OP_MOD);
+		} else if (strstarts(str, "NEG")) {
+			curr = (struct ast_node*)build_expr_neg_node(parser, &st);
 		} else if (strstarts(str, "ALIAS")) {
 			curr = (struct ast_node*)build_alias_node(parser, &st);
 		} else if (strstarts(str, "FIELDNAME")) {
 			curr = (struct ast_node*)build_fieldname_node(parser);
 		} else if (strstarts(str, "TABLE")) {
 			curr = (struct ast_node*)build_table_node(parser);
+		} else if (strstarts(str, "CMP")) {
+			curr = (struct ast_node*)build_cmp_node(parser, &st);
+		} else if (strstarts(str, "AND")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_AND);
+		} else if (strstarts(str, "OR")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_OR);
+		} else if (strstarts(str, "XOR")) {
+			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
 		}
-		//		else if (strstarts(str, "CMP")) {
-//			curr = (struct ast_node*)build_cmp_node(parser, &st);
-//		} else if (strstarts(str, "AND")) {
-//			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_AND);
-//		} else if (strstarts(str, "OR")) {
-//			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_OR);
-//		} else if (strstarts(str, "XOR")) {
-//			curr = (struct ast_node*)build_logop_node(parser, &st, AST_LOGOP_TYPE_XOR);
-//		} else if (strstarts(str, "ISNULL")) {
+		//		else if (strstarts(str, "ISNULL")) {
 //			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, false);
 //		} else if (strstarts(str, "ISNOTNULL")) {
 //			curr = (struct ast_node*)build_expr_isxnull_node(parser, &st, true);
@@ -291,8 +484,6 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 //			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, false);
 //		} else if (strstarts(str, "ISNOTIN")) {
 //			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, true);
-//		} else if (strstarts(str, "ASSIGN")) {
-//			curr = (struct ast_node*)build_assign_node(parser, &st);
 //		} else if (strstarts(str, "WHERE")) {
 //			/* "WHERE" entry doesn't have any value for AST tree, so discard it */
 //			free(queue_poll(parser));
