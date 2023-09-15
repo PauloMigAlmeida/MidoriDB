@@ -44,6 +44,11 @@ enum ast_node_type {
 	AST_TYPE_UPD_LOGOP,
 	AST_TYPE_UPD_EXPRISXIN,
 	AST_TYPE_UPD_EXPRISXNULL,
+	/* SELECT */
+	AST_TYPE_SEL_EXPRVAL,
+	AST_TYPE_SEL_ALIAS,
+	AST_TYPE_SEL_TABLE,
+	AST_TYPE_SEL_FIELDNAME,
 };
 
 enum ast_comparison_type {
@@ -429,11 +434,80 @@ struct ast_upd_update_node {
 
 /* Update Statements - end */
 
+/* Select Statements - start */
+
+struct ast_sel_exprval_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* value type */
+
+	struct {
+		bool is_name;
+		bool is_intnum;
+		bool is_str;
+		bool is_approxnum;
+		bool is_bool;
+		bool is_null;
+	} value_type;
+	/* raw values */
+	union {
+		char name_val[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+		int64_t int_val;
+		char str_val[65535 + 1 /* NUL char */]; // MAX VARCHAR on MySQL too
+		double double_val;
+		bool bool_val;
+	};
+	/* synthetic value - hold intermediate values extracted from raw values in the SQL stmt */
+	time_t date_val;
+};
+
+struct ast_sel_alias_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* alias value*/
+	char alias_value[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+};
+
+struct ast_sel_fieldname_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* table name */
+	char table_name[TABLE_MAX_NAME + 1 /*NUL char */];
+	/* column name */
+	char col_name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+};
+
+struct ast_sel_table_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* table name */
+	char table_name[TABLE_MAX_NAME + 1 /*NUL char */];
+};
+
+/* Select Statements - end */
+
 struct ast_node* ast_build_tree(struct queue *out);
 void ast_free(struct ast_node *node);
 struct ast_node* ast_create_build_tree(struct queue *parser);
 struct ast_node* ast_insert_build_tree(struct queue *parser);
 struct ast_node* ast_delete_build_tree(struct queue *parser);
 struct ast_node* ast_update_build_tree(struct queue *parser);
+struct ast_node* ast_select_build_tree(struct queue *parser);
 
 #endif /* INCLUDE_PARSER_AST_H_ */
