@@ -131,7 +131,7 @@ int yylex(void*, void*);
 %type <intval> select_opts select_expr_list update_opt_where
 %type <intval> val_list case_list delete_val_list update_val_list
 %type <intval> groupby_list orderby_list opt_asc_desc
-%type <intval> table_references opt_inner opt_outer
+%type <intval> table_references opt_outer
 %type <intval> left_or_right column_list
 
 %type <intval> insert_vals insert_vals_list opt_col_names
@@ -222,21 +222,19 @@ opt_as_alias: AS NAME { emit (result, "ALIAS %s", $2); free($2); }
 
 join_table:
     table_reference opt_inner JOIN table_factor join_condition
-                  { emit(result, "JOIN %d", 0100+$2); }
+                  { emit(result, "JOIN %d", 1); }
   | table_reference left_or_right opt_outer JOIN table_factor join_condition
-                  { emit(result, "JOIN %d", 0300+$2+$3); }
+                  { emit(result, "JOIN %d", $2+$3); }
   ;
 
-opt_inner: /* nil */ { $$ = 0; }
-   | INNER { $$ = 1; }   
-   ;
+opt_inner: /* nil */ | INNER;
 
 opt_outer: /* nil */  { $$ = 0; }
-   | OUTER {$$ = 4; }
+   | OUTER {$$ = 6; }
    ;
 
-left_or_right: LEFT { $$ = 1; }
-    | RIGHT { $$ = 2; }
+left_or_right: LEFT { $$ = 2; }
+    | RIGHT { $$ = 4; }
     ;
 
 join_condition:
@@ -476,7 +474,7 @@ case_list: WHEN expr THEN expr     { $$ = 1; }
    ;
 
 expr: expr LIKE expr { emit(result, "LIKE"); }
-   | expr NOT LIKE expr { emit(result, "LIKE"); emit(result, "NOT"); }
+   | expr NOT LIKE expr { emit(result, "NOTLIKE");}
    ;
 
 expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };

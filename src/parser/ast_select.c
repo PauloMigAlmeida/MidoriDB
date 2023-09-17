@@ -556,6 +556,251 @@ err_node:
 
 }
 
+static struct ast_sel_like_node* build_like_node(struct queue *parser, struct stack *tmp_st, bool negate)
+{
+	struct ast_sel_like_node *node;
+	struct ast_node *tmp_node;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_LIKE;
+	node->negate = negate;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+
+}
+
+static struct ast_sel_onexpr_node* build_onexpr_node(struct queue *parse, struct stack *tmp_st)
+{
+	struct ast_sel_onexpr_node *node;
+	struct ast_node *tmp_node;
+
+	/* discard entry */
+	free(queue_poll(parse));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_ONEXPR;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+static struct ast_sel_join_node* build_join_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_join_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_JOIN;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "JOIN ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->join_type = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
+static struct ast_sel_where_node* build_where_node(struct queue *parse, struct stack *tmp_st)
+{
+	struct ast_sel_where_node *node;
+	struct ast_node *tmp_node;
+
+	/* discard entry */
+	free(queue_poll(parse));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_WHERE;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+static struct ast_sel_groupby_node* build_groupby_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_groupby_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_GROUPBY;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "GROUPBYLIST ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
+static struct ast_sel_orderby_node* build_orderby_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_orderby_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_ORDERBY;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "ORDERBYLIST ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
 struct ast_node* ast_select_build_tree(struct queue *parser)
 {
 	struct ast_node *root;
@@ -620,16 +865,21 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_count_node(parser, &st, false);
 		} else if (strstarts(str, "COUNTALL")) {
 			curr = (struct ast_node*)build_count_node(parser, &st, true);
-		}
-		//		else if (strstarts(str, "WHERE")) {
-//			/* "WHERE" entry doesn't have any value for AST tree, so discard it */
-//			free(queue_poll(parser));
-//			continue;
-//		} else if (strstarts(str, "UPDATE")) {
-//			curr = (struct ast_node*)build_update_node(parser, &st);
-//		}
-
-		else if (strstarts(str, "STMT")) {
+		} else if (strstarts(str, "LIKE")) {
+			curr = (struct ast_node*)build_like_node(parser, &st, false);
+		} else if (strstarts(str, "NOTLIKE")) {
+			curr = (struct ast_node*)build_like_node(parser, &st, true);
+		} else if (strstarts(str, "ONEXPR")) {
+			curr = (struct ast_node*)build_onexpr_node(parser, &st);
+		} else if (strstarts(str, "JOIN")) {
+			curr = (struct ast_node*)build_join_node(parser, &st);
+		} else if (strstarts(str, "WHERE")) {
+			curr = (struct ast_node*)build_where_node(parser, &st);
+		} else if (strstarts(str, "GROUPBYLIST")) {
+			curr = (struct ast_node*)build_groupby_node(parser, &st);
+		} else if (strstarts(str, "ORDERBYLIST")) {
+			curr = (struct ast_node*)build_orderby_node(parser, &st);
+		} else if (strstarts(str, "STMT")) {
 			root = (struct ast_node*)stack_pop(&st);
 			break;
 		} else {

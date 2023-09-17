@@ -55,6 +55,12 @@ enum ast_node_type {
 	AST_TYPE_SEL_EXPRISXNULL,
 	AST_TYPE_SEL_EXPRISXIN,
 	AST_TYPE_SEL_COUNT,
+	AST_TYPE_SEL_LIKE,
+	AST_TYPE_SEL_ONEXPR,
+	AST_TYPE_SEL_JOIN,
+	AST_TYPE_SEL_WHERE,
+	AST_TYPE_SEL_GROUPBY,
+	AST_TYPE_SEL_ORDERBY,
 };
 
 enum ast_comparison_type {
@@ -582,6 +588,72 @@ struct ast_sel_count_node {
 	struct list_head head;
 	/* COUNT(*)? */
 	bool all;
+};
+
+struct ast_sel_like_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* LIKE NOT ? */
+	bool negate;
+};
+
+struct ast_sel_onexpr_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+};
+
+enum ast_sel_join_type {
+	AST_SEL_JOIN_INNER = 1,
+	AST_SEL_JOIN_LEFT = 2,
+	AST_SEL_JOIN_RIGHT = 4,
+	AST_SEL_JOIN_LEFT_OUTER = 8,
+	AST_SEL_JOIN_RIGHT_OUTER = 10,
+};
+
+struct ast_sel_join_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* kind of join */
+	enum ast_sel_join_type join_type;
+};
+
+struct ast_sel_where_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+};
+
+struct ast_sel_groupby_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+};
+
+struct ast_sel_orderby_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
 };
 
 /* Select Statements - end */
