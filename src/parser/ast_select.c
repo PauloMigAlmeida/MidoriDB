@@ -801,6 +801,37 @@ err:
 	return NULL;
 }
 
+static struct ast_sel_having_node* build_having_node(struct queue *parse, struct stack *tmp_st)
+{
+	struct ast_sel_having_node *node;
+	struct ast_node *tmp_node;
+
+	/* discard entry */
+	free(queue_poll(parse));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_HAVING;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
 struct ast_node* ast_select_build_tree(struct queue *parser)
 {
 	struct ast_node *root;
@@ -879,6 +910,8 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_groupby_node(parser, &st);
 		} else if (strstarts(str, "ORDERBYLIST")) {
 			curr = (struct ast_node*)build_orderby_node(parser, &st);
+		} else if (strstarts(str, "HAVING")) {
+			curr = (struct ast_node*)build_having_node(parser, &st);
 		} else if (strstarts(str, "STMT")) {
 			root = (struct ast_node*)stack_pop(&st);
 			break;
