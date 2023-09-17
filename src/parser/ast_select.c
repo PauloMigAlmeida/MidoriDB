@@ -520,6 +520,42 @@ err:
 
 }
 
+static struct ast_sel_count_node* build_count_node(struct queue *parser, struct stack *tmp_st, bool all)
+{
+	struct ast_sel_count_node *node;
+	struct ast_node *tmp_node;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_COUNT;
+	node->all = all;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	if (!all) {
+		/* field */
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+
+}
+
 struct ast_node* ast_select_build_tree(struct queue *parser)
 {
 	struct ast_node *root;
@@ -580,6 +616,10 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, false);
 		} else if (strstarts(str, "ISNOTIN")) {
 			curr = (struct ast_node*)build_expr_isxin_node(parser, &st, true);
+		} else if (strstarts(str, "COUNTFIELD")) {
+			curr = (struct ast_node*)build_count_node(parser, &st, false);
+		} else if (strstarts(str, "COUNTALL")) {
+			curr = (struct ast_node*)build_count_node(parser, &st, true);
 		}
 		//		else if (strstarts(str, "WHERE")) {
 //			/* "WHERE" entry doesn't have any value for AST tree, so discard it */

@@ -458,12 +458,12 @@ val_list: expr { $$ = 1; }
    ;
 
 expr: expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
-   | expr NOT IN '(' val_list ')'    { emit(result, "ISIN %d", $5); emit(result, "NOT"); }
+   | expr NOT IN '(' val_list ')'    { emit(result, "ISNOTIN %d", $5);}
    ;
 
   /* functions with special syntax */
 expr: FCOUNT '(' '*' ')' { emit(result, "COUNTALL"); }
-   | FCOUNT '(' expr ')' { emit(result, " CALL 1 COUNT"); } 
+   | FCOUNT '(' expr ')' { emit(result, "COUNTFIELD"); } 
 
 expr: CASE expr case_list END           { emit(result, "CASEVAL %d 0", $3); }
    |  CASE expr case_list ELSE expr END { emit(result, "CASEVAL %d 1", $3); }

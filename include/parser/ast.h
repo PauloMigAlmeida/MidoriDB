@@ -54,6 +54,7 @@ enum ast_node_type {
 	AST_TYPE_SEL_LOGOP,
 	AST_TYPE_SEL_EXPRISXNULL,
 	AST_TYPE_SEL_EXPRISXIN,
+	AST_TYPE_SEL_COUNT,
 };
 
 enum ast_comparison_type {
@@ -570,6 +571,17 @@ struct ast_sel_isxin_node {
 	struct list_head head;
 	/* NOT in? */
 	bool is_negation;
+};
+
+struct ast_sel_count_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+	/* COUNT(*)? */
+	bool all;
 };
 
 /* Select Statements - end */
