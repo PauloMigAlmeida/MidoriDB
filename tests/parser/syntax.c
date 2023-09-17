@@ -316,19 +316,20 @@ static void test_select_stmt(void)
 
 	// big boss
 	CU_ASSERT_EQUAL(try_parse_stmt("SELECT "
-			"			a.name, COUNT(a.name), c.name as country_name "
-			"		FROM "
-			"			PEOPLE a INNER JOIN COUNTRIES c "
-			"			ON a.country_id = c.id "
-			"		WHERE"
-			"			a LIKE 'Paulo%' "
-			"		GROUP BY "
-			"			a.name "
-			"		HAVING "
-			"			COUNT(a.name) > 10 "
-			"		ORDER BY "
-			"			country_name DESC,"
-			"			a.name ASC ;"), 0);
+					"			a.name, COUNT(a.name), c.name as country_name "
+					"		FROM "
+					"			PEOPLE a INNER JOIN COUNTRIES c "
+					"			ON a.country_id = c.id "
+					"		WHERE"
+					"			a LIKE 'Paulo%' "
+					"		GROUP BY "
+					"			a.name "
+					"		HAVING "
+					"			COUNT(a.name) > 10 "
+					"		ORDER BY "
+					"			country_name DESC,"
+					"			a.name ASC ;"),
+			0);
 
 	/*
 	 * invalid tests
@@ -361,6 +362,11 @@ static void test_select_stmt(void)
 	// join with no ON-clause -> MySQL had this crazy idea
 	CU_ASSERT_NOT_EQUAL(try_parse_stmt("SELECT A.f1, B.f2 FROM A JOIN B WHERE A.f1 = B.f2;"), 0);
 
+	// select count with multiple fields (FIELDNAME RPN)
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("SELECT COUNT(A.f1, B.f2) FROM A, B;"), 0);
+
+	// select count with multiple fields (NAME RPN)
+	CU_ASSERT_NOT_EQUAL(try_parse_stmt("SELECT COUNT(f1, f2) FROM A;"), 0);
 }
 
 void test_syntax_parse(void)
