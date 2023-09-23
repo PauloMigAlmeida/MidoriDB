@@ -835,6 +835,60 @@ err_node:
 	return NULL;
 }
 
+static struct ast_sel_select_node* build_select_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_select_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_SELECT;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "SELECT ([0-9]+) ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->distinct = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	/* field count + (table_references OR joins) + where + group by + having + order by + limit */
+	count = atoi((char*)stack_peek_pos(&reg_pars, 1));
+
+	for (int i = 0; i < count; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
 struct ast_node* ast_select_build_tree(struct queue *parser)
 {
 	struct ast_node *root;
@@ -915,6 +969,8 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_orderby_node(parser, &st);
 		} else if (strstarts(str, "HAVING")) {
 			curr = (struct ast_node*)build_having_node(parser, &st);
+		} else if (strstarts(str, "SELECT")) {
+			curr = (struct ast_node*)build_select_node(parser, &st);
 		} else if (strstarts(str, "STMT")) {
 			root = (struct ast_node*)stack_pop(&st);
 			break;
@@ -930,6 +986,8 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			ast_free(curr);
 			goto err_push_node;
 		}
+
+		// TODO implement LIMIT and ASC DESC (for order by, group by )
 
 	}
 

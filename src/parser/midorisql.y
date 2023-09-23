@@ -131,6 +131,7 @@ int yylex(void*, void*);
 %type <intval> select_opts select_expr_list update_opt_where
 %type <intval> val_list case_list delete_val_list update_val_list
 %type <intval> groupby_list orderby_list opt_asc_desc
+%type <intval> opt_groupby opt_orderby opt_having opt_limit opt_where
 %type <intval> table_references opt_outer
 %type <intval> left_or_right column_list
 
@@ -153,17 +154,18 @@ stmt_list: stmt ';'
 stmt: select_stmt { emit(result, "STMT"); }
    ;
 
-select_stmt: SELECT select_opts select_expr_list		{ emit(result, "SELECTNODATA %d %d", $2, $3); } 
+select_stmt: SELECT select_opts select_expr_list		{ emit(result, "SELECT %d %d", $2, $3); } 
    | SELECT select_opts select_expr_list
      FROM table_references
-     opt_where opt_groupby opt_having opt_orderby opt_limit 	{ emit(result, "SELECT %d %d %d", $2, $3, $5); } ;
-;
+     opt_where opt_groupby opt_having opt_orderby opt_limit 	{ emit(result, "SELECT %d %d", $2, $3 + $5 + $6 + $7 + $8 + $9 + $10); }
+   ;
 
-opt_where: /* nil */ 
-   | WHERE expr { emit(result, "WHERE"); };
+opt_where: /* nil */  { $$ = 0; }
+	 | WHERE expr { emit(result, "WHERE"); $$ = 1;}
+	 ;
 
-opt_groupby: /* nil */ 
-	   | GROUP BY groupby_list	{ emit(result, "GROUPBYLIST %d", $3); }
+opt_groupby: /* nil */ 			{ $$ = 0; }
+	   | GROUP BY groupby_list	{ emit(result, "GROUPBYLIST %d", $3); $$ = 1;}
 	   ;
 
 groupby_list: expr opt_asc_desc				{ $$ = 1; }
@@ -175,18 +177,20 @@ opt_asc_desc: /* nil */ { $$ = 0; }
    | DESC               { $$ = 1; }
    ;
 
-opt_having: /* nil */ | HAVING expr { emit(result, "HAVING"); };
+opt_having: /* nil */ 		{ $$ = 0; }
+	  | HAVING expr 	{ emit(result, "HAVING"); $$ = 1; };
 
-opt_orderby: /* nil */
-	   | ORDER BY orderby_list { emit(result, "ORDERBYLIST %d", $3); }
+opt_orderby: /* nil */			{ $$ = 0; }
+	   | ORDER BY orderby_list 	{ emit(result, "ORDERBYLIST %d", $3); $$ = 1;}
 	   ;
 
 orderby_list: expr opt_asc_desc				{ $$ = 1; }
 	    | orderby_list ',' expr opt_asc_desc	{ $$ = $1 + 1; }
 	    ;
 
-opt_limit: /* nil */ | LIMIT expr { emit(result, "LIMIT 1"); }
-  | LIMIT expr ',' expr             { emit(result, "LIMIT 2"); }
+opt_limit: /* nil */ 			{ $$ = 0; }
+	 | LIMIT expr			{ emit(result, "LIMIT 1"); $$ = 1; }
+	 | LIMIT expr ',' expr		{ emit(result, "LIMIT 2"); $$ = 1; }
   ;
 
 column_list: NAME { emit(result, "COLUMN %s", $1); free($1); $$ = 1; }

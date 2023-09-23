@@ -22,6 +22,9 @@ void test_ast_build_tree(void)
 	/* UPDATE tests */
 	test_ast_build_tree_update();
 
+	/* SELECT tests */
+	test_ast_build_tree_select();
+
 	/**
 	 *
 	 * Parser -> Syntax -> Semantic -> Optimiser -> Execution Plan (This works for Select, Insert, Update, Delete)

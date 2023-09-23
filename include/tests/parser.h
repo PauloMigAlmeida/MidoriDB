@@ -30,5 +30,6 @@ void test_ast_build_tree_create(void);
 void test_ast_build_tree_insert(void);
 void test_ast_build_tree_delete(void);
 void test_ast_build_tree_update(void);
+void test_ast_build_tree_select(void);
 
 #endif /* INCLUDE_TESTS_PARSER_H_ */
