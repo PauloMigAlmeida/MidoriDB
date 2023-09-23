@@ -649,8 +649,11 @@ static struct ast_sel_join_node* build_join_node(struct queue *parser, struct st
 	list_head_init(&node->head);
 	list_head_init(node->node_children_head);
 
-	tmp_node = (struct ast_node*)stack_pop(tmp_st);
-	list_add(&tmp_node->head, node->node_children_head);
+	/* ONEXPR + 1 TABLE + 1 [JOIN|TABLE] */
+	for (int i = 0; i < 3; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
 
 	free(str);
 	stack_free(&reg_pars);
