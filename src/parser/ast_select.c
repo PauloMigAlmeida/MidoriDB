@@ -287,6 +287,33 @@ err:
 	return NULL;
 }
 
+static struct ast_sel_selectall_node* build_selectall_node(struct queue *parser)
+{
+	struct ast_sel_selectall_node *node;
+
+	/* discard entry */
+	free(queue_poll(parser));
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_SELECTALL;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
 static struct ast_sel_table_node* build_table_node(struct queue *parser)
 {
 	struct ast_sel_table_node *node;
@@ -931,6 +958,8 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_alias_node(parser, &st);
 		} else if (strstarts(str, "FIELDNAME")) {
 			curr = (struct ast_node*)build_fieldname_node(parser);
+		} else if (strstarts(str, "SELECTALL")) {
+			curr = (struct ast_node*)build_selectall_node(parser);
 		} else if (strstarts(str, "TABLE")) {
 			curr = (struct ast_node*)build_table_node(parser);
 		} else if (strstarts(str, "CMP")) {

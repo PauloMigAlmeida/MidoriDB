@@ -50,6 +50,7 @@ enum ast_node_type {
 	AST_TYPE_SEL_ALIAS,
 	AST_TYPE_SEL_TABLE,
 	AST_TYPE_SEL_FIELDNAME,
+	AST_TYPE_SEL_SELECTALL,
 	AST_TYPE_SEL_CMP,
 	AST_TYPE_SEL_LOGOP,
 	AST_TYPE_SEL_EXPRISXNULL,
@@ -522,6 +523,15 @@ struct ast_sel_fieldname_node {
 	char table_name[TABLE_MAX_NAME + 1 /*NUL char */];
 	/* column name */
 	char col_name[TABLE_MAX_COLUMN_NAME + 1 /*NUL char */];
+};
+
+struct ast_sel_selectall_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
 };
 
 struct ast_sel_table_node {
