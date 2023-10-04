@@ -831,6 +831,57 @@ err:
 	return NULL;
 }
 
+static struct ast_sel_limit_node* build_limit_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_limit_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+	int count;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_LIMIT;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "LIMIT ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	count = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	for (int i = 0; i < count; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
 static struct ast_sel_having_node* build_having_node(struct queue *parse, struct stack *tmp_st)
 {
 	struct ast_sel_having_node *node;
@@ -998,6 +1049,8 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_orderby_node(parser, &st);
 		} else if (strstarts(str, "HAVING")) {
 			curr = (struct ast_node*)build_having_node(parser, &st);
+		} else if (strstarts(str, "LIMIT")) {
+			curr = (struct ast_node*)build_limit_node(parser, &st);
 		} else if (strstarts(str, "SELECT")) {
 			curr = (struct ast_node*)build_select_node(parser, &st);
 		} else if (strstarts(str, "STMT")) {
@@ -1016,7 +1069,7 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			goto err_push_node;
 		}
 
-		// TODO implement LIMIT and ASC DESC (for order by, group by )
+		// TODO implement ASC DESC (for order by, group by )
 
 	}
 

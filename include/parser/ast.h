@@ -63,6 +63,7 @@ enum ast_node_type {
 	AST_TYPE_SEL_GROUPBY,
 	AST_TYPE_SEL_ORDERBY,
 	AST_TYPE_SEL_HAVING,
+	AST_TYPE_SEL_LIMIT,
 	AST_TYPE_SEL_SELECT,
 };
 
@@ -669,6 +670,15 @@ struct ast_sel_orderby_node {
 };
 
 struct ast_sel_having_node {
+	/* type of node */
+	enum ast_node_type node_type;
+	/* children if applicable */
+	struct list_head *node_children_head;
+	/* doubly-linked list head */
+	struct list_head head;
+};
+
+struct ast_sel_limit_node {
 	/* type of node */
 	enum ast_node_type node_type;
 	/* children if applicable */
