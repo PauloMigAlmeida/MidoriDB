@@ -184,9 +184,11 @@ opt_orderby: /* nil */			{ $$ = 0; }
 	   | ORDER BY orderby_list 	{ emit(result, "ORDERBYLIST %d", $3); $$ = 1;}
 	   ;
 
-orderby_list: expr opt_asc_desc				{ $$ = 1; }
-	    | orderby_list ',' expr opt_asc_desc	{ $$ = $1 + 1; }
+orderby_list: orderby_field			{ $$ = 1; }
+	    | orderby_list ',' orderby_field	{ $$ = $1 + 1; }
 	    ;
+
+orderby_field: expr opt_asc_desc 	{ emit(result, "ORDERBYITEM %d", $2);}
 
 opt_limit: /* nil */ 			{ $$ = 0; }
 	 | LIMIT expr			{ emit(result, "LIMIT 1"); $$ = 1; }

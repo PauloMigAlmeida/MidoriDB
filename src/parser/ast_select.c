@@ -780,9 +780,9 @@ err:
 	return NULL;
 }
 
-static struct ast_sel_orderby_node* build_orderby_node(struct queue *parser, struct stack *tmp_st)
+static struct ast_sel_orderbylist_node* build_orderbylist_node(struct queue *parser, struct stack *tmp_st)
 {
-	struct ast_sel_orderby_node *node;
+	struct ast_sel_orderbylist_node *node;
 	struct ast_node *tmp_node;
 	struct stack reg_pars = {0};
 	char *str;
@@ -795,7 +795,7 @@ static struct ast_sel_orderby_node* build_orderby_node(struct queue *parser, str
 	if (!node)
 		goto err_node;
 
-	node->node_type = AST_TYPE_SEL_ORDERBY;
+	node->node_type = AST_TYPE_SEL_ORDERBYLIST;
 
 	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
 		goto err_head;
@@ -814,6 +814,54 @@ static struct ast_sel_orderby_node* build_orderby_node(struct queue *parser, str
 		tmp_node = (struct ast_node*)stack_pop(tmp_st);
 		list_add(&tmp_node->head, node->node_children_head);
 	}
+
+	free(str);
+	stack_free(&reg_pars);
+
+	return node;
+
+err_regex:
+	free(str);
+	free(node->node_children_head);
+err_head:
+	free(node);
+err_node:
+	stack_free(&reg_pars);
+err:
+	return NULL;
+}
+
+static struct ast_sel_orderbyitem_node* build_orderbyitem_node(struct queue *parser, struct stack *tmp_st)
+{
+	struct ast_sel_orderbyitem_node *node;
+	struct ast_node *tmp_node;
+	struct stack reg_pars = {0};
+	char *str;
+
+	if (!stack_init(&reg_pars))
+		goto err;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_ORDERBYITEM;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	str = (char*)queue_poll(parser);
+
+	if (!regex_ext_match_grp(str, "ORDERBYITEM ([0-9]+)", &reg_pars))
+		goto err_regex;
+
+	node->direction = atoi((char*)stack_peek_pos(&reg_pars, 0));
+
+	tmp_node = (struct ast_node*)stack_pop(tmp_st);
+	list_add(&tmp_node->head, node->node_children_head);
 
 	free(str);
 	stack_free(&reg_pars);
@@ -1016,7 +1064,9 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 		} else if (strstarts(str, "GROUPBYLIST")) {
 			curr = (struct ast_node*)build_groupby_node(parser, &st);
 		} else if (strstarts(str, "ORDERBYLIST")) {
-			curr = (struct ast_node*)build_orderby_node(parser, &st);
+			curr = (struct ast_node*)build_orderbylist_node(parser, &st);
+		} else if (strstarts(str, "ORDERBYITEM")) {
+			curr = (struct ast_node*)build_orderbyitem_node(parser, &st);
 		} else if (strstarts(str, "CMP")) {
 			curr = (struct ast_node*)build_cmp_node(parser, &st);
 		} else if (strstarts(str, "AND")) {
@@ -1068,8 +1118,6 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			ast_free(curr);
 			goto err_push_node;
 		}
-
-		// TODO implement ASC DESC (for order by)
 
 	}
 

@@ -1071,8 +1071,9 @@ static void select_case_16(void)
 	struct ast_sel_select_node *select_node;
 	struct ast_sel_fieldname_node *field_node;
 	struct ast_sel_table_node *table_node;
-	struct ast_sel_orderby_node *orderby_node;
-	struct list_head *pos1;
+	struct ast_sel_orderbylist_node *orderbylist_node;
+	struct ast_sel_orderbyitem_node *orderbyitem_node;
+	struct list_head *pos1, *pos2, *pos3;
 	int i = 0;
 
 	parse_stmt("SELECT A.name FROM A ORDER BY A.name;", &ct);
@@ -1102,11 +1103,29 @@ static void select_case_16(void)
 			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
 			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
 		} else {
-			orderby_node = list_entry(pos1, typeof(*orderby_node), head);
-			CU_ASSERT_EQUAL(orderby_node->node_type, AST_TYPE_SEL_ORDERBY);
-			CU_ASSERT_FALSE(list_is_empty(&orderby_node->head));
-			CU_ASSERT_EQUAL(list_length(orderby_node->node_children_head), 1);
+			orderbylist_node = list_entry(pos1, typeof(*orderbylist_node), head);
+			CU_ASSERT_EQUAL(orderbylist_node->node_type, AST_TYPE_SEL_ORDERBYLIST);
+			CU_ASSERT_FALSE(list_is_empty(&orderbylist_node->head));
+			CU_ASSERT_EQUAL(list_length(orderbylist_node->node_children_head), 1);
 
+			list_for_each(pos2, orderbylist_node->node_children_head)
+			{
+				orderbyitem_node = list_entry(pos2, typeof(*orderbyitem_node), head);
+				CU_ASSERT_EQUAL(orderbyitem_node->node_type, AST_TYPE_SEL_ORDERBYITEM);
+				CU_ASSERT_EQUAL(orderbyitem_node->direction, AST_SEL_ORDERBY_ASC);
+				CU_ASSERT_FALSE(list_is_empty(&orderbyitem_node->head));
+				CU_ASSERT_EQUAL(list_length(orderbyitem_node->node_children_head), 1);
+
+				list_for_each(pos3, orderbyitem_node->node_children_head)
+				{
+					field_node = list_entry(pos3, typeof(*field_node), head);
+					CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+					CU_ASSERT_STRING_EQUAL(field_node->col_name, "name");
+					CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+					CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+					CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+				}
+			}
 		}
 		i++;
 
