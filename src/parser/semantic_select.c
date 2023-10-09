@@ -1,0 +1,140 @@
+/*
+ * semantic_select.c
+ *
+ *  Created on: 10/10/2023
+ *      Author: paulo
+ */
+
+#include <parser/semantic.h>
+#include <primitive/table.h>
+#include <primitive/column.h>
+#include <datastructure/hashtable.h>
+#include <datastructure/linkedlist.h>
+
+static void free_hashmap_entries(struct hashtable *hashtable, const void *key, size_t klen,
+		const void *value, size_t vlen, void *arg)
+{
+	struct hashtable_entry *entry = NULL;
+	UNUSED(arg);
+	UNUSED(value);
+	UNUSED(vlen);
+
+	entry = hashtable_remove(hashtable, key, klen);
+	hashtable_free_entry(entry);
+}
+
+static bool do_build_alias_map(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *out_ht)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_table_node *table_node;
+
+	if (root->node_type == AST_TYPE_SEL_ALIAS) {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+				table_node = (typeof(table_node))tmp_entry;
+				char *key = table_node->table_name;
+
+				// TODO check for duplicates
+
+				if (!hashtable_put(out_ht, key, strlen(key) + 1, key, strlen(key) + 1)) {
+					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+					return false;
+				}
+			}
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!do_build_alias_map(tmp_entry, out_err, out_err_len, out_ht))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool build_table_alias_map(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *out_ht)
+{
+
+	if (!hashtable_init(out_ht, &hashtable_str_compare, &hashtable_str_hash))
+		goto err;
+
+	if (!do_build_alias_map(root, out_err, out_err_len, out_ht))
+		goto err_ht_put_col;
+
+	return true;
+
+err_ht_put_col:
+	/* clean up */
+	hashtable_foreach(out_ht, &free_hashmap_entries, NULL);
+	hashtable_free(out_ht);
+err:
+	snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+	return false;
+}
+
+static bool check_table_names(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_table_node *table_node;
+
+	if (root->node_type == AST_TYPE_SEL_TABLE) {
+
+		table_node = (typeof(table_node))root;
+
+		if (!table_validate_name(table_node->table_name)) {
+			snprintf(out_err, out_err_len, "table name '%s' is invalid\n", table_node->table_name);
+			return false;
+		}
+
+		if (!database_table_exists(db, table_node->table_name)) {
+			snprintf(out_err, out_err_len, "table '%s' doesn't exist\n", table_node->table_name);
+			return false;
+		}
+
+	}
+
+	list_for_each(pos, root->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (!check_table_names(db, tmp_entry, out_err, out_err_len))
+			return false;
+	}
+
+	return true;
+}
+
+bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	bool ret = true;
+	struct hashtable ht = {0};
+
+	if (!(ret = build_table_alias_map(node, out_err, out_err_len, &ht)))
+		goto cleanup;
+
+	/* does tables exist? */
+	if (!(ret = check_table_names(db, node, out_err, out_err_len)))
+		goto cleanup;
+
+	/*
+	 * TODO:
+	 * - Check for duplicate / invalid aliases
+	 * - check field name (full qualified ones) as they can contain either table name or alias
+	 * - check for columns existence
+	 * - check for ambiguous columns on join statements
+	 */
+
+cleanup:
+	hashtable_foreach(&ht, &free_hashmap_entries, NULL);
+	hashtable_free(&ht);
+
+	return ret;
+}

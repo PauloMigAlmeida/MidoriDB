@@ -22,6 +22,8 @@ bool semantic_analyse(struct database *db, struct ast_node *node, char *out_err,
 		return semantic_analyse_delete_stmt(db, node, out_err, out_err_len);
 	else if (node->node_type == AST_TYPE_UPD_UPDATE)
 		return semantic_analyse_update_stmt(db, node, out_err, out_err_len);
+	else if (node->node_type == AST_TYPE_SEL_SELECT)
+		return semantic_analyse_select_stmt(db, node, out_err, out_err_len);
 	else
 		/* semantic analysis not implemented for that yet */
 		BUG_ON(true);

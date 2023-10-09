@@ -625,10 +625,36 @@ static void update_tests(void)
 	database_close(&db);
 }
 
+static void select_tests(void)
+{
+	struct database db = {0};
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	/* valid case - select from table */
+	prep_helper(&db, "CREATE TABLE V_A_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_A_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_A_3 (f3 INT);");
+	helper(&db, "SELECT f1 FROM V_A_1;", false);
+	helper(&db, "SELECT f1, f2, f3 FROM V_A_1, V_A_2, V_A_3;", false);
+	helper(&db, "SELECT * FROM V_A_1 JOIN V_A_2 ON f1 = f2 JOIN V_A_3 ON f2 = f3;", false);
+
+	/* invalid case - table doesn't exist */
+	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_A_3 (f3 INT);");
+	helper(&db, "SELECT f1 FROM I_A;", true);
+	helper(&db, "SELECT f1, f2, f3 FROM I_A_1, I_A_2, I_A_31;", true);
+	helper(&db, "SELECT * FROM I_A_1 JOIN I_A_2 ON f1 = f2 JOIN I_A_31 ON f2 = f3;", true);
+
+	database_close(&db);
+}
+
 void test_semantic_analyze(void)
 {
 	create_tests();
 	insert_tests();
 	delete_tests();
 	update_tests();
+	select_tests();
 }

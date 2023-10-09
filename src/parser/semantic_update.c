@@ -32,7 +32,7 @@ static bool check_table_name(struct database *db, struct ast_upd_update_node *up
 	}
 
 	if (!database_table_exists(db, update_node->table_name)) {
-		snprintf(out_err, out_err_len, "table name '%s' doesn't exist\n", update_node->table_name);
+		snprintf(out_err, out_err_len, "table '%s' doesn't exist\n", update_node->table_name);
 		return false;
 	}
 
