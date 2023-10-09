@@ -1013,6 +1013,10 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_selectall_node(parser);
 		} else if (strstarts(str, "TABLE")) {
 			curr = (struct ast_node*)build_table_node(parser);
+		} else if (strstarts(str, "GROUPBYLIST")) {
+			curr = (struct ast_node*)build_groupby_node(parser, &st);
+		} else if (strstarts(str, "ORDERBYLIST")) {
+			curr = (struct ast_node*)build_orderby_node(parser, &st);
 		} else if (strstarts(str, "CMP")) {
 			curr = (struct ast_node*)build_cmp_node(parser, &st);
 		} else if (strstarts(str, "AND")) {
@@ -1043,10 +1047,6 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			curr = (struct ast_node*)build_join_node(parser, &st);
 		} else if (strstarts(str, "WHERE")) {
 			curr = (struct ast_node*)build_where_node(parser, &st);
-		} else if (strstarts(str, "GROUPBYLIST")) {
-			curr = (struct ast_node*)build_groupby_node(parser, &st);
-		} else if (strstarts(str, "ORDERBYLIST")) {
-			curr = (struct ast_node*)build_orderby_node(parser, &st);
 		} else if (strstarts(str, "HAVING")) {
 			curr = (struct ast_node*)build_having_node(parser, &st);
 		} else if (strstarts(str, "LIMIT")) {
@@ -1069,7 +1069,7 @@ struct ast_node* ast_select_build_tree(struct queue *parser)
 			goto err_push_node;
 		}
 
-		// TODO implement ASC DESC (for order by, group by )
+		// TODO implement ASC DESC (for order by)
 
 	}
 

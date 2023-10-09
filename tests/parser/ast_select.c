@@ -985,6 +985,137 @@ static void select_case_14(void)
 }
 // @formatter:on
 
+static void select_case_15(void)
+{
+	struct queue ct = {0};
+	struct ast_node *root;
+	struct ast_sel_select_node *select_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_groupby_node *groupby_node;
+	struct list_head *pos1, *pos2;
+	int i = 0, j = 0;
+
+	parse_stmt("SELECT A.f1, A.f2 FROM A GROUP BY A.f1, A.f2;", &ct);
+
+	root = ast_build_tree(&ct);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(root);
+
+	select_node = (typeof(select_node))root;
+	CU_ASSERT_EQUAL(select_node->node_type, AST_TYPE_SEL_SELECT);
+	CU_ASSERT_FALSE(select_node->distinct);
+	CU_ASSERT(list_is_empty(&select_node->head));
+	CU_ASSERT_EQUAL(list_length(select_node->node_children_head), 4);
+
+	list_for_each(pos1, select_node->node_children_head)
+	{
+		if (i == 0) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+		} else if (i == 1) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "f2");
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+		} else if (i == 2) {
+			table_node = list_entry(pos1, typeof(*table_node), head);
+			CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+			CU_ASSERT_STRING_EQUAL(table_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+		} else {
+			groupby_node = list_entry(pos1, typeof(*groupby_node), head);
+			CU_ASSERT_EQUAL(groupby_node->node_type, AST_TYPE_SEL_GROUPBY);
+			CU_ASSERT_FALSE(list_is_empty(&groupby_node->head));
+			CU_ASSERT_EQUAL(list_length(groupby_node->node_children_head), 2);
+
+			list_for_each(pos2, groupby_node->node_children_head)
+			{
+
+				if (j == 0) {
+					field_node = list_entry(pos2, typeof(*field_node), head);
+					CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+					CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+					CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+					CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+					CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+				} else {
+					field_node = list_entry(pos2, typeof(*field_node), head);
+					CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+					CU_ASSERT_STRING_EQUAL(field_node->col_name, "f2");
+					CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+					CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+					CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+				}
+				j++;
+			}
+		}
+		i++;
+
+	}
+
+	queue_free(&ct);
+	ast_free(root);
+}
+
+static void select_case_16(void)
+{
+	struct queue ct = {0};
+	struct ast_node *root;
+	struct ast_sel_select_node *select_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_orderby_node *orderby_node;
+	struct list_head *pos1;
+	int i = 0;
+
+	parse_stmt("SELECT A.name FROM A ORDER BY A.name;", &ct);
+
+	root = ast_build_tree(&ct);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(root);
+
+	select_node = (typeof(select_node))root;
+	CU_ASSERT_EQUAL(select_node->node_type, AST_TYPE_SEL_SELECT);
+	CU_ASSERT_FALSE(select_node->distinct);
+	CU_ASSERT(list_is_empty(&select_node->head));
+	CU_ASSERT_EQUAL(list_length(select_node->node_children_head), 3);
+
+	list_for_each(pos1, select_node->node_children_head)
+	{
+		if (i == 0) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "name");
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+		} else if (i == 1) {
+			table_node = list_entry(pos1, typeof(*table_node), head);
+			CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+			CU_ASSERT_STRING_EQUAL(table_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+		} else {
+			orderby_node = list_entry(pos1, typeof(*orderby_node), head);
+			CU_ASSERT_EQUAL(orderby_node->node_type, AST_TYPE_SEL_ORDERBY);
+			CU_ASSERT_FALSE(list_is_empty(&orderby_node->head));
+			CU_ASSERT_EQUAL(list_length(orderby_node->node_children_head), 1);
+
+		}
+		i++;
+
+	}
+
+	queue_free(&ct);
+	ast_free(root);
+}
+
 void test_ast_build_tree_select(void)
 {
 	/* SELECTNODATA */
@@ -1015,4 +1146,8 @@ void test_ast_build_tree_select(void)
 	select_case_13();
 	/* multiple fields + multiple tables + multiple joins + no where-clause + qualified field names */
 	select_case_14();
+	/* multiple fields, single table, no where-clause, group by */
+	select_case_15();
+	/* single field, single table, no where-clause, order by, default */
+	select_case_16();
 }
