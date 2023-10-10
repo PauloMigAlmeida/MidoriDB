@@ -639,6 +639,14 @@ static void select_tests(void)
 	helper(&db, "SELECT f1, f2, f3 FROM V_A_1, V_A_2, V_A_3;", false);
 	helper(&db, "SELECT * FROM V_A_1 JOIN V_A_2 ON f1 = f2 JOIN V_A_3 ON f2 = f3;", false);
 
+	/* valid case - table aliases */
+	prep_helper(&db, "CREATE TABLE V_B_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_B_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_B_3 (f2 INT);");
+	helper(&db, "SELECT f1 FROM V_B_1 as v;", false);
+	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
+	helper(&db, "SELECT * FROM V_B_1 v1 JOIN V_B_2 v2 ON v2.f1 = v2.f2 JOIN V_B_3 ON v2.f2 = f3;", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -646,6 +654,13 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_A;", true);
 	helper(&db, "SELECT f1, f2, f3 FROM I_A_1, I_A_2, I_A_31;", true);
 	helper(&db, "SELECT * FROM I_A_1 JOIN I_A_2 ON f1 = f2 JOIN I_A_31 ON f2 = f3;", true);
+
+	/* invalid case - table aliases duplicated */
+	prep_helper(&db, "CREATE TABLE I_B_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_B_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_B_3 (f2 INT);");
+	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM I_B_1 as v1, I_B_2 as v1, I_B_3;", true);
+	helper(&db, "SELECT * FROM I_B_1 v1 JOIN I_B_2 v1 ON v2.f1 = v2.f2 JOIN I_B_3 ON v2.f2 = f3;", true);
 
 	database_close(&db);
 }

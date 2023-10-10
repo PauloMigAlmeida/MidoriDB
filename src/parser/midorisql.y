@@ -323,14 +323,14 @@ insert_expr:
    | NULLX         { emit(result, "NULL"); }
    ;
 
-insert_expr: insert_expr '+' insert_expr { emit(result, "ADD"); }
-   | insert_expr '-' insert_expr         { emit(result, "SUB"); }
-   | insert_expr '*' insert_expr         { emit(result, "MUL"); }
-   | insert_expr '/' insert_expr         { emit(result, "DIV"); }
-   | insert_expr '%' insert_expr         { emit(result, "MOD"); }
-   | '-' insert_expr %prec UMINUS        { emit(result, "NEG"); }      
-   | '(' insert_expr ')'
-   ;  
+insert_expr: insert_expr '+' insert_expr	{ emit(result, "ADD"); }
+	   | insert_expr '-' insert_expr        { emit(result, "SUB"); }
+	   | insert_expr '*' insert_expr        { emit(result, "MUL"); }
+	   | insert_expr '/' insert_expr        { emit(result, "DIV"); }
+	   | insert_expr '%' insert_expr        { emit(result, "MOD"); }
+	   | '-' insert_expr %prec UMINUS       { emit(result, "NEG"); }      
+	   | '(' insert_expr ')'
+	   ;
 
    /** update table **/
 stmt: update_stmt { emit(result, "STMT"); }

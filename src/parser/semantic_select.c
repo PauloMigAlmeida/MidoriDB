@@ -27,20 +27,35 @@ static bool do_build_alias_map(struct ast_node *root, char *out_err, size_t out_
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
+	struct ast_sel_alias_node *alias_node;
 	struct ast_sel_table_node *table_node;
 
 	if (root->node_type == AST_TYPE_SEL_ALIAS) {
-		list_for_each(pos, root->node_children_head)
+		alias_node = (typeof(alias_node))root;
+
+		list_for_each(pos, alias_node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
 			if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
 				table_node = (typeof(table_node))tmp_entry;
-				char *key = table_node->table_name;
+				char *key = alias_node->alias_value;
+				char *value = table_node->table_name;
 
-				// TODO check for duplicates
+				/* is the name valid? table aliases follow table nomenclature rules */
+				if (!table_validate_name(key)) {
+					snprintf(out_err, out_err_len, "alias name '%.128s' is invalid\n", key);
+					return false;
+				}
 
-				if (!hashtable_put(out_ht, key, strlen(key) + 1, key, strlen(key) + 1)) {
+				/* was this alias already declared ? */
+				if (hashtable_get(out_ht, key, strlen(key) + 1)) {
+					// fun fact, SQLITE doesn't validate if aliases are unique
+					snprintf(out_err, out_err_len, "Not unique table/alias: '%.128s'\n", key);
+					return false;
+				}
+
+				if (!hashtable_put(out_ht, key, strlen(key) + 1, value, strlen(value) + 1)) {
 					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
 					return false;
 				}
@@ -66,14 +81,10 @@ static bool build_table_alias_map(struct ast_node *root, char *out_err, size_t o
 		goto err;
 
 	if (!do_build_alias_map(root, out_err, out_err_len, out_ht))
-		goto err_ht_put_col;
+		return false;
 
 	return true;
 
-err_ht_put_col:
-	/* clean up */
-	hashtable_foreach(out_ht, &free_hashmap_entries, NULL);
-	hashtable_free(out_ht);
 err:
 	snprintf(out_err, out_err_len, "semantic phase: internal error\n");
 	return false;
@@ -117,6 +128,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	bool ret = true;
 	struct hashtable ht = {0};
 
+	/* build table alias hashtable; check for duplicates */
 	if (!(ret = build_table_alias_map(node, out_err, out_err_len, &ht)))
 		goto cleanup;
 
@@ -126,7 +138,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	/*
 	 * TODO:
-	 * - Check for duplicate / invalid aliases
+	 * - Check for duplicate / invalid aliases (table done, columns tbi)
 	 * - check field name (full qualified ones) as they can contain either table name or alias
 	 * - check for columns existence
 	 * - check for ambiguous columns on join statements
