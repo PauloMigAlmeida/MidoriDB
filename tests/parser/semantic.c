@@ -647,6 +647,13 @@ static void select_tests(void)
 	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
 	helper(&db, "SELECT * FROM V_B_1 v1 JOIN V_B_2 v2 ON v2.f1 = v2.f2 JOIN V_B_3 ON v2.f2 = f3;", false);
 
+	/* valid case - column aliases */
+	prep_helper(&db, "CREATE TABLE V_C_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_C_2 (f2 INT);");
+	helper(&db, "SELECT f1 as x FROM V_C_1;", false);
+	helper(&db, "SELECT y.f1 as w FROM V_C_1 as y;", false);
+	helper(&db, "SELECT v1.f1 as f4, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -661,6 +668,12 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE I_B_3 (f2 INT);");
 	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM I_B_1 as v1, I_B_2 as v1, I_B_3;", true);
 	helper(&db, "SELECT * FROM I_B_1 v1 JOIN I_B_2 v1 ON v2.f1 = v2.f2 JOIN I_B_3 ON v2.f2 = f3;", true);
+
+	/* valid case - invalid column aliases */
+	prep_helper(&db, "CREATE TABLE I_C_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_C_2 (f2 INT);");
+	helper(&db, "SELECT f1 as x FROM I_C_1 as x;", true); // conflicting aliases (table <-> column)
+	helper(&db, "SELECT f1 as x, f2 as x FROM I_C_1, I_C_2;", true); // duplicate aliases
 
 	database_close(&db);
 }
