@@ -13,7 +13,13 @@
 
 struct alias_value {
 	char table_name[TABLE_MAX_NAME + 1 /* NUL char */];
-	char col_name[TABLE_MAX_COLUMN_NAME + 1 /* NUL char */]; // optional
+	char col_name[TABLE_MAX_COLUMN_NAME + 1 /* NUL char */];
+	struct {
+		bool is_table; /* Ex.: select x.* from A as x */
+		bool is_field; /* Ex.: select f1 as val from A*/
+		bool is_fqfield; /* Ex.: select x.f1 as val from A as x */
+		bool is_expre; /* Ex.: select f1 * 2 as val from A*/
+	} type;
 };
 
 static void free_hashmap_entries(struct hashtable *hashtable, const void *key, size_t klen,
@@ -62,6 +68,7 @@ static bool check_table_alias(struct ast_node *root, char *out_err, size_t out_e
 				}
 
 				memzero(&alias_value, sizeof(alias_value));
+				alias_value.type.is_table = true;
 				memccpy(alias_value.table_name, value, 0, sizeof(alias_value.table_name));
 
 				if (!hashtable_put(out_ht, key, strlen(key) + 1, &alias_value, sizeof(alias_value))) {
@@ -140,14 +147,18 @@ static bool check_column_alias(struct database *db, struct ast_node *root, char 
 			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
 				val_node = (typeof(val_node))tmp_entry;
 
+				memzero(&value, sizeof(value));
 				if (val_node->value_type.is_name) {
-					memzero(&value, sizeof(value));
+					value.type.is_field = true;
 					memccpy(value.col_name, val_node->name_val, 0, sizeof(value.col_name));
+				} else {
+					value.type.is_expre = true;
 				}
 			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
 				field_node = (typeof(field_node))tmp_entry;
 
 				memzero(&value, sizeof(value));
+				value.type.is_fqfield = true;
 				memccpy(value.col_name, field_node->col_name, 0, sizeof(value.col_name));
 
 				/* check of table existence or table alias */
@@ -211,6 +222,68 @@ static bool check_column_alias(struct database *db, struct ast_node *root, char 
 	return true;
 }
 
+static int tables_with_column_name(struct database *db, struct ast_node *root, char *col_name)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_table_node *table_node;
+	struct table *table;
+	int count = 0;
+
+	if (root->node_type == AST_TYPE_SEL_TABLE) {
+		table_node = (typeof(table_node))root;
+		table = database_table_get(db, table_node->table_name);
+
+		for (int i = 0; i < table->column_count; i++) {
+			if (strcmp(table->columns[i].name, col_name) == 0) {
+				count++;
+				break;
+			}
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			count += tables_with_column_name(db, tmp_entry, col_name);
+		}
+	}
+
+	return count;
+}
+
+static bool check_column_names(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	int count = 0;
+
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+			count = tables_with_column_name(db, root, val_node->name_val);
+
+			if (count == 0) {
+				snprintf(out_err, out_err_len, "no such column: '%.128s'\n", val_node->name_val);
+				return false;
+			} else if (count > 1) {
+				snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n", val_node->name_val);
+				return false;
+			}
+		}
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_column_names(db, root, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+	return true;
+}
+
 bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct hashtable table_alias = {0};
@@ -234,9 +307,42 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_table_alias(node, out_err, out_err_len, &table_alias))
 		goto err_table_alias;
 
-	/* build column alias hashtable; check for column alias validity */
+	/*
+	 * build column alias hashtable; check for column alias validity
+	 *
+	 * Column Alias challenges:
+	 *
+	 * - SELECT f1 as val FROM A; (simple alias)
+	 * - SELECT A.f1 as val FROM A; (full qualified name)
+	 * - SELECT x.f1 as val FROM A as x; (table alias + column alias);
+	 * - SELECT x.f1 as val, val * 2 as bla FROM A as x; (invalid as val would be considered as a column)
+	 * - SELECT (x.f1 * 2) / x.f1 as val FROM A x (recursive expression - this is the hard one apparently);
+	 * 	-> alias_value.type.is_expre is set in this case
+	 */
 	if (!check_column_alias(db, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_alias;
+
+	/*
+	 * check columns - simple columns
+	 *
+	 * Column name (Simple) challenges
+	 *
+	 * CREATE TABLE I_D_1 (f1 int);
+	 * CREATE TABLE I_D_2 (f2 int);
+	 *
+	 * - SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3; - f3 clearly don't exist in I_D_1 or I_D_2... so all good here
+	 * - SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f1; - I need a join checker as I can't validate if I'm pointing to
+	 * 	fields on both sides of the join.... this can get tricky when accounting for multiple joins
+	 * - SELECT f1 as val FROM I_D_1 WHERE val > 2; - I can still choose if that's right or not.
+	 * - SELECT f1 as val FROM I_D_1 GROUP BY val; - need to check alias on group by statements
+	 * - SELECT f1 as val FROM I_D_1 ORDER BY val; - need to check alias on order by statements.
+	 * - SELECT count(*) as val FROM I_D_1 HAVING COUNT(*) > 1; - need to check alias on having statements
+	 * 	TODO: Figure this out
+	 */
+	if (!check_column_names(db, node, node, out_err, out_err_len))
+		goto err_column_names;
+
+	/* check columns - fieldname columns */
 
 	/*
 	 * TODO:
@@ -245,6 +351,13 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	   and alias->?? (for column), I need to find a common denominator. Otherwise, it will become hard to
 	 * 	   validate the existence of columns at some point... my best guess, it to use some structure that resembles
 	 * 	   the ast_sel_fieldname_nome...  -> I think I've done it (TBC)
+	 * - Check for aliases use in the where clause (also group, order, having).
+	 * 	-> This is becoming a big dilemma for me as although column aliases are not available in where clause (MySQL)
+	 * 		they seem to be used in group by and order by.... I wonder if I should implement it for all
+	 * 		like SQLite does:
+	 *
+	 * 		ex: SELECT val as f1 FROM A group by f1 order by f1;
+	 *
 	 * - check field name (full qualified ones) as they can contain either table name or alias
 	 * - check for columns existence
 	 * - check for ambiguous columns on join statements
@@ -259,6 +372,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	return true;
 
+err_column_names:
 err_column_alias:
 err_table_names:
 err_table_alias:

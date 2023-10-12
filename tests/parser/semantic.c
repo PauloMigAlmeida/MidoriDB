@@ -642,7 +642,7 @@ static void select_tests(void)
 	/* valid case - table aliases */
 	prep_helper(&db, "CREATE TABLE V_B_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE V_B_2 (f2 INT);");
-	prep_helper(&db, "CREATE TABLE V_B_3 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_B_3 (f3 INT);");
 	helper(&db, "SELECT f1 FROM V_B_1 as v;", false);
 	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
 	helper(&db, "SELECT * FROM V_B_1 v1 JOIN V_B_2 v2 ON v2.f1 = v2.f2 JOIN V_B_3 ON v2.f2 = f3;", false);
@@ -650,9 +650,24 @@ static void select_tests(void)
 	/* valid case - column aliases */
 	prep_helper(&db, "CREATE TABLE V_C_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE V_C_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_C_3 (f3 INT);");
 	helper(&db, "SELECT f1 as x FROM V_C_1;", false);
 	helper(&db, "SELECT y.f1 as w FROM V_C_1 as y;", false);
-	helper(&db, "SELECT v1.f1 as f4, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
+	helper(&db, "SELECT v1.f1 as f4, v2.f2, f3 FROM V_C_1 as v1, V_C_2 as v2, V_C_3;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_C_1;", false);
+	helper(&db, "SELECT y.f1 / 2 as val FROM V_C_1 y;", false);
+
+	/* valid case - column name */
+	prep_helper(&db, "CREATE TABLE V_D_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_D_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_D_3 (f3 INT);");
+	helper(&db, "SELECT f1 as x FROM V_D_1;", false);
+	helper(&db, "SELECT f1, f2 FROM V_D_1, V_D_2;", false);
+	helper(&db, "SELECT f1, f2, f3 FROM V_D_1 JOIN V_D_2 ON f1 = f2 JOIN V_D_3 ON f2 = f3;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1;", false);
+//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE val > 2;", false);
+//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false);
+//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false);
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -674,6 +689,20 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE I_C_2 (f2 INT);");
 	helper(&db, "SELECT f1 as x FROM I_C_1 as x;", true); // conflicting aliases (table <-> column)
 	helper(&db, "SELECT f1 as x, f2 as x FROM I_C_1, I_C_2;", true); // duplicate aliases
+
+	//TODO implement column fieldname validation first (I implemented just the column name validation)
+	helper(&db, "SELECT f1 as val, val * 2 as bla  FROM I_C_1;", true); // reuse alias across columns (invalid)
+//	helper(&db, "SELECT y.f1 as val, val * 2 as bla  FROM I_C_1 y;", true); // reuse alias across columns (invalid)
+
+	/* invalid case - column name */
+	prep_helper(&db, "CREATE TABLE I_D_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_D_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_D_3 (f1 INT);");
+	helper(&db, "SELECT f50 FROM I_D_1;", true);
+	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2;", false);
+	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2, I_D_3;", true);
+	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3;", true);
+	helper(&db, "SELECT f1 / 2 as val, val * 2 FROM I_D_1;", true);
 
 	database_close(&db);
 }
