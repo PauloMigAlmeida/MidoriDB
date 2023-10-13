@@ -247,6 +247,66 @@ join_condition:
     ON expr { emit(result, "ONEXPR"); }
     ;
 
+expr: NAME          { emit(result, "NAME %s", $1); free($1); }
+   | NAME '.' NAME { emit(result, "FIELDNAME %s.%s", $1, $3); free($1); free($3); }
+   | STRING        { emit(result, "STRING %s", $1); free($1); }
+   | INTNUM        { emit(result, "NUMBER %d", $1); }
+   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
+   | BOOL          { emit(result, "BOOL %d", $1); }
+   ;
+
+expr: expr '+' expr { emit(result, "ADD"); }
+   | expr '-' expr { emit(result, "SUB"); }
+   | expr '*' expr { emit(result, "MUL"); }
+   | expr '/' expr { emit(result, "DIV"); }
+   | expr '%' expr { emit(result, "MOD"); }
+   | expr MOD expr { emit(result, "MOD"); }
+   | '-' expr %prec UMINUS { emit(result, "NEG"); }
+   | expr ANDOP expr { emit(result, "AND"); }
+   | expr OR expr { emit(result, "OR"); }
+   | expr XOR expr { emit(result, "XOR"); }
+   | expr COMPARISON expr { emit(result, "CMP %d", $2); }
+   | '(' expr ')'
+   ;    
+
+expr:  expr IS NULLX     { emit(result, "ISNULL"); }
+   |   expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
+   ;
+
+expr: expr BETWEEN expr AND expr %prec BETWEEN { emit(result, "BETWEEN"); }
+   ;
+
+
+val_list: expr { $$ = 1; }
+   | expr ',' val_list { $$ = 1 + $3; }
+   ;
+
+expr: expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
+   | expr NOT IN '(' val_list ')'    { emit(result, "ISNOTIN %d", $5);}
+   ;
+
+  /* functions with special syntax */
+expr: FCOUNT '(' '*' ')' { emit(result, "COUNTALL"); }
+   | FCOUNT '(' expr ')' { emit(result, "COUNTFIELD"); } 
+
+expr: CASE expr case_list END           { emit(result, "CASEVAL %d 0", $3); }
+   |  CASE expr case_list ELSE expr END { emit(result, "CASEVAL %d 1", $3); }
+   |  CASE case_list END                { emit(result, "CASE %d 0", $2); }
+   |  CASE case_list ELSE expr END      { emit(result, "CASE %d 1", $2); }
+   ;
+
+case_list: WHEN expr THEN expr     { $$ = 1; }
+         | case_list WHEN expr THEN expr { $$ = $1+1; } 
+   ;
+
+expr: expr LIKE expr { emit(result, "LIKE"); }
+   | expr NOT LIKE expr { emit(result, "NOTLIKE");}
+   ;
+
+expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
+   | CURRENT_DATE	{ emit(result, "NOW"); };
+   ;
+
    /* statements: delete statement */
 
 stmt: delete_stmt { emit(result, "STMT"); }
@@ -425,67 +485,6 @@ data_type:
    | VARCHAR '(' INTNUM ')' { $$ = 130000 + $3; }
    ;
 
-   /**** expressions ****/
-
-expr: NAME          { emit(result, "NAME %s", $1); free($1); }
-   | NAME '.' NAME { emit(result, "FIELDNAME %s.%s", $1, $3); free($1); free($3); }
-   | STRING        { emit(result, "STRING %s", $1); free($1); }
-   | INTNUM        { emit(result, "NUMBER %d", $1); }
-   | APPROXNUM     { emit(result, "FLOAT %g", $1); }
-   | BOOL          { emit(result, "BOOL %d", $1); }
-   ;
-
-expr: expr '+' expr { emit(result, "ADD"); }
-   | expr '-' expr { emit(result, "SUB"); }
-   | expr '*' expr { emit(result, "MUL"); }
-   | expr '/' expr { emit(result, "DIV"); }
-   | expr '%' expr { emit(result, "MOD"); }
-   | expr MOD expr { emit(result, "MOD"); }
-   | '-' expr %prec UMINUS { emit(result, "NEG"); }
-   | expr ANDOP expr { emit(result, "AND"); }
-   | expr OR expr { emit(result, "OR"); }
-   | expr XOR expr { emit(result, "XOR"); }
-   | expr COMPARISON expr { emit(result, "CMP %d", $2); }
-   | '(' expr ')'
-   ;    
-
-expr:  expr IS NULLX     { emit(result, "ISNULL"); }
-   |   expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
-   ;
-
-expr: expr BETWEEN expr AND expr %prec BETWEEN { emit(result, "BETWEEN"); }
-   ;
-
-
-val_list: expr { $$ = 1; }
-   | expr ',' val_list { $$ = 1 + $3; }
-   ;
-
-expr: expr IN '(' val_list ')'       { emit(result, "ISIN %d", $4); }
-   | expr NOT IN '(' val_list ')'    { emit(result, "ISNOTIN %d", $5);}
-   ;
-
-  /* functions with special syntax */
-expr: FCOUNT '(' '*' ')' { emit(result, "COUNTALL"); }
-   | FCOUNT '(' expr ')' { emit(result, "COUNTFIELD"); } 
-
-expr: CASE expr case_list END           { emit(result, "CASEVAL %d 0", $3); }
-   |  CASE expr case_list ELSE expr END { emit(result, "CASEVAL %d 1", $3); }
-   |  CASE case_list END                { emit(result, "CASE %d 0", $2); }
-   |  CASE case_list ELSE expr END      { emit(result, "CASE %d 1", $2); }
-   ;
-
-case_list: WHEN expr THEN expr     { $$ = 1; }
-         | case_list WHEN expr THEN expr { $$ = $1+1; } 
-   ;
-
-expr: expr LIKE expr { emit(result, "LIKE"); }
-   | expr NOT LIKE expr { emit(result, "NOTLIKE");}
-   ;
-
-expr: CURRENT_TIMESTAMP { emit(result, "NOW"); };
-   | CURRENT_DATE	{ emit(result, "NOW"); };
-   ;
 
 %%
 

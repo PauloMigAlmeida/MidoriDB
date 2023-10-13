@@ -666,10 +666,12 @@ static void select_tests(void)
 	helper(&db, "SELECT f1, f2 FROM V_D_1, V_D_2;", false);
 	helper(&db, "SELECT f1, f2, f3 FROM V_D_1 JOIN V_D_2 ON f1 = f2 JOIN V_D_3 ON f2 = f3;", false);
 	helper(&db, "SELECT f1 / 2 as val FROM V_D_1;", false);
-//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE val > 2;", false);
-	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE val > 2;", false); // where
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE f1 > 2;", false);
+	helper(&db, "SELECT f1 FROM V_D_1 WHERE f1 > 2;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false); // group by
 	helper(&db, "SELECT f1 FROM V_D_1 GROUP BY f1;", false);
-	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false); // order by
 	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1 DESC;", false);
 	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1;", false);
 
@@ -693,7 +695,7 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE I_C_2 (f2 INT);");
 	helper(&db, "SELECT f1 as x FROM I_C_1 as x;", true); // conflicting aliases (table <-> column)
 	helper(&db, "SELECT f1 as x, f2 as x FROM I_C_1, I_C_2;", true); // duplicate aliases
-	helper(&db, "SELECT f1 / 2 as val, val * 2 FROM I_D_1;", true); // reusing alias across columns
+	helper(&db, "SELECT f1 / 2 as val, val * 2 FROM I_C_1;", true); // reusing alias across columns
 	helper(&db, "SELECT f1 as val, val * 2 FROM I_C_1;", true); // reuse alias across columns (invalid)
 	helper(&db, "SELECT f1 as val, val * 2 as bla  FROM I_C_1;", true); // reuse alias across columns (invalid)
 	//TODO implement column fieldname validation first (I implemented just the column name validation)
@@ -706,6 +708,13 @@ static void select_tests(void)
 	helper(&db, "SELECT f50 FROM I_D_1;", true);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2;", false);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2, I_D_3;", true);
+
+	helper(&db, "SELECT f1 FROM I_D_1 WHERE f2 > 2;", true); // no such column
+	helper(&db, "SELECT * FROM I_D_1, I_D_3 WHERE f1 > 1;", true); // ambiguous column
+	// Anything that isn't a expr LOGOP / COMPARISON in the Where-clause should be pickud up by the semantic analysis
+//	helper(&db, "SELECT f1 FROM I_D_1 WHERE 2;", true); // TODO raw values can't be used in here
+//	helper(&db, "SELECT f1 FROM I_D_1 WHERE f2 + 2;", true); // TODO  recursive expr can't be used in here
+
 	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2;", true); // no such column
 	helper(&db, "SELECT * FROM I_D_1, I_D_3 GROUP BY f1;", true); // ambiguous column
 	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY 2;", true); // raw values can't be used in here
