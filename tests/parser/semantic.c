@@ -661,13 +661,17 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE V_D_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE V_D_2 (f2 INT);");
 	prep_helper(&db, "CREATE TABLE V_D_3 (f3 INT);");
+	helper(&db, "SELECT 123 as x;", false);
 	helper(&db, "SELECT f1 as x FROM V_D_1;", false);
 	helper(&db, "SELECT f1, f2 FROM V_D_1, V_D_2;", false);
 	helper(&db, "SELECT f1, f2, f3 FROM V_D_1 JOIN V_D_2 ON f1 = f2 JOIN V_D_3 ON f2 = f3;", false);
 	helper(&db, "SELECT f1 / 2 as val FROM V_D_1;", false);
 //	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE val > 2;", false);
-//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false);
-//	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false);
+	helper(&db, "SELECT f1 FROM V_D_1 GROUP BY f1;", false);
+	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false);
+	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1 DESC;", false);
+	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1;", false);
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -689,9 +693,10 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE I_C_2 (f2 INT);");
 	helper(&db, "SELECT f1 as x FROM I_C_1 as x;", true); // conflicting aliases (table <-> column)
 	helper(&db, "SELECT f1 as x, f2 as x FROM I_C_1, I_C_2;", true); // duplicate aliases
-
-	//TODO implement column fieldname validation first (I implemented just the column name validation)
+	helper(&db, "SELECT f1 / 2 as val, val * 2 FROM I_D_1;", true); // reusing alias across columns
+	helper(&db, "SELECT f1 as val, val * 2 FROM I_C_1;", true); // reuse alias across columns (invalid)
 	helper(&db, "SELECT f1 as val, val * 2 as bla  FROM I_C_1;", true); // reuse alias across columns (invalid)
+	//TODO implement column fieldname validation first (I implemented just the column name validation)
 //	helper(&db, "SELECT y.f1 as val, val * 2 as bla  FROM I_C_1 y;", true); // reuse alias across columns (invalid)
 
 	/* invalid case - column name */
@@ -701,8 +706,20 @@ static void select_tests(void)
 	helper(&db, "SELECT f50 FROM I_D_1;", true);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2;", false);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2, I_D_3;", true);
-	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3;", true);
-	helper(&db, "SELECT f1 / 2 as val, val * 2 FROM I_D_1;", true);
+	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2;", true); // no such column
+	helper(&db, "SELECT * FROM I_D_1, I_D_3 GROUP BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY 2;", true); // raw values can't be used in here
+	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT * FROM I_D_1 JOIN I_D_3 ON f1 = f1 GROUP BY f1;", true); // ambiguous column
+
+	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY f2;", true); // no such column
+	helper(&db, "SELECT * FROM I_D_1, I_D_3 ORDER BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY 2;", true); // raw values can't be used in here
+	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY f2 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT * FROM I_D_1 JOIN I_D_3 ON f1 = f1 ORDER BY f1;", true); // ambiguous column
+//	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3;", true);
+//	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_3 ON f1 = f1;", true);
+//	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f1;", true); // f1 exists on I_D_1 but not on I_D_2
 
 	database_close(&db);
 }
