@@ -356,11 +356,15 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 }
 
 static bool do_check_column_names_where(struct database *db, struct ast_node *root, struct ast_node *node,
-		char *out_err, size_t out_err_len, struct hashtable *column_alias)
+		char *out_err, size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	struct table *table;
+	struct alias_value *alias_value;
 	int count = 0;
 
 	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
@@ -386,12 +390,53 @@ static bool do_check_column_names_where(struct database *db, struct ast_node *ro
 			}
 		}
 
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		ht_value = hashtable_get(table_alias, field_node->table_name, strlen(field_node->table_name) + 1);
+
+		if (ht_value) {
+			/*
+			 * field name using a table alias such as:
+			 * 	- SELECT x.f1 from A as x;
+			 */
+			alias_value = (typeof(alias_value))ht_value->content;
+			table = database_table_get(db, alias_value->table_name);
+		} else {
+			/*
+			 * full qualified name without alias such as:
+			 * 	-  SELECT A.f1 from A;
+			 * Not very smart but still valid SQL so we got to validate it
+			 */
+			if (!database_table_exists(db, field_node->table_name)) {
+				snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
+			table = database_table_get(db, field_node->table_name);
+		}
+
+		for (int i = 0; i < table->column_count; i++) {
+			if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+				count = 1;
+				break;
+			}
+		}
+
+		if (count == 0) {
+			snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n", field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!do_check_column_names_where(db, root, tmp_entry, out_err, out_err_len, column_alias))
+			if (!do_check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
+								column_alias))
 				return false;
 		}
 	}
@@ -400,19 +445,20 @@ static bool do_check_column_names_where(struct database *db, struct ast_node *ro
 }
 
 static bool check_column_names_where(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 
 	if (node->node_type == AST_TYPE_SEL_WHERE) {
-		return do_check_column_names_where(db, root, node, out_err, out_err_len, column_alias);
+		return do_check_column_names_where(db, root, node, out_err, out_err_len, table_alias, column_alias);
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_column_names_where(db, root, tmp_entry, out_err, out_err_len, column_alias))
+			if (!check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
 				return false;
 		}
 	}
@@ -551,7 +597,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	 * 	SELECT f1 FROM A, B WHERE f1 = 1; (f1 is ambiguous)
 	 * 	SELECT f1 FROM A WHERE f2 = 2; (no such column)
 	 */
-	if (!check_column_names_where(db, root, node, out_err, out_err_len, column_alias))
+	if (!check_column_names_where(db, root, node, out_err, out_err_len, table_alias, column_alias))
 		return false;
 
 	/*
