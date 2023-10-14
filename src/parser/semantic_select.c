@@ -259,12 +259,17 @@ static int tables_with_column_name(struct database *db, struct ast_node *root, c
 	return count;
 }
 
-static bool check_column_names_select(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err, size_t out_err_len)
+static bool check_column_names_select(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len, struct hashtable *table_alias)
 {
 
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
+	struct table *table;
 	int count = 0;
 
 	/* base case 1 */
@@ -294,13 +299,55 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 			}
 		}
 	}
+	/* base case 3 */
+	else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		ht_value = hashtable_get(table_alias, field_node->table_name, strlen(field_node->table_name) + 1);
+
+		if (ht_value) {
+			/*
+			 * field name using a table alias such as:
+			 * 	- SELECT x.f1 from A as x;
+			 */
+			alias_value = (typeof(alias_value))ht_value->content;
+			table = database_table_get(db, alias_value->table_name);
+		} else {
+			/*
+			 * full qualified name without alias such as:
+			 * 	-  SELECT A.f1 from A;
+			 * Not very smart but still valid SQL so we got to validate it
+			 */
+			if (!database_table_exists(db, field_node->table_name)) {
+				snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
+			table = database_table_get(db, field_node->table_name);
+		}
+
+		for (int i = 0; i < table->column_count; i++) {
+			if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+				count = 1;
+				break;
+			}
+		}
+
+		if (count == 0) {
+			snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n", field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
+	}
 	/* recursion  */
 	else {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_column_names_select(db, root, tmp_entry, out_err, out_err_len))
+			if (!check_column_names_select(db, root, tmp_entry, out_err, out_err_len, table_alias))
 				return false;
 		}
 	}
@@ -476,7 +523,7 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 }
 
 static bool check_column_names(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	/*
 	 * check if EXPRVAL (names) point to something that does not exist or that is ambiguous on SELECT fields.
@@ -489,7 +536,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	 * 	SELECT f1 FROM A, B; (column exists on both A and B so we can't tell from which to fetch data from)
 	 * 	SELECT f1 as val, val * 2 as x FROM A; (alias can't be used as the source for yet another alias)
 	 */
-	if (!check_column_names_select(db, root, node, out_err, out_err_len))
+	if (!check_column_names_select(db, root, node, out_err, out_err_len, table_alias))
 		return false;
 
 	/*
@@ -537,6 +584,33 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	if (!check_column_names_orderby(db, root, node, out_err, out_err_len, column_alias))
 		return false;
 
+	return true;
+}
+
+static bool check_where_clause(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len, struct hashtable *column_alias)
+{
+	UNUSED(db);
+	UNUSED(root);
+	UNUSED(node);
+	UNUSED(out_err);
+	UNUSED(out_err_len);
+	UNUSED(column_alias);
+	/*
+	 * TODO
+	 * check if expr do not contain simple exprvals which are syntactically correct but semanticly wrong.
+	 *
+	 * PS.: However. many DB engines like SQLite and Mysql do support it for some reason.
+	 *
+	 *	SELECT f1 from A where f1 > 2; (okay);
+	 *   	SELECT f1 from A where f1; (No CMP);
+	 *   	SELECT f1 from A where f1 + 2; (No CMP);
+	 *   	SELECT f1 from A where 2 + 2; (No CMP);
+	 *   	SELECT f1 from A where 2; (No CMP);
+	 *   	SELECT f1 from A where f1 AND 2; (No CMP);
+	 */
+//	if (!check_where_clause_expr(db, root, node, out_err, out_err_len, column_alias))
+//		return false;
 	return true;
 }
 
@@ -709,16 +783,20 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3; - f3 clearly don't exist in I_D_1 or I_D_2... so all good here
 	 * - SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f1; - I need a join checker as I can't validate if I'm pointing to
 	 * 	fields on both sides of the join.... this can get tricky when accounting for multiple joins
-	 * - SELECT f1 as val FROM I_D_1 WHERE val > 2; - I can still choose if that's right or not.
-	 * - SELECT f1 as val FROM I_D_1 GROUP BY val; - need to check alias on group by statements
-	 * - SELECT f1 as val FROM I_D_1 ORDER BY val; - need to check alias on order by statements.
+	 * - SELECT f1 as val FROM I_D_1 WHERE val > 2; - Done.
+	 * - SELECT f1 as val FROM I_D_1 GROUP BY val; - Done
+	 * - SELECT f1 as val FROM I_D_1 ORDER BY val; - Done.
 	 * - SELECT count(*) as val FROM I_D_1 HAVING COUNT(*) > 1; - need to check alias on having statements
 	 * 	TODO: Figure this out
 	 */
-	if (!check_column_names(db, node, node, out_err, out_err_len, &column_alias))
+	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_names;
 
 	/* TODO check columns - fieldname columns */
+
+	/* check where clause */
+	if (!check_where_clause(db, node, node, out_err, out_err_len, &column_alias))
+		goto err_where_clause;
 
 	/*
 	 * check if group-by clause:
@@ -765,6 +843,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	return true;
 
+err_where_clause:
 err_groupby_clause:
 err_column_names:
 err_column_alias:
