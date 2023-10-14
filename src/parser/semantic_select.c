@@ -467,11 +467,15 @@ static bool check_column_names_where(struct database *db, struct ast_node *root,
 }
 
 static bool check_column_names_groupby(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *valn;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	struct table *table;
+	struct alias_value *alias_value;
 	int count = 0;
 
 	if (node->node_type == AST_TYPE_SEL_GROUPBY) {
@@ -501,6 +505,48 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 						return false;
 					}
 				}
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				field_node = (typeof(field_node))tmp_entry;
+
+				ht_value = hashtable_get(table_alias, field_node->table_name,
+								strlen(field_node->table_name) + 1);
+
+				if (ht_value) {
+					/*
+					 * field name using a table alias such as:
+					 * 	- SELECT x.f1 from A as x;
+					 */
+					alias_value = (typeof(alias_value))ht_value->content;
+					table = database_table_get(db, alias_value->table_name);
+				} else {
+					/*
+					 * full qualified name without alias such as:
+					 * 	-  SELECT A.f1 from A;
+					 * Not very smart but still valid SQL so we got to validate it
+					 */
+					if (!database_table_exists(db, field_node->table_name)) {
+						snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+								field_node->table_name);
+						return false;
+					}
+
+					table = database_table_get(db, field_node->table_name);
+				}
+
+				for (int i = 0; i < table->column_count; i++) {
+					if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+						count = 1;
+						break;
+					}
+				}
+
+				if (count == 0) {
+					snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n",
+							field_node->table_name,
+							field_node->col_name);
+					return false;
+				}
+
 			}
 		}
 
@@ -509,7 +555,8 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_column_names_groupby(db, root, tmp_entry, out_err, out_err_len, column_alias))
+			if (!check_column_names_groupby(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
 				return false;
 		}
 	}
@@ -518,11 +565,15 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 }
 
 static bool check_column_names_orderby(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *valn;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	struct table *table;
+	struct alias_value *alias_value;
 	int count = 0;
 
 	if (node->node_type == AST_TYPE_SEL_ORDERBYITEM) {
@@ -552,6 +603,48 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 						return false;
 					}
 				}
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				field_node = (typeof(field_node))tmp_entry;
+
+				ht_value = hashtable_get(table_alias, field_node->table_name,
+								strlen(field_node->table_name) + 1);
+
+				if (ht_value) {
+					/*
+					 * field name using a table alias such as:
+					 * 	- SELECT x.f1 from A as x;
+					 */
+					alias_value = (typeof(alias_value))ht_value->content;
+					table = database_table_get(db, alias_value->table_name);
+				} else {
+					/*
+					 * full qualified name without alias such as:
+					 * 	-  SELECT A.f1 from A;
+					 * Not very smart but still valid SQL so we got to validate it
+					 */
+					if (!database_table_exists(db, field_node->table_name)) {
+						snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+								field_node->table_name);
+						return false;
+					}
+
+					table = database_table_get(db, field_node->table_name);
+				}
+
+				for (int i = 0; i < table->column_count; i++) {
+					if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+						count = 1;
+						break;
+					}
+				}
+
+				if (count == 0) {
+					snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n",
+							field_node->table_name,
+							field_node->col_name);
+					return false;
+				}
+
 			}
 		}
 
@@ -560,7 +653,8 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_column_names_orderby(db, root, tmp_entry, out_err, out_err_len, column_alias))
+			if (!check_column_names_orderby(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
 				return false;
 		}
 	}
@@ -572,7 +666,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	/*
-	 * check if EXPRVAL (names) point to something that does not exist or that is ambiguous on SELECT fields.
+	 * check if EXPRVAL (names) / fieldnames point to something that does not exist or that is ambiguous on SELECT fields.
 	 * this handles cases like:
 	 *
 	 * 	CREATE TABLE A (f1 INT);
@@ -586,7 +680,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 		return false;
 
 	/*
-	 * check if EXPRVAL (names) in the where-clause are either columns or alias... Also ensure that none of them
+	 * check if EXPRVAL (names) / fieldnames in the where-clause are either columns or alias... Also ensure that none of them
 	 * are ambiguous if more than 1 table is used. This should handle cases like:
 	 *
 	 * 	CREATE TABLE A (f1 INT);
@@ -601,7 +695,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 		return false;
 
 	/*
-	 * check if EXPRVAL (names) in the group-by clause are either columns or alias... Also ensure that none of them
+	 * check if EXPRVAL (names) / fieldnames in the group-by clause are either columns or alias... Also ensure that none of them
 	 * are ambiguous if more than 1 table is used. This should handle cases like:
 	 *
 	 * 	CREATE TABLE A (f1 INT);
@@ -612,11 +706,11 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	 * 	SELECT f1 FROM A, B GROUP BY f1; (f1 is ambiguous)
 	 * 	SELECT f1 FROM A GROUP BY f2; (no such column)
 	 */
-	if (!check_column_names_groupby(db, root, node, out_err, out_err_len, column_alias))
+	if (!check_column_names_groupby(db, root, node, out_err, out_err_len, table_alias, column_alias))
 		return false;
 
 	/*
-	 * check if EXPRVAL (names) in the order by clause are either columns or alias... Also ensure that none of them
+	 * check if EXPRVAL (names) / fieldnames in the order by clause are either columns or alias... Also ensure that none of them
 	 * are ambiguous if more than 1 table is used. This should handle cases like:
 	 *
 	 * 	CREATE TABLE A (f1 INT);
@@ -627,7 +721,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	 * 	SELECT f1 FROM A, B ORDER BY f1; (f1 is ambiguous)
 	 * 	SELECT f1 FROM A ORDER BY f2; (no such column)
 	 */
-	if (!check_column_names_orderby(db, root, node, out_err, out_err_len, column_alias))
+	if (!check_column_names_orderby(db, root, node, out_err, out_err_len, table_alias, column_alias))
 		return false;
 
 	return true;
@@ -819,9 +913,9 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 		goto err_column_alias;
 
 	/*
-	 * check columns - simple columns
+	 * check columns
 	 *
-	 * Column name (Simple) challenges
+	 * Challenges:
 	 *
 	 * CREATE TABLE I_D_1 (f1 int);
 	 * CREATE TABLE I_D_2 (f2 int);
@@ -837,8 +931,6 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 */
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_names;
-
-	/* TODO check columns - fieldname columns */
 
 	/* check where clause */
 	if (!check_where_clause(db, node, node, out_err, out_err_len, &column_alias))
