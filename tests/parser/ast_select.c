@@ -1377,12 +1377,14 @@ static void select_case_19(void)
 						CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
 						CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
 						CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+						CU_ASSERT(list_is_empty(field_node->node_children_head));
 					} else {
 						val_node = list_entry(pos3, typeof(*val_node), head);
 						CU_ASSERT_EQUAL(val_node->node_type, AST_TYPE_SEL_EXPRVAL);
 						CU_ASSERT(val_node->value_type.is_str);
 						CU_ASSERT_STRING_EQUAL(val_node->str_val, "MidoriDB%");
 						CU_ASSERT_FALSE(list_is_empty(&val_node->head));
+						CU_ASSERT(list_is_empty(val_node->node_children_head));
 					}
 					j++;
 				}

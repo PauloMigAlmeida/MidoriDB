@@ -727,17 +727,31 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	return true;
 }
 
-static bool check_where_clause(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+static bool do_check_where_clause(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
 {
-	UNUSED(db);
-	UNUSED(root);
-	UNUSED(node);
-	UNUSED(out_err);
-	UNUSED(out_err_len);
-	UNUSED(column_alias);
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (root->node_type == AST_TYPE_SEL_EXPRVAL || root->node_type == AST_TYPE_SEL_EXPROP) {
+		if (parent->node_type == AST_TYPE_SEL_WHERE || parent->node_type == AST_TYPE_SEL_LOGOP) {
+			snprintf(out_err, out_err_len, "expressions in where clause must be a type of comparison'\n");
+			return false;
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!do_check_where_clause(tmp_entry, root, out_err, out_err_len))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+{
 	/*
-	 * TODO
 	 * check if expr do not contain simple exprvals which are syntactically correct but semanticly wrong.
 	 *
 	 * PS.: However. many DB engines like SQLite and Mysql do support it for some reason.
@@ -749,8 +763,22 @@ static bool check_where_clause(struct database *db, struct ast_node *root, struc
 	 *   	SELECT f1 from A where 2; (No CMP);
 	 *   	SELECT f1 from A where f1 AND 2; (No CMP);
 	 */
-//	if (!check_where_clause_expr(db, root, node, out_err, out_err_len, column_alias))
-//		return false;
+
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (root->node_type == AST_TYPE_SEL_WHERE) {
+		return do_check_where_clause(root, NULL, out_err, out_err_len);
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_where_clause(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
 	return true;
 }
 
@@ -933,7 +961,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 		goto err_column_names;
 
 	/* check where clause */
-	if (!check_where_clause(db, node, node, out_err, out_err_len, &column_alias))
+	if (!check_where_clause(node, out_err, out_err_len))
 		goto err_where_clause;
 
 	/*

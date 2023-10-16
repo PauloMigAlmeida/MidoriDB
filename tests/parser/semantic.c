@@ -685,6 +685,14 @@ static void select_tests(void)
 	helper(&db, "SELECT x.f1 FROM V_D_1 as x ORDER BY x.f1 DESC;", false);
 	helper(&db, "SELECT x.f1 FROM V_D_1 as x ORDER BY x.f1;", false);
 
+	/* valid case - where clause */
+	prep_helper(&db, "CREATE TABLE V_E_1 (f1 INT);");
+	helper(&db, "SELECT x.f1 FROM V_E_1 as x WHERE x.f1 = 1;", false);
+	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1;", false);
+	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR 3 = 4;", false);
+	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR (3 * (5 + f1)) = 4;", false);
+	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 + 2 > 10 + 10;", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -700,7 +708,7 @@ static void select_tests(void)
 	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM I_B_1 as v1, I_B_2 as v1, I_B_3;", true);
 	helper(&db, "SELECT * FROM I_B_1 v1 JOIN I_B_2 v1 ON v2.f1 = v2.f2 JOIN I_B_3 ON v2.f2 = f3;", true);
 
-	/* valid case - invalid column aliases */
+	/* invalid case - invalid column aliases */
 	prep_helper(&db, "CREATE TABLE I_C_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_C_2 (f2 INT);");
 	helper(&db, "SELECT f1 as x FROM I_C_1 as x;", true); // conflicting aliases (table <-> column)
@@ -731,9 +739,6 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_D_1, I_D_3 WHERE f1 > 1;", true); // ambiguous column (exprname)
 	helper(&db, "SELECT a.f1 FROM I_D_1 as a WHERE a.f2 > 2;", true); // no such column (fieldname)
 	helper(&db, "SELECT I_D_1.f1 FROM I_D_1 WHERE I_D_1.f2 > 2;", true); // no such column (fieldname)
-	// Anything that isn't a expr LOGOP / COMPARISON in the Where-clause should be pickud up by the semantic analysis
-//	helper(&db, "SELECT f1 FROM I_D_1 WHERE 2;", true); // TODO raw values can't be used in here
-//	helper(&db, "SELECT f1 FROM I_D_1 WHERE f2 + 2;", true); // TODO  recursive expr can't be used in here
 
 	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2;", true); // no such column
 	helper(&db, "SELECT x.f1 FROM I_D_1 as x GROUP BY x.f2;", true); // no such column
@@ -753,6 +758,16 @@ static void select_tests(void)
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3;", true);
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_3 ON f1 = f1;", true);
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f1;", true); // f1 exists on I_D_1 but not on I_D_2
+
+	/* invalid case - where clause */
+	prep_helper(&db, "CREATE TABLE I_E_1 (f1 INT);");
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE 2;", true); // raw values can't be used in here
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 AND 1;", true); // raw values
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 + 1 AND 1 + 1;", true); // raw values
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 + 1;", true); // raw values
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND f1 = 2 OR 3;", true); // raw values
+	//	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 like 'asd';", true); // TODO validate LIKE raw values
 
 	database_close(&db);
 }
