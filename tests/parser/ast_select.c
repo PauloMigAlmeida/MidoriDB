@@ -1316,6 +1316,86 @@ static void select_case_18(void)
 	ast_free(root);
 }
 
+static void select_case_19(void)
+{
+	struct queue ct = {0};
+	struct ast_node *root;
+	struct ast_sel_select_node *select_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_where_node *where_node;
+	struct ast_sel_like_node *like_node;
+	struct ast_sel_exprval_node *val_node;
+	struct list_head *pos1, *pos2, *pos3;
+	int i = 0, j = 0;
+
+	parse_stmt("SELECT A.f1 FROM A WHERE A.f1 like 'MidoriDB%';", &ct);
+
+	root = ast_build_tree(&ct);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(root);
+
+	select_node = (typeof(select_node))root;
+	CU_ASSERT_EQUAL(select_node->node_type, AST_TYPE_SEL_SELECT);
+	CU_ASSERT_FALSE(select_node->distinct);
+	CU_ASSERT(list_is_empty(&select_node->head));
+	CU_ASSERT_EQUAL(list_length(select_node->node_children_head), 3);
+
+	list_for_each(pos1, select_node->node_children_head)
+	{
+		if (i == 0) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+		} else if (i == 1) {
+			table_node = list_entry(pos1, typeof(*table_node), head);
+			CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+			CU_ASSERT_STRING_EQUAL(table_node->table_name, "A");
+			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+		} else {
+			where_node = list_entry(pos1, typeof(*where_node), head);
+			CU_ASSERT_EQUAL(where_node->node_type, AST_TYPE_SEL_WHERE);
+			CU_ASSERT_FALSE(list_is_empty(&where_node->head));
+			CU_ASSERT_EQUAL(list_length(where_node->node_children_head), 1);
+
+			list_for_each(pos2, where_node->node_children_head)
+			{
+				like_node = list_entry(pos2, typeof(*like_node), head);
+				CU_ASSERT_EQUAL(like_node->node_type, AST_TYPE_SEL_LIKE);
+				CU_ASSERT_FALSE(like_node->negate);
+				CU_ASSERT_FALSE(list_is_empty(&like_node->head));
+				CU_ASSERT_EQUAL(list_length(like_node->node_children_head), 2);
+
+				list_for_each(pos3, like_node->node_children_head)
+				{
+					if (j == 0) {
+						field_node = list_entry(pos3, typeof(*field_node), head);
+						CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+						CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+						CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+						CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+					} else {
+						val_node = list_entry(pos3, typeof(*val_node), head);
+						CU_ASSERT_EQUAL(val_node->node_type, AST_TYPE_SEL_EXPRVAL);
+						CU_ASSERT(val_node->value_type.is_str);
+						CU_ASSERT_STRING_EQUAL(val_node->str_val, "MidoriDB%");
+						CU_ASSERT_FALSE(list_is_empty(&val_node->head));
+					}
+					j++;
+				}
+			}
+		}
+		i++;
+
+	}
+
+	queue_free(&ct);
+	ast_free(root);
+}
+
 void test_ast_build_tree_select(void)
 {
 	/* SELECTNODATA */
@@ -1354,4 +1434,6 @@ void test_ast_build_tree_select(void)
 	select_case_17();
 	/* single field + single table + no where-clause + group by + having  */
 	select_case_18();
+	/* single field + single table + where-clause + like  */
+	select_case_19();
 }

@@ -604,8 +604,11 @@ static struct ast_sel_like_node* build_like_node(struct queue *parser, struct st
 	list_head_init(&node->head);
 	list_head_init(node->node_children_head);
 
-	tmp_node = (struct ast_node*)stack_pop(tmp_st);
-	list_add(&tmp_node->head, node->node_children_head);
+	/* field + filter */
+	for (int i = 0; i < 2; i++) {
+		tmp_node = (struct ast_node*)stack_pop(tmp_st);
+		list_add(&tmp_node->head, node->node_children_head);
+	}
 
 	return node;
 
