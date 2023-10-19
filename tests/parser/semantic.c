@@ -733,6 +733,10 @@ static void select_tests(void)
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2;", false);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2, I_D_3;", true);
 
+	helper(&db, "SELECT f1 like '1' FROM I_D_1;", true);
+	helper(&db, "SELECT f1 IS NULL FROM I_D_1;", true);
+	helper(&db, "SELECT f1 IN (1,2,3) FROM I_D_1;", true);
+
 	helper(&db, "SELECT f1 FROM I_D_1 WHERE f2 > 2;", true); // no such column
 	helper(&db, "SELECT a.f2 FROM I_D_1 as a WHERE a.f1 > 2;", true); // no such column
 

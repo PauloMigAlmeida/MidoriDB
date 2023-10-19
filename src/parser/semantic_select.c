@@ -782,6 +782,43 @@ static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_
 	return true;
 }
 
+static bool check_select_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (root->node_type != AST_TYPE_SEL_SELECT
+			&& root->node_type != AST_TYPE_SEL_SELECTALL
+			&& root->node_type != AST_TYPE_SEL_EXPROP
+			&& root->node_type != AST_TYPE_SEL_EXPRVAL
+			&& root->node_type != AST_TYPE_SEL_FIELDNAME
+			&& root->node_type != AST_TYPE_SEL_ALIAS) {
+
+		snprintf(out_err, out_err_len,
+				"only columns, aliases and recursive expression are valid in select clause'\n");
+		return false;
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_WHERE
+					|| tmp_entry->node_type == AST_TYPE_SEL_TABLE
+					|| tmp_entry->node_type == AST_TYPE_SEL_JOIN
+					|| tmp_entry->node_type == AST_TYPE_SEL_HAVING
+					|| tmp_entry->node_type == AST_TYPE_SEL_GROUPBY
+					|| tmp_entry->node_type == AST_TYPE_SEL_ORDERBYLIST
+					|| tmp_entry->node_type == AST_TYPE_SEL_LIMIT) {
+				continue;
+			}
+
+			if (!check_select_clause(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+	return true;
+}
+
 static bool check_groupby_clause_expr(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
 		size_t out_err_len, struct hashtable *column_alias)
 {
@@ -960,6 +997,12 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_names;
 
+	/* check select to ensure only columns, recursive expressions and aliases are used.
+	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
+	 * It's preferable to debug this code than to debug bison's parser code instead :) */
+	if (!check_select_clause(node, out_err, out_err_len))
+		goto err_select_clause;
+
 	/* check where clause */
 	if (!check_where_clause(node, out_err, out_err_len))
 		goto err_where_clause;
@@ -969,7 +1012,6 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - contains only exprval (name) / fieldnames / alias (later one is verified in check_column_names)
 	 * - fields are part of the SELECT fields
 	 * 	-> This is also a different thing on SQLITE and MySQL..... got decide how I want it to work.
-	 *
 	 */
 	if (!check_groupby_clause(db, node, node, out_err, out_err_len, &column_alias))
 		goto err_groupby_clause;
@@ -1009,6 +1051,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	return true;
 
+err_select_clause:
 err_where_clause:
 err_groupby_clause:
 err_column_names:
