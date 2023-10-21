@@ -771,7 +771,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	return true;
 }
 
-static bool do_check_where_clause(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
+static bool do_check_where_clause_expr(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
@@ -786,17 +786,88 @@ static bool do_check_where_clause(struct ast_node *root, struct ast_node *parent
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!do_check_where_clause(tmp_entry, root, out_err, out_err_len))
+			if (!do_check_where_clause_expr(tmp_entry, root, out_err, out_err_len))
 				return false;
 		}
 	}
 	return true;
 }
 
+static bool check_where_clause_expr(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (root->node_type == AST_TYPE_SEL_WHERE) {
+		return do_check_where_clause_expr(root, NULL, out_err, out_err_len);
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_where_clause_expr(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_where_clause_like(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	int i = 0;
+
+	if (root->node_type == AST_TYPE_SEL_LIKE) {
+		// I chose not to support LIKE in SELECT clause, so no need to check whether WHERE node was visited
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (i == 0) {
+
+				if (tmp_entry->node_type != AST_TYPE_SEL_FIELDNAME
+						&& tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL) {
+					snprintf(out_err, out_err_len, "field expected before LIKE function\n");
+					return false;
+				}
+
+				if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+					val_node = (typeof(val_node))tmp_entry;
+					if (!val_node->value_type.is_name) {
+						snprintf(out_err, out_err_len, "field expected before LIKE function\n");
+						return false;
+					}
+				}
+			} else {
+				val_node = (typeof(val_node))tmp_entry;
+				if (val_node->node_type != AST_TYPE_SEL_EXPRVAL || !val_node->value_type.is_str) {
+					snprintf(out_err, out_err_len, "raw string expected after LIKE function\n");
+					return false;
+				}
+			}
+			i++;
+
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_where_clause_like(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	/*
-	 * check if expr do not contain simple exprvals which are syntactically correct but semanticly wrong.
+	 * check if expr do not contain simple exprvals which are syntactically correct but semantically wrong.
 	 *
 	 * PS.: However. many DB engines like SQLite and Mysql do support it for some reason.
 	 *
@@ -807,21 +878,20 @@ static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_
 	 *   	SELECT f1 from A where 2; (No CMP);
 	 *   	SELECT f1 from A where f1 AND 2; (No CMP);
 	 */
+	if (!check_where_clause_expr(root, out_err, out_err_len))
+		return false;
 
-	struct list_head *pos;
-	struct ast_node *tmp_entry;
-
-	if (root->node_type == AST_TYPE_SEL_WHERE) {
-		return do_check_where_clause(root, NULL, out_err, out_err_len);
-	} else {
-		list_for_each(pos, root->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (!check_where_clause(tmp_entry, out_err, out_err_len))
-				return false;
-		}
-	}
+	/*
+	 * check if LIKE operations in the where-clause has exactly 1 field and 1 exprval.
+	 *
+	 * 	SELECT f1 from A WHERE f1 LIKE 'bla; (okay)
+	 * 	SELECT f1 from A WHERE f1 LIKE f1; (invalid)
+	 * 	SELECT f1 from A WHERE 1 LIKE f1; (invalid)
+	 * 	SELECT f1 from A WHERE f1 LIKE 1; (invalid)
+	 * 	SELECT f1 from A WHERE 1 LIKE 1; (invalid)
+	 */
+	if (!check_where_clause_like(root, out_err, out_err_len))
+		return false;
 
 	return true;
 }

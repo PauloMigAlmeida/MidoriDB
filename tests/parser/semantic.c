@@ -678,11 +678,13 @@ static void select_tests(void)
 
 	/* valid case - where clause */
 	prep_helper(&db, "CREATE TABLE V_E_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_E_2 (f2 VARCHAR(10));");
 	helper(&db, "SELECT x.f1 FROM V_E_1 as x WHERE x.f1 = 1;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR 3 = 4;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR (3 * (5 + f1)) = 4;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 + 2 > 10 + 10;", false);
+	helper(&db, "SELECT f2 FROM V_E_2 WHERE f2 LIKE 'MIDORIDB%';", false);
 
 	/* valid case - group-by clause */
 	prep_helper(&db, "CREATE TABLE V_F_1 (f1 INT);");
@@ -762,7 +764,11 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 + 1 AND 1 + 1;", true); // raw values
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 + 1;", true); // raw values
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND f1 = 2 OR 3;", true); // raw values
-//		helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 like 'asd';", true); // TODO validate LIKE raw values
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 like 'asd';", true); // LIKE function
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 like 1;", true); // LIKE function
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 like f1;", true); // LIKE function
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 like f1;", true); // LIKE function
+	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 like 1;", true); // LIKE function
 
 	/* invalid case - group-by clause */
 	prep_helper(&db, "CREATE TABLE I_F_1 (f1 INT);");
