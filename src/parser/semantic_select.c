@@ -259,6 +259,38 @@ static int tables_with_column_name(struct database *db, struct ast_node *root, c
 	return count;
 }
 
+static bool check_fqfield_table(struct database *db, struct ast_node *root, struct ast_sel_fieldname_node *field_node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_table_node *table_node;
+	struct table *table;
+
+	if (root->node_type == AST_TYPE_SEL_TABLE) {
+		table_node = (typeof(table_node))root;
+
+		if (strcmp(table_node->table_name, field_node->table_name) == 0) {
+			table = database_table_get(db, table_node->table_name);
+
+			for (int i = 0; i < table->column_count; i++) {
+				if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+					return true;
+				}
+			}
+		}
+
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			if (check_fqfield_table(db, tmp_entry, field_node))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static bool check_column_names_select(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
 		size_t out_err_len, struct hashtable *table_alias)
 {
@@ -526,6 +558,18 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 					 */
 					if (!database_table_exists(db, field_node->table_name)) {
 						snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+								field_node->table_name);
+						return false;
+					}
+
+					/**
+					 * full qualified name that points to a table that is not part of the
+					 * FROM clause.
+					 * 	- SELECT B.f1 from A;
+					 */
+					if (!check_fqfield_table(db, root, field_node)) {
+						snprintf(out_err, out_err_len,
+								"table is not part of from clause: '%.128s'\n",
 								field_node->table_name);
 						return false;
 					}

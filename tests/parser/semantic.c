@@ -666,6 +666,7 @@ static void select_tests(void)
 	helper(&db, "SELECT f1, f2 FROM V_D_1, V_D_2;", false);
 	helper(&db, "SELECT f1, f2, f3 FROM V_D_1 JOIN V_D_2 ON f1 = f2 JOIN V_D_3 ON f2 = f3;", false);
 	helper(&db, "SELECT f1 / 2 as val FROM V_D_1;", false);
+	helper(&db, "SELECT x.f1 FROM V_D_1 as x WHERE x.f1 = 1;", false);
 	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE val > 2;", false); // where
 	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 WHERE f1 > 2;", false);
 	helper(&db, "SELECT x.f1 / 2 as val FROM V_D_1 as x;", false);
@@ -674,16 +675,6 @@ static void select_tests(void)
 	helper(&db, "SELECT V_D_1.f1 / 2 as val FROM V_D_1 WHERE V_D_1.f1 > 2;", false);
 	helper(&db, "SELECT x.f1 / 2 as val FROM V_D_1 as x WHERE x.f1 > 2;", false);
 	helper(&db, "SELECT V_D_1.f1 / 2 as val FROM V_D_1 WHERE V_D_1.f1 > 2;", false);
-	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 GROUP BY val;", false); // group by
-	helper(&db, "SELECT f1 FROM V_D_1 GROUP BY f1;", false);
-	helper(&db, "SELECT f1 FROM V_D_1 GROUP BY V_D_1.f1;", false);
-	helper(&db, "SELECT x.f1 FROM V_D_1 as x GROUP BY x.f1;", false);
-	helper(&db, "SELECT f1 / 2 as val FROM V_D_1 ORDER BY val DESC;", false); // order by
-	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1 DESC;", false);
-	helper(&db, "SELECT f1 FROM V_D_1 ORDER BY f1;", false);
-	helper(&db, "SELECT V_D_1.f1 FROM V_D_1 ORDER BY V_D_1.f1 DESC;", false);
-	helper(&db, "SELECT x.f1 FROM V_D_1 as x ORDER BY x.f1 DESC;", false);
-	helper(&db, "SELECT x.f1 FROM V_D_1 as x ORDER BY x.f1;", false);
 
 	/* valid case - where clause */
 	prep_helper(&db, "CREATE TABLE V_E_1 (f1 INT);");
@@ -692,6 +683,22 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR 3 = 4;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 = 1 AND f1 = 2 OR (3 * (5 + f1)) = 4;", false);
 	helper(&db, "SELECT f1 FROM V_E_1 WHERE f1 + 2 > 10 + 10;", false);
+
+	/* valid case - group-by clause */
+	prep_helper(&db, "CREATE TABLE V_F_1 (f1 INT);");
+	helper(&db, "SELECT f1 / 2 as val FROM V_F_1 GROUP BY val;", false); // group by
+	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY f1;", false);
+	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY V_F_1.f1;", false);
+	helper(&db, "SELECT x.f1 FROM V_F_1 as x GROUP BY x.f1;", false);
+
+	/* valid case - order-by clause */
+	prep_helper(&db, "CREATE TABLE V_G_1 (f1 INT);");
+	helper(&db, "SELECT f1 / 2 as val FROM V_G_1 ORDER BY val DESC;", false); // order by
+	helper(&db, "SELECT f1 FROM V_G_1 ORDER BY f1 DESC;", false);
+	helper(&db, "SELECT f1 FROM V_G_1 ORDER BY f1;", false);
+	helper(&db, "SELECT V_G_1.f1 FROM V_G_1 ORDER BY V_G_1.f1 DESC;", false);
+	helper(&db, "SELECT x.f1 FROM V_G_1 as x ORDER BY x.f1 DESC;", false);
+	helper(&db, "SELECT x.f1 FROM V_G_1 as x ORDER BY x.f1;", false);
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -733,32 +740,16 @@ static void select_tests(void)
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2;", false);
 	helper(&db, "SELECT f1, f2 FROM I_D_1, I_D_2, I_D_3;", true);
 
-	helper(&db, "SELECT f1 like '1' FROM I_D_1;", true);
+	helper(&db, "SELECT f1 like '1' FROM I_D_1;", true); // invalid uses of expr
 	helper(&db, "SELECT f1 IS NULL FROM I_D_1;", true);
 	helper(&db, "SELECT f1 IN (1,2,3) FROM I_D_1;", true);
 
 	helper(&db, "SELECT f1 FROM I_D_1 WHERE f2 > 2;", true); // no such column
 	helper(&db, "SELECT a.f2 FROM I_D_1 as a WHERE a.f1 > 2;", true); // no such column
-
 	helper(&db, "SELECT * FROM I_D_1, I_D_3 WHERE f1 > 1;", true); // ambiguous column (exprname)
 	helper(&db, "SELECT a.f1 FROM I_D_1 as a WHERE a.f2 > 2;", true); // no such column (fieldname)
 	helper(&db, "SELECT I_D_1.f1 FROM I_D_1 WHERE I_D_1.f2 > 2;", true); // no such column (fieldname)
 
-	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2;", true); // no such column
-	helper(&db, "SELECT x.f1 FROM I_D_1 as x GROUP BY x.f2;", true); // no such column
-	helper(&db, "SELECT * FROM I_D_1, I_D_3 GROUP BY f1;", true); // ambiguous column
-	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY 2;", true); // raw values can't be used in here
-	helper(&db, "SELECT f1 FROM I_D_1 GROUP BY f2 + 2;", true); // recursive expr can't be used in here
-//	helper(&db, "SELECT x.f1 FROM I_D_1 as x GROUP BY x.f2 + 2;", true); // recursive expr can't be used in here
-	helper(&db, "SELECT * FROM I_D_1 JOIN I_D_3 ON f1 = f1 GROUP BY f1;", true); // ambiguous column
-
-	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY f2;", true); // no such column
-	helper(&db, "SELECT x.f1 FROM I_D_1 as x ORDER BY x.f2;", true); // no such column
-	helper(&db, "SELECT * FROM I_D_1, I_D_3 ORDER BY f1;", true); // ambiguous column
-	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY 2;", true); // raw values can't be used in here
-	helper(&db, "SELECT f1 FROM I_D_1 ORDER BY f2 + 2;", true); // recursive expr can't be used in here
-//	helper(&db, "SELECT x.f1 FROM I_D_1 as x ORDER BY x.f2 + 2;", true); // recursive expr can't be used in here
-	helper(&db, "SELECT * FROM I_D_1 JOIN I_D_3 ON f1 = f1 ORDER BY f1;", true); // ambiguous column
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f3;", true);
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_3 ON f1 = f1;", true);
 //	helper(&db, "SELECT f2 FROM I_D_1 JOIN I_D_2 ON f1 = f1;", true); // f1 exists on I_D_1 but not on I_D_2
@@ -771,7 +762,32 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 + 1 AND 1 + 1;", true); // raw values
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 + 1;", true); // raw values
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND f1 = 2 OR 3;", true); // raw values
-	//	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 like 'asd';", true); // TODO validate LIKE raw values
+//		helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 = 1 AND 1 like 'asd';", true); // TODO validate LIKE raw values
+
+	/* invalid case - group-by clause */
+	prep_helper(&db, "CREATE TABLE I_F_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_F_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_F_3 (f1 INT);");
+	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY f2;", true); // no such column
+	helper(&db, "SELECT x.f1 FROM I_F_1 as x GROUP BY x.f2;", true); // no such column
+	helper(&db, "SELECT * FROM I_F_1, I_F_3 GROUP BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY 2;", true); // raw values can't be used in here
+	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY f1 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT x.f1 FROM I_F_1 as x GROUP BY x.f1 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT * FROM I_F_1 JOIN I_F_3 ON f1 = f1 GROUP BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY I_F_2.f1;", true);
+
+	/* invalid case - order-by clause */
+	prep_helper(&db, "CREATE TABLE I_G_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_G_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_G_3 (f1 INT);");
+	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY f2;", true); // no such column
+	helper(&db, "SELECT x.f1 FROM I_G_1 as x ORDER BY x.f2;", true); // no such column
+	helper(&db, "SELECT * FROM I_G_1, I_G_3 ORDER BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY 2;", true); // raw values can't be used in here
+	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY f2 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT x.f1 FROM I_G_1 as x ORDER BY x.f1 + 2;", true); // recursive expr can't be used in here
+	helper(&db, "SELECT * FROM I_G_1 JOIN I_G_3 ON f1 = f1 ORDER BY f1;", true); // ambiguous column
 
 	database_close(&db);
 }
