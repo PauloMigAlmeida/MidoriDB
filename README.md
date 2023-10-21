@@ -1,6 +1,8 @@
 # MidoriDB
 [![Unit Tests](https://github.com/PauloMigAlmeida/MidoriDB/actions/workflows/tests.yml/badge.svg)](https://github.com/PauloMigAlmeida/MidoriDB/actions/workflows/tests.yml)
 
+<img src="https://github.com/PauloMigAlmeida/MidoriDB/assets/1011868/3356dfb3-e62c-4019-a43e-afe1a25b457a" alt="midoridblogo_readme" width="150">
+
 In-memory database written in C from scratch
 
 ## Dependencies
