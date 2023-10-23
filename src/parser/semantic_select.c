@@ -319,7 +319,7 @@ static bool check_fqfield_table(struct database *db, struct ast_node *root, stru
 }
 
 static bool check_column_names_select(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *table_alias)
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 
 	struct list_head *pos;
@@ -383,6 +383,18 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 				return false;
 			}
 
+			/**
+			 * check if full qualified name points to a table that is not part of the
+			 * FROM clause.
+			 * 	- SELECT B.f1 from A;
+			 */
+			if (!check_fqfield_table(db, root, field_node)) {
+				snprintf(out_err, out_err_len,
+						"table is not part of from clause: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
 			table = database_table_get(db, field_node->table_name);
 		}
 
@@ -406,7 +418,8 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_column_names_select(db, root, tmp_entry, out_err, out_err_len, table_alias))
+			if (!check_column_names_select(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
 				return false;
 		}
 	}
@@ -473,6 +486,14 @@ static bool check_column_names_where(struct database *db, struct ast_node *root,
 				return false;
 			}
 
+			/* full qualified name that points to a table that is not part of the FROM clause */
+			if (!check_fqfield_table(db, root, field_node)) {
+				snprintf(out_err, out_err_len,
+						"table is not part of from clause: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
 			table = database_table_get(db, field_node->table_name);
 		}
 
@@ -508,93 +529,92 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_sel_exprval_node *valn;
+	struct ast_sel_exprval_node *val_node;
 	struct ast_sel_fieldname_node *field_node;
 	struct hashtable_value *ht_value;
 	struct table *table;
 	struct alias_value *alias_value;
 	int count = 0;
 
-	list_for_each(pos, node->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
 
-		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
-			valn = (typeof(valn))tmp_entry;
+		if (val_node->value_type.is_name) {
 
-			if (valn->value_type.is_name) {
+			/* is it a column alias? */
+			if (hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1))
+				return true; /* we are good */
 
-				/* is it a column alias? */
-				if (hashtable_get(column_alias, valn->name_val, strlen(valn->name_val) + 1))
-					continue; /* we are good */
-
-				/* is it an actual column? */
-				count = tables_with_column_name(db, root, valn->name_val);
-
-				if (count == 0) {
-					snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
-							valn->name_val);
-					return false;
-				} else if (count > 1) {
-					snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
-							valn->name_val);
-					return false;
-				}
-			}
-		} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
-			field_node = (typeof(field_node))tmp_entry;
-
-			ht_value = hashtable_get(table_alias, field_node->table_name,
-							strlen(field_node->table_name) + 1);
-
-			if (ht_value) {
-				/*
-				 * field name using a table alias such as:
-				 * 	- SELECT x.f1 from A as x;
-				 */
-				alias_value = (typeof(alias_value))ht_value->content;
-				table = database_table_get(db, alias_value->table_name);
-			} else {
-				/*
-				 * full qualified name without alias such as:
-				 * 	-  SELECT A.f1 from A;
-				 * Not very smart but still valid SQL so we got to validate it
-				 */
-				if (!database_table_exists(db, field_node->table_name)) {
-					snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
-							field_node->table_name);
-					return false;
-				}
-
-				/**
-				 * full qualified name that points to a table that is not part of the
-				 * FROM clause.
-				 * 	- SELECT B.f1 from A;
-				 */
-				if (!check_fqfield_table(db, root, field_node)) {
-					snprintf(out_err, out_err_len,
-							"table is not part of from clause: '%.128s'\n",
-							field_node->table_name);
-					return false;
-				}
-
-				table = database_table_get(db, field_node->table_name);
-			}
-
-			for (int i = 0; i < table->column_count; i++) {
-				if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
-					count = 1;
-					break;
-				}
-			}
+			/* is it an actual column? */
+			count = tables_with_column_name(db, root, val_node->name_val);
 
 			if (count == 0) {
-				snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n",
-						field_node->table_name,
-						field_node->col_name);
+				snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			} else if (count > 1) {
+				snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		}
+
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		ht_value = hashtable_get(table_alias, field_node->table_name, strlen(field_node->table_name) + 1);
+
+		if (ht_value) {
+			/*
+			 * field name using a table alias such as:
+			 * 	- SELECT x.f1 from A as x;
+			 */
+			alias_value = (typeof(alias_value))ht_value->content;
+			table = database_table_get(db, alias_value->table_name);
+		} else {
+			/*
+			 * full qualified name without alias such as:
+			 * 	-  SELECT A.f1 from A;
+			 * Not very smart but still valid SQL so we got to validate it
+			 */
+			if (!database_table_exists(db, field_node->table_name)) {
+				snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+						field_node->table_name);
 				return false;
 			}
 
+			/* full qualified name that points to a table that is not part of the FROM clause */
+			if (!check_fqfield_table(db, root, field_node)) {
+				snprintf(out_err, out_err_len,
+						"table is not part of from clause: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
+			table = database_table_get(db, field_node->table_name);
+		}
+
+		for (int i = 0; i < table->column_count; i++) {
+			if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+				count = 1;
+				break;
+			}
+		}
+
+		if (count == 0) {
+			snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n", field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
+				return false;
 		}
 	}
 
@@ -665,6 +685,14 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 						return false;
 					}
 
+					/* full qualified name that points to a table that is not part of the FROM clause */
+					if (!check_fqfield_table(db, root, field_node)) {
+						snprintf(out_err, out_err_len,
+								"table is not part of from clause: '%.128s'\n",
+								field_node->table_name);
+						return false;
+					}
+
 					table = database_table_get(db, field_node->table_name);
 				}
 
@@ -699,16 +727,115 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 	return true;
 }
 
+static bool check_column_names_having(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	struct table *table;
+	struct alias_value *alias_value;
+	int count = 0;
+
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+
+			/* is it a column alias? */
+			if (hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1))
+				return true; /* we are good */
+
+			/* is it an actual column? */
+			count = tables_with_column_name(db, root, val_node->name_val);
+
+			if (count == 0) {
+				snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			} else if (count > 1) {
+				snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		}
+
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		ht_value = hashtable_get(table_alias, field_node->table_name, strlen(field_node->table_name) + 1);
+
+		if (ht_value) {
+			/*
+			 * field name using a table alias such as:
+			 * 	- SELECT x.f1 from A as x;
+			 */
+			alias_value = (typeof(alias_value))ht_value->content;
+			table = database_table_get(db, alias_value->table_name);
+		} else {
+			/*
+			 * full qualified name without alias such as:
+			 * 	-  SELECT A.f1 from A;
+			 * Not very smart but still valid SQL so we got to validate it
+			 */
+			if (!database_table_exists(db, field_node->table_name)) {
+				snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
+			/* full qualified name that points to a table that is not part of the FROM clause */
+			if (!check_fqfield_table(db, root, field_node)) {
+				snprintf(out_err, out_err_len,
+						"table is not part of from clause: '%.128s'\n",
+						field_node->table_name);
+				return false;
+			}
+
+			table = database_table_get(db, field_node->table_name);
+		}
+
+		for (int i = 0; i < table->column_count; i++) {
+			if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+				count = 1;
+				break;
+			}
+		}
+
+		if (count == 0) {
+			snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n", field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
+							column_alias))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_column_names(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
 		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct ast_node *where_node;
 	struct ast_node *groupby_node;
 	struct ast_node *orderby_node;
+	struct ast_node *having_node;
 
 	where_node = find_node(root, AST_TYPE_SEL_WHERE);
 	groupby_node = find_node(root, AST_TYPE_SEL_GROUPBY);
 	orderby_node = find_node(root, AST_TYPE_SEL_ORDERBYLIST);
+	having_node = find_node(root, AST_TYPE_SEL_HAVING);
 
 	/*
 	 * check if EXPRVAL (names) / fieldnames point to something that does not exist or that is ambiguous on SELECT fields.
@@ -721,7 +848,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	 * 	SELECT f1 FROM A, B; (column exists on both A and B so we can't tell from which to fetch data from)
 	 * 	SELECT f1 as val, val * 2 as x FROM A; (alias can't be used as the source for yet another alias)
 	 */
-	if (!check_column_names_select(db, root, node, out_err, out_err_len, table_alias))
+	if (!check_column_names_select(db, root, node, out_err, out_err_len, table_alias, column_alias))
 		return false;
 
 	if (where_node) {
@@ -779,6 +906,66 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 			return false;
 	}
 
+	if (having_node) {
+		/*
+		 * check if EXPRVAL (names) / fieldnames in the having-clause are either columns or alias... Also ensure that none of them
+		 * are ambiguous if more than 1 table is used. This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 * 	CREATE TABLE B (f1 INT);
+		 *
+		 * 	SELECT COUNT(f1) FROM A HAVING COUNT(f1) > 0; (okay)
+		 * 	SELECT COUNT(f1) as val FROM A HAVING val > 0; (okay)
+		 * 	SELECT COUNT(f1) FROM A, B HAVING COUNT(f1) > 0; (f1 is ambiguous)
+		 * 	SELECT COUNT(f1) FROM A ORDER BY COUNT(f2) > 0; (no such column)
+		 */
+		if (!check_column_names_having(db, root, having_node, out_err, out_err_len, table_alias,
+						column_alias))
+			return false;
+	}
+
+	return true;
+}
+
+static bool check_count_function(struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+
+	if (node->node_type == AST_TYPE_SEL_COUNT) {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+				val_node = (typeof(val_node))tmp_entry;
+
+				if (!val_node->value_type.is_name) {
+					snprintf(out_err, out_err_len, "invalid value for COUNT function\n");
+					return false;
+				}
+
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				field_node = (typeof(field_node))tmp_entry;
+
+			} else {
+				snprintf(out_err, out_err_len, "COUNT function can only have '*' or 'fields'\n");
+				return false;
+			}
+
+		}
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_count_function(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
 	return true;
 }
 
@@ -790,7 +977,7 @@ static bool check_where_clause_expr(struct ast_node *root, struct ast_node *pare
 	if (root->node_type == AST_TYPE_SEL_EXPRVAL || root->node_type == AST_TYPE_SEL_EXPROP) {
 		if (parent->node_type == AST_TYPE_SEL_WHERE || parent->node_type == AST_TYPE_SEL_LOGOP) {
 			snprintf(out_err, out_err_len,
-					"expressions in where clause must be a type of comparison'\n");
+					"expressions in where clause must be a type of comparison\n");
 			return false;
 		}
 	} else {
@@ -856,11 +1043,50 @@ static bool check_where_clause_like(struct ast_node *root, char *out_err, size_t
 	return true;
 }
 
-static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+static bool check_where_clause_count(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
+
+	if (root->node_type == AST_TYPE_SEL_COUNT) {
+		snprintf(out_err, out_err_len, "COUNT function can't be used in the where-clause\n");
+		return false;
+	} else if (root->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))root;
+		if (val_node->value_type.is_name) {
+			ht_value = hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1);
+			if (ht_value) {
+				alias_value = (typeof(alias_value))ht_value->content;
+				if (alias_value->type.is_count) {
+					snprintf(out_err,
+							out_err_len,
+							"COUNT function can't be used in the where-clause\n");
+					return false;
+				}
+			}
+		}
+
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_where_clause_count(tmp_entry, out_err, out_err_len, column_alias))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *where_node;
 
 	where_node = find_node(root, AST_TYPE_SEL_WHERE);
+
 	if (where_node) {
 		/*
 		 * check if expr do not contain simple exprvals which are syntactically correct but semantically wrong.
@@ -895,8 +1121,8 @@ static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_
 		 * 	SELECT COUNT(*) as val FROM A WHERE val > 1; (invalid);
 		 * 	SELECT COUNT(*) FROM A WHERE COUNT(*)> 1; (invalid);
 		 */
-//		if (!check_where_clause_count(root, out_err, out_err_len))
-//			return false;
+		if (!check_where_clause_count(root, out_err, out_err_len, column_alias))
+			return false;
 	}
 
 	return true;
@@ -917,7 +1143,7 @@ static bool check_select_clause(struct ast_node *root, char *out_err, size_t out
 
 		snprintf(out_err,
 				out_err_len,
-				"only columns, aliases, functions and recursive expressions are valid in select clause'\n");
+				"only columns, aliases, functions and recursive expressions are valid in select clause\n");
 		return false;
 	} else {
 		list_for_each(pos, root->node_children_head)
@@ -969,7 +1195,45 @@ static bool check_groupby_clause_expr(struct ast_node *node, char *out_err, size
 	return true;
 }
 
-static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+static bool check_groupby_clause_count(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
+
+	if (root->node_type == AST_TYPE_SEL_COUNT) {
+		snprintf(out_err, out_err_len, "COUNT function can't be used in the groupby-clause\n");
+		return false;
+	} else if (root->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))root;
+		if (val_node->value_type.is_name) {
+			ht_value = hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1);
+			if (ht_value) {
+				alias_value = (typeof(alias_value))ht_value->content;
+				if (alias_value->type.is_count) {
+					snprintf(out_err,
+							out_err_len,
+							"COUNT function can't be used in the groupby-clause\n");
+					return false;
+				}
+			}
+		}
+
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_groupby_clause_count(tmp_entry, out_err, out_err_len, column_alias))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *groupby_node;
 
@@ -988,6 +1252,10 @@ static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t ou
 		 * 	SELECT f1 FROM A GROUP BY 2; (only fields and alias are supported)
 		 */
 		if (!check_groupby_clause_expr(groupby_node, out_err, out_err_len))
+			return false;
+
+		/* check if there occurrences of COUNT() function via alias or directly */
+		if (!check_groupby_clause_count(root, out_err, out_err_len, column_alias))
 			return false;
 	}
 
@@ -1034,7 +1302,45 @@ static bool check_orderby_clause_expr(struct ast_node *node, char *out_err, size
 
 }
 
-static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+static bool check_orderby_clause_count(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
+
+	if (root->node_type == AST_TYPE_SEL_COUNT) {
+		snprintf(out_err, out_err_len, "COUNT function can't be used in the orderby-clause\n");
+		return false;
+	} else if (root->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))root;
+		if (val_node->value_type.is_name) {
+			ht_value = hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1);
+			if (ht_value) {
+				alias_value = (typeof(alias_value))ht_value->content;
+				if (alias_value->type.is_count) {
+					snprintf(out_err,
+							out_err_len,
+							"COUNT function can't be used in the orderby-clause\n");
+					return false;
+				}
+			}
+		}
+
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_orderby_clause_count(tmp_entry, out_err, out_err_len, column_alias))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *orderby_node;
 
@@ -1053,6 +1359,10 @@ static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t ou
 		 * 	SELECT f1 FROM A ODER BY 2; (only fields and alias are supported)
 		 */
 		if (!check_orderby_clause_expr(orderby_node, out_err, out_err_len))
+			return false;
+
+		/* check if there occurrences of COUNT() function via alias or directly */
+		if (!check_orderby_clause_count(root, out_err, out_err_len, column_alias))
 			return false;
 	}
 
@@ -1117,6 +1427,22 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_names;
 
+	/*
+	 * Check for COUNT functions
+	 * This takes care of both SELECT and HAVING clauses. WHERE-clause is processed later as no
+	 * COUNT function is allowed in the there.
+	 *
+	 * 	SELECT COUNT(*) FROM A; (okay)
+	 * 	SELECT COUNT(f1) FROM A; (okay)
+	 * 	SELECT COUNT(f1 + f2) FROM A; (invalid)
+	 * 	SELECT COUNT(1) FROM A; (invalid)
+	 * 	SELECT COUNT(B.f1) FROM A; (invalid fqfield - not part of FROM clause)
+	 * 	SELECT COUNT(non_valid_column) FROM A; (invalid) -> (taken care of through check_column_names routine)
+	 * 	SELECT COUNT(alias_name) FROM A; (invalid)
+	 */
+	if (!check_count_function(node, out_err, out_err_len))
+		return false;
+
 	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.
 	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
 	 * It's preferable to debug this code than to debug bison's parser code instead :) */
@@ -1124,7 +1450,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 		goto err_select_clause;
 
 	/* check where clause */
-	if (!check_where_clause(node, out_err, out_err_len))
+	if (!check_where_clause(node, out_err, out_err_len, &column_alias))
 		goto err_where_clause;
 
 	/*
@@ -1133,14 +1459,14 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - fields are part of the SELECT fields
 	 * 	-> This is also a different thing on SQLITE and MySQL..... got decide how I want it to work.
 	 */
-	if (!check_groupby_clause(node, out_err, out_err_len))
+	if (!check_groupby_clause(node, out_err, out_err_len, &column_alias))
 		goto err_groupby_clause;
 
 	/*
 	 * check if order-by clause contains only exprval (name) / fieldnames / alias (later one is verified in
 	 * check_column_names)
 	 */
-	if (!check_orderby_clause(node, out_err, out_err_len))
+	if (!check_orderby_clause(node, out_err, out_err_len, &column_alias))
 		goto err_groupby_clause;
 
 	/*

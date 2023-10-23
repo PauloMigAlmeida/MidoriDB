@@ -656,6 +656,7 @@ static void select_tests(void)
 	helper(&db, "SELECT v1.f1 as f4, v2.f2, f3 FROM V_C_1 as v1, V_C_2 as v2, V_C_3;", false);
 	helper(&db, "SELECT f1 / 2 as val FROM V_C_1;", false);
 	helper(&db, "SELECT y.f1 / 2 as val FROM V_C_1 y;", false);
+	helper(&db, "SELECT count(f1) as val FROM V_C_1;", false);
 
 	/* valid case - column name */
 	prep_helper(&db, "CREATE TABLE V_D_1 (f1 INT);");
@@ -701,6 +702,14 @@ static void select_tests(void)
 	helper(&db, "SELECT V_G_1.f1 FROM V_G_1 ORDER BY V_G_1.f1 DESC;", false);
 	helper(&db, "SELECT x.f1 FROM V_G_1 as x ORDER BY x.f1 DESC;", false);
 	helper(&db, "SELECT x.f1 FROM V_G_1 as x ORDER BY x.f1;", false);
+
+	/* valid case - COUNT function */
+	prep_helper(&db, "CREATE TABLE V_H_1 (f1 INT);");
+	helper(&db, "SELECT COUNT(*) FROM V_H_1;", false);
+	helper(&db, "SELECT COUNT(f1) FROM V_H_1;", false);
+	helper(&db, "SELECT COUNT(V_H_1.f1) FROM V_H_1;", false);
+	helper(&db, "SELECT COUNT(x.f1) FROM V_H_1 as x;", false);
+	helper(&db, "SELECT COUNT(x.f1) as y FROM V_H_1 as x HAVING y > 0;", false);
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -794,6 +803,39 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY f2 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT x.f1 FROM I_G_1 as x ORDER BY x.f1 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT * FROM I_G_1 JOIN I_G_3 ON f1 = f1 ORDER BY f1;", true); // ambiguous column
+
+	/* invalid case - COUNT function */
+	prep_helper(&db, "CREATE TABLE I_H_1 (f1 INT);");
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 WHERE COUNT(*) > 1;", true); // count in where
+	helper(&db, "SELECT COUNT(*) as val FROM I_H_1 WHERE val > 1;", true); // count in where
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 GROUP BY COUNT(*);", true); // count in group-by
+	helper(&db, "SELECT COUNT(*) as val FROM I_H_1 GROUP BY val;", true); // count in group-by
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 ORDER BY COUNT(*);", true); // count in order-by
+	helper(&db, "SELECT COUNT(*) as val FROM I_H_1 ORDER BY val;", true); // count in order-by
+	helper(&db, "SELECT COUNT(1) FROM I_H_1;", true); // raw value
+	helper(&db, "SELECT COUNT(1.0) FROM I_H_1;", true); // raw value
+	helper(&db, "SELECT COUNT('a') FROM I_H_1;", true); // raw value
+	helper(&db, "SELECT COUNT(f3) FROM I_H_1;", true); // no such column
+	helper(&db, "SELECT COUNT(f1 + f2) FROM I_H_1;", true); // can't use LOGOP
+	helper(&db, "SELECT COUNT(V_H_1.f1) FROM I_H_1;", true); // table isn't part of the FROM clause
+	helper(&db, "SELECT COUNT(x.f1) FROM I_H_1 as y;", true); // invalid alias
+
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT(1) > 0;", true); // raw value
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT(1.0) > 0;", true); // raw value
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT('a') > 0;", true); // raw value
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT(f3) > 0;", true); // no such column
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT(f1 + f2) > 0;", true); // can't use LOGOP
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 HAVING COUNT(V_H_1.f1) > 0;", true); // table isn't part of the FROM clause
+	helper(&db, "SELECT COUNT(*) FROM I_H_1 as y HAVING COUNT(x.f1) > 0;", true); // invalid alias
+
+	helper(&db, "SELECT COUNT(1) FROM I_H_1 HAVING COUNT(1) > 0;", true); // raw value
+	helper(&db, "SELECT COUNT(1.0) FROM I_H_1 HAVING COUNT(1.0) > 0;", true); // raw value
+	helper(&db, "SELECT COUNT('a') FROM I_H_1 HAVING COUNT('a') > 0;", true); // raw value
+	helper(&db, "SELECT COUNT(f3) FROM I_H_1 HAVING COUNT(f3) > 0;", true); // no such column
+	helper(&db, "SELECT COUNT(f1 + f2) FROM I_H_1 HAVING COUNT(f1 + f2) > 0;", true); // can't use LOGOP
+	helper(&db, "SELECT COUNT(V_H_1.f1) FROM I_H_1 HAVING COUNT(V_H_1.f1) > 0;", true); // table isn't part of the FROM clause
+	helper(&db, "SELECT COUNT(x.f1) FROM I_H_1 as y HAVING COUNT(x.f1) > 0;", true); // invalid alias
+	//TODO implement HAVING checks. Having-clauses must have their expr as part of SELECT clause too.
 
 	database_close(&db);
 }
