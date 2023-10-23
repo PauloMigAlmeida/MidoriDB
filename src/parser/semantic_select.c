@@ -18,7 +18,8 @@ struct alias_value {
 		bool is_table; /* Ex.: select x.* from A as x */
 		bool is_field; /* Ex.: select f1 as val from A*/
 		bool is_fqfield; /* Ex.: select x.f1 as val from A as x */
-		bool is_expre; /* Ex.: select f1 * 2 as val from A*/
+		bool is_expre; /* Ex.: select f1 * 2 as val from A */
+		bool is_count; /* Ex.: select count(f1) as val from A */
 	} type;
 };
 
@@ -32,6 +33,28 @@ static void free_hashmap_entries(struct hashtable *hashtable, const void *key, s
 
 	entry = hashtable_remove(hashtable, key, klen);
 	hashtable_free_entry(entry);
+}
+
+static struct ast_node* find_node(struct ast_node *root, enum ast_node_type node_type)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_node *ret = NULL;
+
+	if (root->node_type == node_type) {
+		return root;
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			ret = find_node(tmp_entry, node_type);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
 }
 
 static bool check_table_alias(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *out_ht)
@@ -159,6 +182,10 @@ static bool check_column_alias(struct database *db, struct ast_node *root, char 
 				/* recursive expression such as SELECT f1 * 2 as val FROM a; */
 				memzero(&value, sizeof(value));
 				value.type.is_expre = true;
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_COUNT) {
+				/* COUNT function such as SELECT COUNT(f1) as val FROM a; */
+				memzero(&value, sizeof(value));
+				value.type.is_count = true;
 			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
 				field_node = (typeof(field_node))tmp_entry;
 
@@ -387,7 +414,7 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 	return true;
 }
 
-static bool do_check_column_names_where(struct database *db, struct ast_node *root, struct ast_node *node,
+static bool check_column_names_where(struct database *db, struct ast_node *root, struct ast_node *node,
 		char *out_err, size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
 	struct list_head *pos;
@@ -467,28 +494,6 @@ static bool do_check_column_names_where(struct database *db, struct ast_node *ro
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!do_check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
-								column_alias))
-				return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_column_names_where(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
-{
-	struct list_head *pos;
-	struct ast_node *tmp_entry;
-
-	if (node->node_type == AST_TYPE_SEL_WHERE) {
-		return do_check_column_names_where(db, root, node, out_err, out_err_len, table_alias, column_alias);
-	} else {
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
 			if (!check_column_names_where(db, root, tmp_entry, out_err, out_err_len, table_alias,
 							column_alias))
 				return false;
@@ -510,98 +515,86 @@ static bool check_column_names_groupby(struct database *db, struct ast_node *roo
 	struct alias_value *alias_value;
 	int count = 0;
 
-	if (node->node_type == AST_TYPE_SEL_GROUPBY) {
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
-				valn = (typeof(valn))tmp_entry;
+		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			valn = (typeof(valn))tmp_entry;
 
-				if (valn->value_type.is_name) {
+			if (valn->value_type.is_name) {
 
-					/* is it a column alias? */
-					if (hashtable_get(column_alias, valn->name_val, strlen(valn->name_val) + 1))
-						continue; /* we are good */
+				/* is it a column alias? */
+				if (hashtable_get(column_alias, valn->name_val, strlen(valn->name_val) + 1))
+					continue; /* we are good */
 
-					/* is it an actual column? */
-					count = tables_with_column_name(db, root, valn->name_val);
-
-					if (count == 0) {
-						snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
-								valn->name_val);
-						return false;
-					} else if (count > 1) {
-						snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
-								valn->name_val);
-						return false;
-					}
-				}
-			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
-				field_node = (typeof(field_node))tmp_entry;
-
-				ht_value = hashtable_get(table_alias, field_node->table_name,
-								strlen(field_node->table_name) + 1);
-
-				if (ht_value) {
-					/*
-					 * field name using a table alias such as:
-					 * 	- SELECT x.f1 from A as x;
-					 */
-					alias_value = (typeof(alias_value))ht_value->content;
-					table = database_table_get(db, alias_value->table_name);
-				} else {
-					/*
-					 * full qualified name without alias such as:
-					 * 	-  SELECT A.f1 from A;
-					 * Not very smart but still valid SQL so we got to validate it
-					 */
-					if (!database_table_exists(db, field_node->table_name)) {
-						snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
-								field_node->table_name);
-						return false;
-					}
-
-					/**
-					 * full qualified name that points to a table that is not part of the
-					 * FROM clause.
-					 * 	- SELECT B.f1 from A;
-					 */
-					if (!check_fqfield_table(db, root, field_node)) {
-						snprintf(out_err, out_err_len,
-								"table is not part of from clause: '%.128s'\n",
-								field_node->table_name);
-						return false;
-					}
-
-					table = database_table_get(db, field_node->table_name);
-				}
-
-				for (int i = 0; i < table->column_count; i++) {
-					if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
-						count = 1;
-						break;
-					}
-				}
+				/* is it an actual column? */
+				count = tables_with_column_name(db, root, valn->name_val);
 
 				if (count == 0) {
-					snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n",
-							field_node->table_name,
-							field_node->col_name);
+					snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
+							valn->name_val);
+					return false;
+				} else if (count > 1) {
+					snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
+							valn->name_val);
+					return false;
+				}
+			}
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+			field_node = (typeof(field_node))tmp_entry;
+
+			ht_value = hashtable_get(table_alias, field_node->table_name,
+							strlen(field_node->table_name) + 1);
+
+			if (ht_value) {
+				/*
+				 * field name using a table alias such as:
+				 * 	- SELECT x.f1 from A as x;
+				 */
+				alias_value = (typeof(alias_value))ht_value->content;
+				table = database_table_get(db, alias_value->table_name);
+			} else {
+				/*
+				 * full qualified name without alias such as:
+				 * 	-  SELECT A.f1 from A;
+				 * Not very smart but still valid SQL so we got to validate it
+				 */
+				if (!database_table_exists(db, field_node->table_name)) {
+					snprintf(out_err, out_err_len, "table doesn't exist: '%.128s'\n",
+							field_node->table_name);
 					return false;
 				}
 
+				/**
+				 * full qualified name that points to a table that is not part of the
+				 * FROM clause.
+				 * 	- SELECT B.f1 from A;
+				 */
+				if (!check_fqfield_table(db, root, field_node)) {
+					snprintf(out_err, out_err_len,
+							"table is not part of from clause: '%.128s'\n",
+							field_node->table_name);
+					return false;
+				}
+
+				table = database_table_get(db, field_node->table_name);
 			}
-		}
 
-	} else {
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			for (int i = 0; i < table->column_count; i++) {
+				if (strcmp(table->columns[i].name, field_node->col_name) == 0) {
+					count = 1;
+					break;
+				}
+			}
 
-			if (!check_column_names_groupby(db, root, tmp_entry, out_err, out_err_len, table_alias,
-							column_alias))
+			if (count == 0) {
+				snprintf(out_err, out_err_len, "no such column: '%.128s'.'%.128s'\n",
+						field_node->table_name,
+						field_node->col_name);
 				return false;
+			}
+
 		}
 	}
 
@@ -709,6 +702,14 @@ static bool check_column_names_orderby(struct database *db, struct ast_node *roo
 static bool check_column_names(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
 		size_t out_err_len, struct hashtable *table_alias, struct hashtable *column_alias)
 {
+	struct ast_node *where_node;
+	struct ast_node *groupby_node;
+	struct ast_node *orderby_node;
+
+	where_node = find_node(root, AST_TYPE_SEL_WHERE);
+	groupby_node = find_node(root, AST_TYPE_SEL_GROUPBY);
+	orderby_node = find_node(root, AST_TYPE_SEL_ORDERBYLIST);
+
 	/*
 	 * check if EXPRVAL (names) / fieldnames point to something that does not exist or that is ambiguous on SELECT fields.
 	 * this handles cases like:
@@ -723,62 +724,73 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	if (!check_column_names_select(db, root, node, out_err, out_err_len, table_alias))
 		return false;
 
-	/*
-	 * check if EXPRVAL (names) / fieldnames in the where-clause are either columns or alias... Also ensure that none of them
-	 * are ambiguous if more than 1 table is used. This should handle cases like:
-	 *
-	 * 	CREATE TABLE A (f1 INT);
-	 * 	CREATE TABLE B (f1 INT);
-	 *
-	 * 	SELECT f1 FROM A WHERE f1 = 1; (okay)
-	 * 	SELECT f1 as val FROM A WHERE val = 1; (okay)
-	 * 	SELECT f1 FROM A, B WHERE f1 = 1; (f1 is ambiguous)
-	 * 	SELECT f1 FROM A WHERE f2 = 2; (no such column)
-	 */
-	if (!check_column_names_where(db, root, node, out_err, out_err_len, table_alias, column_alias))
-		return false;
+	if (where_node) {
+		/*
+		 * check if EXPRVAL (names) / fieldnames in the where-clause are either columns or alias...
+		 * Also ensure that none of them are ambiguous if more than 1 table is used.
+		 * This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 * 	CREATE TABLE B (f1 INT);
+		 *
+		 * 	SELECT f1 FROM A WHERE f1 = 1; (okay)
+		 * 	SELECT f1 as val FROM A WHERE val = 1; (okay)
+		 * 	SELECT f1 FROM A, B WHERE f1 = 1; (f1 is ambiguous)
+		 * 	SELECT f1 FROM A WHERE f2 = 2; (no such column)
+		 */
+		if (!check_column_names_where(db, root, where_node, out_err, out_err_len, table_alias, column_alias))
+			return false;
+	}
 
-	/*
-	 * check if EXPRVAL (names) / fieldnames in the group-by clause are either columns or alias... Also ensure that none of them
-	 * are ambiguous if more than 1 table is used. This should handle cases like:
-	 *
-	 * 	CREATE TABLE A (f1 INT);
-	 * 	CREATE TABLE B (f1 INT);
-	 *
-	 * 	SELECT f1 FROM A GROUP BY f1; (okay)
-	 * 	SELECT f1 as val FROM A GROUP BY val; (okay)
-	 * 	SELECT f1 FROM A, B GROUP BY f1; (f1 is ambiguous)
-	 * 	SELECT f1 FROM A GROUP BY f2; (no such column)
-	 */
-	if (!check_column_names_groupby(db, root, node, out_err, out_err_len, table_alias, column_alias))
-		return false;
+	if (groupby_node) {
+		/*
+		 * check if EXPRVAL (names) / fieldnames in the group-by clause are either columns or alias...
+		 * Also ensure that none of them are ambiguous if more than 1 table is used.
+		 * This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 * 	CREATE TABLE B (f1 INT);
+		 *
+		 * 	SELECT f1 FROM A GROUP BY f1; (okay)
+		 * 	SELECT f1 as val FROM A GROUP BY val; (okay)
+		 * 	SELECT f1 FROM A, B GROUP BY f1; (f1 is ambiguous)
+		 * 	SELECT f1 FROM A GROUP BY f2; (no such column)
+		 */
+		if (!check_column_names_groupby(db, root, groupby_node, out_err, out_err_len, table_alias,
+						column_alias))
+			return false;
+	}
 
-	/*
-	 * check if EXPRVAL (names) / fieldnames in the order by clause are either columns or alias... Also ensure that none of them
-	 * are ambiguous if more than 1 table is used. This should handle cases like:
-	 *
-	 * 	CREATE TABLE A (f1 INT);
-	 * 	CREATE TABLE B (f1 INT);
-	 *
-	 * 	SELECT f1 FROM A ORDER BY f1; (okay)
-	 * 	SELECT f1 as val FROM A ORDER BY val; (okay)
-	 * 	SELECT f1 FROM A, B ORDER BY f1; (f1 is ambiguous)
-	 * 	SELECT f1 FROM A ORDER BY f2; (no such column)
-	 */
-	if (!check_column_names_orderby(db, root, node, out_err, out_err_len, table_alias, column_alias))
-		return false;
+	if (orderby_node) {
+		/*
+		 * check if EXPRVAL (names) / fieldnames in the order by clause are either columns or alias... Also ensure that none of them
+		 * are ambiguous if more than 1 table is used. This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 * 	CREATE TABLE B (f1 INT);
+		 *
+		 * 	SELECT f1 FROM A ORDER BY f1; (okay)
+		 * 	SELECT f1 as val FROM A ORDER BY val; (okay)
+		 * 	SELECT f1 FROM A, B ORDER BY f1; (f1 is ambiguous)
+		 * 	SELECT f1 FROM A ORDER BY f2; (no such column)
+		 */
+		if (!check_column_names_orderby(db, root, orderby_node, out_err, out_err_len, table_alias,
+						column_alias))
+			return false;
+	}
 
 	return true;
 }
 
-static bool do_check_where_clause_expr(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
+static bool check_where_clause_expr(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 
 	if (root->node_type == AST_TYPE_SEL_EXPRVAL || root->node_type == AST_TYPE_SEL_EXPROP) {
 		if (parent->node_type == AST_TYPE_SEL_WHERE || parent->node_type == AST_TYPE_SEL_LOGOP) {
-			snprintf(out_err, out_err_len, "expressions in where clause must be a type of comparison'\n");
+			snprintf(out_err, out_err_len,
+					"expressions in where clause must be a type of comparison'\n");
 			return false;
 		}
 	} else {
@@ -786,30 +798,10 @@ static bool do_check_where_clause_expr(struct ast_node *root, struct ast_node *p
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!do_check_where_clause_expr(tmp_entry, root, out_err, out_err_len))
+			if (!check_where_clause_expr(tmp_entry, root, out_err, out_err_len))
 				return false;
 		}
 	}
-	return true;
-}
-
-static bool check_where_clause_expr(struct ast_node *root, char *out_err, size_t out_err_len)
-{
-	struct list_head *pos;
-	struct ast_node *tmp_entry;
-
-	if (root->node_type == AST_TYPE_SEL_WHERE) {
-		return do_check_where_clause_expr(root, NULL, out_err, out_err_len);
-	} else {
-		list_for_each(pos, root->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (!check_where_clause_expr(tmp_entry, out_err, out_err_len))
-				return false;
-		}
-	}
-
 	return true;
 }
 
@@ -821,7 +813,6 @@ static bool check_where_clause_like(struct ast_node *root, char *out_err, size_t
 	int i = 0;
 
 	if (root->node_type == AST_TYPE_SEL_LIKE) {
-		// I chose not to support LIKE in SELECT clause, so no need to check whether WHERE node was visited
 		list_for_each(pos, root->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
@@ -837,7 +828,8 @@ static bool check_where_clause_like(struct ast_node *root, char *out_err, size_t
 				if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
 					val_node = (typeof(val_node))tmp_entry;
 					if (!val_node->value_type.is_name) {
-						snprintf(out_err, out_err_len, "field expected before LIKE function\n");
+						snprintf(out_err, out_err_len,
+								"field expected before LIKE function\n");
 						return false;
 					}
 				}
@@ -866,32 +858,46 @@ static bool check_where_clause_like(struct ast_node *root, char *out_err, size_t
 
 static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_err_len)
 {
-	/*
-	 * check if expr do not contain simple exprvals which are syntactically correct but semantically wrong.
-	 *
-	 * PS.: However. many DB engines like SQLite and Mysql do support it for some reason.
-	 *
-	 *	SELECT f1 from A where f1 > 2; (okay);
-	 *   	SELECT f1 from A where f1; (No CMP);
-	 *   	SELECT f1 from A where f1 + 2; (No CMP);
-	 *   	SELECT f1 from A where 2 + 2; (No CMP);
-	 *   	SELECT f1 from A where 2; (No CMP);
-	 *   	SELECT f1 from A where f1 AND 2; (No CMP);
-	 */
-	if (!check_where_clause_expr(root, out_err, out_err_len))
-		return false;
+	struct ast_node *where_node;
 
-	/*
-	 * check if LIKE operations in the where-clause has exactly 1 field and 1 exprval.
-	 *
-	 * 	SELECT f1 from A WHERE f1 LIKE 'bla; (okay)
-	 * 	SELECT f1 from A WHERE f1 LIKE f1; (invalid)
-	 * 	SELECT f1 from A WHERE 1 LIKE f1; (invalid)
-	 * 	SELECT f1 from A WHERE f1 LIKE 1; (invalid)
-	 * 	SELECT f1 from A WHERE 1 LIKE 1; (invalid)
-	 */
-	if (!check_where_clause_like(root, out_err, out_err_len))
-		return false;
+	where_node = find_node(root, AST_TYPE_SEL_WHERE);
+	if (where_node) {
+		/*
+		 * check if expr do not contain simple exprvals which are syntactically correct but semantically wrong.
+		 *
+		 * PS.: However. many DB engines like SQLite and Mysql do support it for some reason.
+		 *
+		 *	SELECT f1 from A where f1 > 2; (okay);
+		 *   	SELECT f1 from A where f1; (No CMP);
+		 *   	SELECT f1 from A where f1 + 2; (No CMP);
+		 *   	SELECT f1 from A where 2 + 2; (No CMP);
+		 *   	SELECT f1 from A where 2; (No CMP);
+		 *   	SELECT f1 from A where f1 AND 2; (No CMP);
+		 */
+		if (!check_where_clause_expr(where_node, NULL, out_err, out_err_len))
+			return false;
+
+		/*
+		 * check if LIKE operations in the where-clause has exactly 1 field and 1 exprval.
+		 *
+		 * 	SELECT f1 from A WHERE f1 LIKE 'bla; (okay)
+		 * 	SELECT f1 from A WHERE f1 LIKE f1; (invalid)
+		 * 	SELECT f1 from A WHERE 1 LIKE f1; (invalid)
+		 * 	SELECT f1 from A WHERE f1 LIKE 1; (invalid)
+		 * 	SELECT f1 from A WHERE 1 LIKE 1; (invalid)
+		 */
+		if (!check_where_clause_like(where_node, out_err, out_err_len))
+			return false;
+
+		/*
+		 * check if there occurences of COUNT() function via alias or directly.
+		 *
+		 * 	SELECT COUNT(*) as val FROM A WHERE val > 1; (invalid);
+		 * 	SELECT COUNT(*) FROM A WHERE COUNT(*)> 1; (invalid);
+		 */
+//		if (!check_where_clause_count(root, out_err, out_err_len))
+//			return false;
+	}
 
 	return true;
 }
@@ -906,10 +912,12 @@ static bool check_select_clause(struct ast_node *root, char *out_err, size_t out
 			&& root->node_type != AST_TYPE_SEL_EXPROP
 			&& root->node_type != AST_TYPE_SEL_EXPRVAL
 			&& root->node_type != AST_TYPE_SEL_FIELDNAME
+			&& root->node_type != AST_TYPE_SEL_COUNT
 			&& root->node_type != AST_TYPE_SEL_ALIAS) {
 
-		snprintf(out_err, out_err_len,
-				"only columns, aliases and recursive expression are valid in select clause'\n");
+		snprintf(out_err,
+				out_err_len,
+				"only columns, aliases, functions and recursive expressions are valid in select clause'\n");
 		return false;
 	} else {
 		list_for_each(pos, root->node_children_head)
@@ -933,68 +941,60 @@ static bool check_select_clause(struct ast_node *root, char *out_err, size_t out
 	return true;
 }
 
-static bool check_groupby_clause_expr(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+static bool check_groupby_clause_expr(struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *valn;
 
-	if (node->node_type == AST_TYPE_SEL_GROUPBY) {
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
-				valn = (typeof(valn))tmp_entry;
+		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			valn = (typeof(valn))tmp_entry;
 
-				if (!valn->value_type.is_name) {
-					snprintf(out_err, out_err_len,
-							"group-by clauses support only fields and aliases\n");
-					return false;
-				}
-			} else if (tmp_entry->node_type != AST_TYPE_SEL_FIELDNAME) {
-				snprintf(out_err, out_err_len, "group-by clauses support only fields and aliases\n");
+			if (!valn->value_type.is_name) {
+				snprintf(out_err, out_err_len,
+						"group-by clauses support only fields and aliases\n");
 				return false;
 			}
-		}
-
-	} else {
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (!check_groupby_clause_expr(db, root, tmp_entry, out_err, out_err_len, column_alias))
-				return false;
+		} else if (tmp_entry->node_type != AST_TYPE_SEL_FIELDNAME) {
+			snprintf(out_err, out_err_len,
+					"group-by clauses support only fields and aliases\n");
+			return false;
 		}
 	}
 
 	return true;
-
 }
 
-static bool check_groupby_clause(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t out_err_len)
 {
-	/*
-	 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
-	 * are ambiguous if more than 1 table is used. This should handle cases like:
-	 *
-	 * 	CREATE TABLE A (f1 INT);
-	 *
-	 *	SELECT f1 FROM A GROUP BY f1; (okay)
-	 *	SELECT A.f1 FROM A GROUP BY A.f1; (okay):
-	 * 	SELECT f1 FROM A GROUP BY f2 + 2; (only fields and alias are supported)
-	 * 	SELECT f1 FROM A GROUP BY 2; (only fields and alias are supported)
-	 */
-	if (!check_groupby_clause_expr(db, root, node, out_err, out_err_len, column_alias))
-		return false;
+	struct ast_node *groupby_node;
+
+	groupby_node = find_node(root, AST_TYPE_SEL_GROUPBY);
+
+	if (groupby_node) {
+		/*
+		 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
+		 * are ambiguous if more than 1 table is used. This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 *
+		 *	SELECT f1 FROM A GROUP BY f1; (okay)
+		 *	SELECT A.f1 FROM A GROUP BY A.f1; (okay):
+		 * 	SELECT f1 FROM A GROUP BY f2 + 2; (only fields and alias are supported)
+		 * 	SELECT f1 FROM A GROUP BY 2; (only fields and alias are supported)
+		 */
+		if (!check_groupby_clause_expr(groupby_node, out_err, out_err_len))
+			return false;
+	}
 
 	return true;
 }
 
-static bool check_orderby_clause_expr(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+static bool check_orderby_clause_expr(struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
@@ -1014,7 +1014,8 @@ static bool check_orderby_clause_expr(struct database *db, struct ast_node *root
 					return false;
 				}
 			} else if (tmp_entry->node_type != AST_TYPE_SEL_FIELDNAME) {
-				snprintf(out_err, out_err_len, "order-by clauses support only fields and aliases\n");
+				snprintf(out_err, out_err_len,
+						"order-by clauses support only fields and aliases\n");
 				return false;
 			}
 		}
@@ -1024,7 +1025,7 @@ static bool check_orderby_clause_expr(struct database *db, struct ast_node *root
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_orderby_clause_expr(db, root, tmp_entry, out_err, out_err_len, column_alias))
+			if (!check_orderby_clause_expr(tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
@@ -1033,22 +1034,27 @@ static bool check_orderby_clause_expr(struct database *db, struct ast_node *root
 
 }
 
-static bool check_orderby_clause(struct database *db, struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len, struct hashtable *column_alias)
+static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t out_err_len)
 {
-	/*
-	 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
-	 * are ambiguous if more than 1 table is used. This should handle cases like:
-	 *
-	 * 	CREATE TABLE A (f1 INT);
-	 *
-	 *	SELECT f1 FROM A ORDER BY f1; (okay)
-	 *	SELECT A.f1 FROM A ORDER BY A.f1; (okay):
-	 * 	SELECT f1 FROM A ORDER BY f2 + 2; (only fields and alias are supported)
-	 * 	SELECT f1 FROM A ODER BY 2; (only fields and alias are supported)
-	 */
-	if (!check_orderby_clause_expr(db, root, node, out_err, out_err_len, column_alias))
-		return false;
+	struct ast_node *orderby_node;
+
+	orderby_node = find_node(root, AST_TYPE_SEL_ORDERBYLIST);
+
+	if (orderby_node) {
+		/*
+		 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
+		 * are ambiguous if more than 1 table is used. This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 *
+		 *	SELECT f1 FROM A ORDER BY f1; (okay)
+		 *	SELECT A.f1 FROM A ORDER BY A.f1; (okay):
+		 * 	SELECT f1 FROM A ORDER BY f2 + 2; (only fields and alias are supported)
+		 * 	SELECT f1 FROM A ODER BY 2; (only fields and alias are supported)
+		 */
+		if (!check_orderby_clause_expr(orderby_node, out_err, out_err_len))
+			return false;
+	}
 
 	return true;
 }
@@ -1111,7 +1117,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_column_names;
 
-	/* check select to ensure only columns, recursive expressions and aliases are used.
+	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.
 	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
 	 * It's preferable to debug this code than to debug bison's parser code instead :) */
 	if (!check_select_clause(node, out_err, out_err_len))
@@ -1127,14 +1133,14 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - fields are part of the SELECT fields
 	 * 	-> This is also a different thing on SQLITE and MySQL..... got decide how I want it to work.
 	 */
-	if (!check_groupby_clause(db, node, node, out_err, out_err_len, &column_alias))
+	if (!check_groupby_clause(node, out_err, out_err_len))
 		goto err_groupby_clause;
 
 	/*
 	 * check if order-by clause contains only exprval (name) / fieldnames / alias (later one is verified in
 	 * check_column_names)
 	 */
-	if (!check_orderby_clause(db, node, node, out_err, out_err_len, &column_alias))
+	if (!check_orderby_clause(node, out_err, out_err_len))
 		goto err_groupby_clause;
 
 	/*
