@@ -83,7 +83,8 @@ int database_table_add(struct database *db, struct table *table)
 		goto err;
 	}
 
-	if (!hashtable_put(db->tables, table->name, sizeof(table->name), &table, sizeof(uintptr_t))) {
+	if (!hashtable_put(db->tables, table->name, MIN(strlen(table->name) + 1, sizeof(table->name)), &table,
+				sizeof(uintptr_t))) {
 		rc = -MIDORIDB_NOMEM;
 		goto err_ht_put;
 	}
