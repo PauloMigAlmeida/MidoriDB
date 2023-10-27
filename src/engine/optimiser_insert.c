@@ -14,7 +14,7 @@ static void negate(struct ast_ins_exprval_node *in, struct ast_ins_exprval_node 
 	} else if (in->value_type.is_approxnum) {
 		out->double_val = in->double_val * -1;
 	} else {
-		BUG_ON_CUSTOM_MSG(true, "Operation not implemented yet\n");
+		BUG_GENERIC();
 	}
 	memcpy(&out->value_type, &in->value_type, sizeof(out->value_type));
 }
@@ -51,7 +51,7 @@ static void calcd(struct ast_ins_exprop_node *op, struct ast_ins_exprval_node *v
 		/* C doesn't support modulo operation on double data type. Replicating SQLite behaviour */
 		result = (double)(((int)val_2->double_val) % ((int)val_1->double_val));
 	} else {
-		BUG_ON_CUSTOM_MSG(true, "Operation not implemented yet\n");
+		BUG_GENERIC();
 	}
 
 	out->double_val = result;
@@ -88,7 +88,7 @@ static void calci(struct ast_ins_exprop_node *op, struct ast_ins_exprval_node *v
 	} else if (op->op_type == AST_INS_EXPR_OP_MOD) {
 		result = val_2->int_val % val_1->int_val;
 	} else {
-		BUG_ON_CUSTOM_MSG(true, "Operation not implemented yet\n");
+		BUG_GENERIC();
 	}
 
 	out->int_val = result;
@@ -145,7 +145,7 @@ static int resolve_math_expr(struct ast_node **node, struct query_output *output
 	} else if (val_1->value_type.is_approxnum) {
 		calcd(op, val_1, val_2, val_1);
 	} else {
-		BUG_ON_CUSTOM_MSG(true, "Operation not implemented yet\n");
+		BUG_GENERIC();
 	}
 
 	/* juggling with pointers so I don't have to alloc something new on the heap */

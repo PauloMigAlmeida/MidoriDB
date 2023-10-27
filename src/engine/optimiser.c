@@ -30,7 +30,7 @@ int optimiser_run(struct database *db, struct ast_node *node, struct query_outpu
 		/* TODO: UPDATE statements can be optimised to avoid full table scans */
 		return MIDORIDB_OK;
 	else
-		BUG_ON_CUSTOM_MSG(true, "optimiser is not implemented for that yet\n");
+		BUG_GENERIC();
 
 	return -MIDORIDB_INTERNAL;
 }

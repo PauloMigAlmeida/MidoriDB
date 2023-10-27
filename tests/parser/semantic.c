@@ -691,7 +691,6 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE V_F_1 (f1 INT);");
 	helper(&db, "SELECT f1 / 2 as val FROM V_F_1 GROUP BY val;", false); // group by
 	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY f1;", false);
-	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY V_F_1.f1;", false);
 	helper(&db, "SELECT x.f1 FROM V_F_1 as x GROUP BY x.f1;", false);
 
 	/* valid case - order-by clause */
@@ -710,6 +709,19 @@ static void select_tests(void)
 	helper(&db, "SELECT COUNT(V_H_1.f1) FROM V_H_1;", false);
 	helper(&db, "SELECT COUNT(x.f1) FROM V_H_1 as x;", false);
 	helper(&db, "SELECT COUNT(x.f1) as y FROM V_H_1 as x HAVING y > 0;", false);
+
+	/* valid case - HAVING function */
+	prep_helper(&db, "CREATE TABLE V_I_1 (f1 INT, f2 INT);");
+	helper(&db, "SELECT COUNT(*) FROM V_I_1 HAVING COUNT(*) > 1;", false); // count
+	helper(&db, "SELECT COUNT(f1) FROM V_I_1;", false);
+	helper(&db, "SELECT COUNT(V_I_1.f1) FROM V_I_1;", false);
+	helper(&db, "SELECT COUNT(x.f1) FROM V_I_1 as x;", false);
+	helper(&db, "SELECT COUNT(x.f1) as y FROM V_I_1 as x HAVING y > 0;", false);
+	helper(&db, "SELECT f1 FROM V_I_1 GROUP BY f1 HAVING f1 > 0;", false); // group-by field
+	//	helper(&db, "SELECT f1 FROM V_I_1 HAVING f1 > 0;", true);
+	helper(&db, "SELECT f1 as x FROM V_I_1 GROUP BY x HAVING x > 0;", false); // group-by field + alias
+//	helper(&db, "SELECT f1 as x FROM V_I_1 HAVING x > 0;", true); // f1 is not part of group-by clause
+//	helper(&db, "SELECT f2 FROM V_I_1 GROUP BY f2 HAVING COUNT(*) > 1;", false); // COUNT has an special treatment
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -783,6 +795,7 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE I_F_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_F_2 (f2 INT);");
 	prep_helper(&db, "CREATE TABLE I_F_3 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_F_4 (f4 INT, f5 INT);");
 	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY f2;", true); // no such column
 	helper(&db, "SELECT x.f1 FROM I_F_1 as x GROUP BY x.f2;", true); // no such column
 	helper(&db, "SELECT * FROM I_F_1, I_F_3 GROUP BY f1;", true); // ambiguous column
@@ -791,6 +804,9 @@ static void select_tests(void)
 	helper(&db, "SELECT x.f1 FROM I_F_1 as x GROUP BY x.f1 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT * FROM I_F_1 JOIN I_F_3 ON f1 = f1 GROUP BY f1;", true); // ambiguous column
 	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY I_F_2.f1;", true);
+	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY V_F_1.f1;", true); // since the DB is mine I choose not to support it =)
+	helper(&db, "SELECT f4 FROM I_F_4 GROUP BY f5;", true); // group-by field must be part of select fields
+	helper(&db, "SELECT I_F_4.f4 FROM I_F_4 GROUP BY I_F_4.f5;", true);
 
 	/* invalid case - order-by clause */
 	prep_helper(&db, "CREATE TABLE I_G_1 (f1 INT);");

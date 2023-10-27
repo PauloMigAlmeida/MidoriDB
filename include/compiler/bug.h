@@ -38,4 +38,7 @@ static inline void die(const char *fmt, ...)
 			die("BUG_ON: %s:%u:%s :: %s", __FILE__, __LINE__, __func__, msg);	\
 	} while (0)
 
+
+#define BUG_GENERIC()	BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n")
+
 #endif /* COMPILER_BUG_H */

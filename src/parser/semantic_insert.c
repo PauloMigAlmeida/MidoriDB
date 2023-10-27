@@ -335,7 +335,7 @@ static bool check_value_for_column(struct column *column, struct ast_node *node,
 			return false;
 
 	} else {
-		BUG_ON_CUSTOM_MSG(true, "handler not implemented yet\n");
+		BUG_GENERIC();
 	}
 
 	return true;

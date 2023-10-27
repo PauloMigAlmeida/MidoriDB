@@ -57,6 +57,16 @@ static struct ast_node* find_node(struct ast_node *root, enum ast_node_type node
 	return ret;
 }
 
+static inline bool in_select_clause(struct ast_node *node)
+{
+	return node->node_type != AST_TYPE_SEL_WHERE
+			&& node->node_type != AST_TYPE_SEL_JOIN
+			&& node->node_type != AST_TYPE_SEL_HAVING
+			&& node->node_type != AST_TYPE_SEL_GROUPBY
+			&& node->node_type != AST_TYPE_SEL_ORDERBYLIST
+			&& node->node_type != AST_TYPE_SEL_LIMIT;
+}
+
 static bool check_table_alias(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *out_ht)
 {
 	struct list_head *pos;
@@ -216,7 +226,7 @@ static bool check_column_alias(struct database *db, struct ast_node *root, char 
 				continue;
 			} else {
 				/* is there an edge case that I haven't foreseen */
-				BUG_ON(true);
+				BUG_GENERIC();
 			}
 
 			/* is the name valid? column aliases follow table nomenclature rules */
@@ -332,12 +342,7 @@ static bool check_column_names_select(struct database *db, struct ast_node *root
 	int count = 0;
 
 	/* base case 1 */
-	if (node->node_type == AST_TYPE_SEL_WHERE
-			|| node->node_type == AST_TYPE_SEL_JOIN
-			|| node->node_type == AST_TYPE_SEL_HAVING
-			|| node->node_type == AST_TYPE_SEL_GROUPBY
-			|| node->node_type == AST_TYPE_SEL_ORDERBYLIST
-			|| node->node_type == AST_TYPE_SEL_LIMIT) {
+	if (!in_select_clause(node)) {
 		return true;
 	}
 	/* base case 2 */
@@ -1233,6 +1238,101 @@ static bool check_groupby_clause_count(struct ast_node *root, char *out_err, siz
 	return true;
 }
 
+static bool is_node_in_select_list(struct ast_node *root, struct ast_node *node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_alias_node *alias_node;
+
+	/* base cases */
+	if (!in_select_clause(root)
+			|| root->node_type == AST_TYPE_SEL_COUNT
+			|| root->node_type == AST_TYPE_SEL_LOGOP) {
+		return false;
+	}
+	else if (root->node_type == AST_TYPE_SEL_EXPRVAL && root->node_type == node->node_type) {
+		val_node = (typeof(val_node))root;
+
+		if (val_node->value_type.is_name) {
+			return strcmp(val_node->name_val, ((typeof(val_node))node)->name_val) == 0;
+		}
+	}
+	else if (root->node_type == AST_TYPE_SEL_FIELDNAME && root->node_type == node->node_type) {
+		field_node = (typeof(field_node))root;
+		return strcmp(field_node->table_name, ((typeof(field_node))node)->table_name) == 0
+				&& strcmp(field_node->col_name, ((typeof(field_node))node)->col_name) == 0;
+	}
+	else if (root->node_type == AST_TYPE_SEL_ALIAS && node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		alias_node = (typeof(alias_node))root;
+		return strcmp(alias_node->alias_value, ((typeof(val_node))node)->name_val) == 0;
+	}
+	/* recursion */
+	else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (is_node_in_select_list(tmp_entry, node))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len)
+{
+
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_exprval_node *val_node;
+
+	/* base case 1 */
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+			if (!is_node_in_select_list(root, node)) {
+				snprintf(out_err, out_err_len, "SELECT list is not in GROUP BY clause and contains "
+						"nonaggregated column: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		} else {
+			/* something went really wrong here */
+			BUG_GENERIC();
+		}
+	}
+	/* base case 2 */
+	else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		if (!is_node_in_select_list(root, node)) {
+			snprintf(out_err, out_err_len, "SELECT list is not in GROUP BY clause and contains "
+					"nonaggregated column: '%.128s'.'%.128s'\n",
+					field_node->table_name, field_node->col_name);
+			return false;
+		}
+
+	}
+	/* recursion  */
+	else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_groupby_clause_inselect(root, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *groupby_node;
@@ -1255,7 +1355,11 @@ static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t ou
 			return false;
 
 		/* check if there occurrences of COUNT() function via alias or directly */
-		if (!check_groupby_clause_count(root, out_err, out_err_len, column_alias))
+		if (!check_groupby_clause_count(groupby_node, out_err, out_err_len, column_alias))
+			return false;
+
+		/* check if fields/aliases on group-by clause are also specified on the SELECT list */
+		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len))
 			return false;
 	}
 

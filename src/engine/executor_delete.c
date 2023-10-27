@@ -49,7 +49,7 @@ static bool cmp_double_value_to_value(enum ast_comparison_type cmp_type, double 
 		return val_1 < val_2;
 	default:
 		/* something went really wrong here */
-		BUG_ON(true);
+		BUG_GENERIC();
 		return false;
 	}
 }
@@ -71,7 +71,7 @@ static bool cmp_int_value_to_value(enum ast_comparison_type cmp_type, int val_1,
 		return val_1 < val_2;
 	default:
 		/* something went really wrong here */
-		BUG_ON(true);
+		BUG_GENERIC();
 		return false;
 	}
 }
@@ -117,7 +117,7 @@ static bool cmp_time_value_to_value(enum ast_comparison_type cmp_type, time_t va
 		return val_1 < val_2;
 	default:
 		/* something went really wrong here */
-		BUG_ON(true);
+		BUG_GENERIC();
 		return false;
 	}
 }
@@ -193,7 +193,7 @@ static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_
 						*(char**)&row->data[offset_2]);
 	} else {
 		/* something went really wrong here */
-		BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n");
+		BUG_GENERIC();
 		return false;
 	}
 
@@ -237,7 +237,7 @@ static bool cmp_field_to_value(struct table *table, struct row *row, struct ast_
 		return cmp_str_value_to_value(node->cmp_type, *(char**)&row->data[offset], value->str_val);
 	} else {
 		/* something went really wrong here */
-		BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n");
+		BUG_GENERIC();
 		return false;
 	}
 
@@ -258,7 +258,7 @@ static bool cmp_value_to_value(struct ast_del_cmp_node *node, struct ast_del_exp
 		return cmp_str_value_to_value(node->cmp_type, val_1->str_val, val_2->str_val);
 	} else {
 		/* something went really wrong here */
-		BUG_ON_CUSTOM_MSG(true, "Not implemented yet\n");
+		BUG_GENERIC();
 		return false;
 	}
 
@@ -402,7 +402,7 @@ static bool eval_delete_row(struct table *table, struct row *row, struct ast_nod
 			else if (logop_node->logop_type == AST_LOGOP_TYPE_XOR)
 				ret = ret ^ eval;
 			else
-				BUG_ON_CUSTOM_MSG(true, "LOGOP not implemented yet\n");
+				BUG_GENERIC();
 		}
 
 	}

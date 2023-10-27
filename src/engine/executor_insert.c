@@ -127,7 +127,7 @@ static int build_row(struct table *table,
 			}
 
 		} else {
-			BUG_ON_CUSTOM_MSG(true, "not implemented yet\n");
+			BUG_GENERIC();
 		}
 
 		if (!exprval_entry->value_type.is_null)
