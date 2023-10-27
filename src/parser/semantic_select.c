@@ -1238,7 +1238,7 @@ static bool check_groupby_clause_count(struct ast_node *root, char *out_err, siz
 	return true;
 }
 
-static bool is_node_in_select_list(struct ast_node *root, struct ast_node *node)
+static bool is_node_in_groupby_clause(struct ast_node *node, struct ast_node *groupby_node)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
@@ -1246,35 +1246,28 @@ static bool is_node_in_select_list(struct ast_node *root, struct ast_node *node)
 	struct ast_sel_fieldname_node *field_node;
 	struct ast_sel_alias_node *alias_node;
 
-	/* base cases */
-	if (!in_select_clause(root)
-			|| root->node_type == AST_TYPE_SEL_COUNT
-			|| root->node_type == AST_TYPE_SEL_LOGOP) {
-		return false;
-	}
-	else if (root->node_type == AST_TYPE_SEL_EXPRVAL && root->node_type == node->node_type) {
-		val_node = (typeof(val_node))root;
+	list_for_each(pos, groupby_node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		if (val_node->value_type.is_name) {
-			return strcmp(val_node->name_val, ((typeof(val_node))node)->name_val) == 0;
+		if (node->node_type == AST_TYPE_SEL_EXPRVAL && tmp_entry->node_type == node->node_type) {
+			val_node = (typeof(val_node))node;
+
+			if (val_node->value_type.is_name) {
+				if (strcmp(val_node->name_val, ((typeof(val_node))tmp_entry)->name_val) == 0)
+					return true;
+			}
 		}
-	}
-	else if (root->node_type == AST_TYPE_SEL_FIELDNAME && root->node_type == node->node_type) {
-		field_node = (typeof(field_node))root;
-		return strcmp(field_node->table_name, ((typeof(field_node))node)->table_name) == 0
-				&& strcmp(field_node->col_name, ((typeof(field_node))node)->col_name) == 0;
-	}
-	else if (root->node_type == AST_TYPE_SEL_ALIAS && node->node_type == AST_TYPE_SEL_EXPRVAL) {
-		alias_node = (typeof(alias_node))root;
-		return strcmp(alias_node->alias_value, ((typeof(val_node))node)->name_val) == 0;
-	}
-	/* recursion */
-	else {
-		list_for_each(pos, root->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+		else if (node->node_type == AST_TYPE_SEL_FIELDNAME && tmp_entry->node_type == node->node_type) {
+			field_node = (typeof(field_node))node;
 
-			if (is_node_in_select_list(tmp_entry, node))
+			if (strcmp(field_node->table_name, ((typeof(field_node))tmp_entry)->table_name) == 0
+					&& strcmp(field_node->col_name, ((typeof(field_node))tmp_entry)->col_name) == 0)
+				return true;
+		}
+		else if (node->node_type == AST_TYPE_SEL_ALIAS && tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			alias_node = (typeof(alias_node))node;
+			if (strcmp(alias_node->alias_value, ((typeof(val_node))tmp_entry)->name_val) == 0)
 				return true;
 		}
 	}
@@ -1282,50 +1275,39 @@ static bool is_node_in_select_list(struct ast_node *root, struct ast_node *node)
 	return false;
 }
 
-static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node *node, char *out_err,
-		size_t out_err_len)
+static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node *groupby_node, char *out_err,
+		size_t out_err_len, struct hashtable *column_alias)
 {
-
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_sel_fieldname_node *field_node;
-	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_alias_node *alias_node;
 
-	/* base case 1 */
-	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
-		val_node = (typeof(val_node))node;
-
-		if (val_node->value_type.is_name) {
-			if (!is_node_in_select_list(root, node)) {
-				snprintf(out_err, out_err_len, "SELECT list is not in GROUP BY clause and contains "
-						"nonaggregated column: '%.128s'\n",
-						val_node->name_val);
-				return false;
-			}
-		} else {
-			/* something went really wrong here */
-			BUG_GENERIC();
-		}
+	/* base cases */
+	if (!in_select_clause(root)
+			|| root->node_type == AST_TYPE_SEL_COUNT
+			|| root->node_type == AST_TYPE_SEL_LOGOP) {
+		return true;
 	}
-	/* base case 2 */
-	else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
-		field_node = (typeof(field_node))node;
-
-		if (!is_node_in_select_list(root, node)) {
-			snprintf(out_err, out_err_len, "SELECT list is not in GROUP BY clause and contains "
-					"nonaggregated column: '%.128s'.'%.128s'\n",
-					field_node->table_name, field_node->col_name);
-			return false;
-		}
-
+	else if (root->node_type == AST_TYPE_SEL_EXPRVAL
+			|| root->node_type == AST_TYPE_SEL_FIELDNAME) {
+		return is_node_in_groupby_clause(root, groupby_node);
 	}
-	/* recursion  */
+	else if (root->node_type == AST_TYPE_SEL_ALIAS) {
+		alias_node = (typeof(alias_node))root;
+
+		/* check if that isn't a column alias first */
+		if (!hashtable_get(column_alias, alias_node->alias_value, strlen(alias_node->alias_value) + 1))
+			return true;
+
+		return is_node_in_groupby_clause(root, groupby_node);
+	}
+	/* recursion */
 	else {
-		list_for_each(pos, node->node_children_head)
+		list_for_each(pos, root->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_groupby_clause_inselect(root, tmp_entry, out_err, out_err_len))
+			if (!check_groupby_clause_inselect(tmp_entry, groupby_node, out_err, out_err_len, column_alias))
 				return false;
 		}
 	}
@@ -1359,7 +1341,7 @@ static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t ou
 			return false;
 
 		/* check if fields/aliases on group-by clause are also specified on the SELECT list */
-		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len))
+		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len, column_alias))
 			return false;
 	}
 
@@ -1444,6 +1426,100 @@ static bool check_orderby_clause_count(struct ast_node *root, char *out_err, siz
 	return true;
 }
 
+static bool is_node_in_select_list(struct ast_node *root, struct ast_node *node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_alias_node *alias_node;
+
+	/* base cases */
+	if (!in_select_clause(root)
+			|| root->node_type == AST_TYPE_SEL_COUNT
+			|| root->node_type == AST_TYPE_SEL_LOGOP) {
+		return false;
+	}
+	else if (root->node_type == AST_TYPE_SEL_EXPRVAL && root->node_type == node->node_type) {
+		val_node = (typeof(val_node))root;
+
+		if (val_node->value_type.is_name) {
+			return strcmp(val_node->name_val, ((typeof(val_node))node)->name_val) == 0;
+		}
+	}
+	else if (root->node_type == AST_TYPE_SEL_FIELDNAME && root->node_type == node->node_type) {
+		field_node = (typeof(field_node))root;
+		return strcmp(field_node->table_name, ((typeof(field_node))node)->table_name) == 0
+				&& strcmp(field_node->col_name, ((typeof(field_node))node)->col_name) == 0;
+	}
+	else if (root->node_type == AST_TYPE_SEL_ALIAS && node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		alias_node = (typeof(alias_node))root;
+		return strcmp(alias_node->alias_value, ((typeof(val_node))node)->name_val) == 0;
+	}
+	/* recursion */
+	else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (is_node_in_select_list(tmp_entry, node))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static bool check_orderby_clause_inselect(struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len)
+{
+
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_exprval_node *val_node;
+
+	/* base case 1 */
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+			if (!is_node_in_select_list(root, node)) {
+				snprintf(out_err, out_err_len, "SELECT list is not in ORDER BY clause: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		} else {
+			/* something went really wrong here */
+			BUG_GENERIC();
+		}
+	}
+	/* base case 2 */
+	else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		if (!is_node_in_select_list(root, node)) {
+			snprintf(out_err, out_err_len, "SELECT list is not in ORDER BY clause: '%.128s'.'%.128s'\n",
+					field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
+	}
+	/* recursion  */
+	else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_orderby_clause_inselect(root, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *orderby_node;
@@ -1467,6 +1543,10 @@ static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t ou
 
 		/* check if there occurrences of COUNT() function via alias or directly */
 		if (!check_orderby_clause_count(root, out_err, out_err_len, column_alias))
+			return false;
+
+		/* check if fields/aliases on order-by clause are also specified on the SELECT list */
+		if (!check_orderby_clause_inselect(root, orderby_node, out_err, out_err_len))
 			return false;
 	}
 

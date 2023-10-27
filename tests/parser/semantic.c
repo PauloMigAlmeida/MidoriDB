@@ -689,9 +689,11 @@ static void select_tests(void)
 
 	/* valid case - group-by clause */
 	prep_helper(&db, "CREATE TABLE V_F_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_F_2 (f2 INT, f3 INT);");
 	helper(&db, "SELECT f1 / 2 as val FROM V_F_1 GROUP BY val;", false); // group by
 	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY f1;", false);
 	helper(&db, "SELECT x.f1 FROM V_F_1 as x GROUP BY x.f1;", false);
+	helper(&db, "SELECT x.f2, x.f3 FROM V_F_2 as x GROUP BY x.f2, x.f3;", false);
 
 	/* valid case - order-by clause */
 	prep_helper(&db, "CREATE TABLE V_G_1 (f1 INT);");
@@ -804,14 +806,16 @@ static void select_tests(void)
 	helper(&db, "SELECT x.f1 FROM I_F_1 as x GROUP BY x.f1 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT * FROM I_F_1 JOIN I_F_3 ON f1 = f1 GROUP BY f1;", true); // ambiguous column
 	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY I_F_2.f1;", true);
-	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY V_F_1.f1;", true); // since the DB is mine I choose not to support it =)
+	helper(&db, "SELECT f1 FROM I_F_1 GROUP BY I_F_1.f1;", true); // the DB is mine so I choose not to support it =)
 	helper(&db, "SELECT f4 FROM I_F_4 GROUP BY f5;", true); // group-by field must be part of select fields
+	helper(&db, "SELECT f4, f5 FROM I_F_4 GROUP BY f5;", true); // f4 is a non-aggregate field
 	helper(&db, "SELECT I_F_4.f4 FROM I_F_4 GROUP BY I_F_4.f5;", true);
 
 	/* invalid case - order-by clause */
 	prep_helper(&db, "CREATE TABLE I_G_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_G_2 (f2 INT);");
 	prep_helper(&db, "CREATE TABLE I_G_3 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_G_4 (f4 INT, f5 INT);");
 	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY f2;", true); // no such column
 	helper(&db, "SELECT x.f1 FROM I_G_1 as x ORDER BY x.f2;", true); // no such column
 	helper(&db, "SELECT * FROM I_G_1, I_G_3 ORDER BY f1;", true); // ambiguous column
@@ -819,6 +823,9 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY f2 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT x.f1 FROM I_G_1 as x ORDER BY x.f1 + 2;", true); // recursive expr can't be used in here
 	helper(&db, "SELECT * FROM I_G_1 JOIN I_G_3 ON f1 = f1 ORDER BY f1;", true); // ambiguous column
+	helper(&db, "SELECT f1 FROM I_G_1 ORDER BY I_G_1.f1;", true); // the DB is mine so I choose not to support it =)
+	helper(&db, "SELECT f4 FROM I_G_4 ORDER BY f5;", true); // order-by field must be part of select fields
+	helper(&db, "SELECT I_G_4.f4 FROM I_G_4 GROUP BY I_G_4.f5;", true);
 
 	/* invalid case - COUNT function */
 	prep_helper(&db, "CREATE TABLE I_H_1 (f1 INT);");
