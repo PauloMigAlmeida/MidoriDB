@@ -922,7 +922,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 		 * 	SELECT COUNT(f1) FROM A HAVING COUNT(f1) > 0; (okay)
 		 * 	SELECT COUNT(f1) as val FROM A HAVING val > 0; (okay)
 		 * 	SELECT COUNT(f1) FROM A, B HAVING COUNT(f1) > 0; (f1 is ambiguous)
-		 * 	SELECT COUNT(f1) FROM A ORDER BY COUNT(f2) > 0; (no such column)
+		 * 	SELECT COUNT(f1) FROM A HAVING COUNT(f2) > 0; (no such column)
 		 */
 		if (!check_column_names_having(db, root, having_node, out_err, out_err_len, table_alias,
 						column_alias))
@@ -932,19 +932,23 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	return true;
 }
 
-static bool check_count_function(struct ast_node *node, char *out_err, size_t out_err_len)
+static bool check_count_function(struct ast_node *parent, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *val_node;
-	struct ast_sel_fieldname_node *field_node;
 
 	if (node->node_type == AST_TYPE_SEL_COUNT) {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			if (parent->node_type != AST_TYPE_SEL_ALIAS
+					&& parent->node_type != AST_TYPE_SEL_SELECT
+					&& parent->node_type != AST_TYPE_SEL_HAVING) {
+				snprintf(out_err, out_err_len, "invalid use of COUNT function\n");
+				return false;
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
 				val_node = (typeof(val_node))tmp_entry;
 
 				if (!val_node->value_type.is_name) {
@@ -953,8 +957,7 @@ static bool check_count_function(struct ast_node *node, char *out_err, size_t ou
 				}
 
 			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
-				field_node = (typeof(field_node))tmp_entry;
-
+				/* do nothing, we are good */
 			} else {
 				snprintf(out_err, out_err_len, "COUNT function can only have '*' or 'fields'\n");
 				return false;
@@ -966,7 +969,7 @@ static bool check_count_function(struct ast_node *node, char *out_err, size_t ou
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_count_function(tmp_entry, out_err, out_err_len))
+			if (!check_count_function(node, tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
@@ -1281,6 +1284,8 @@ static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_alias_node *alias_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
 
 	/* base cases */
 	if (!in_select_clause(root)
@@ -1295,9 +1300,18 @@ static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node
 	else if (root->node_type == AST_TYPE_SEL_ALIAS) {
 		alias_node = (typeof(alias_node))root;
 
-		/* check if that isn't a column alias first */
-		if (!hashtable_get(column_alias, alias_node->alias_value, strlen(alias_node->alias_value) + 1))
+		ht_value = hashtable_get(column_alias, alias_node->alias_value, strlen(alias_node->alias_value) + 1);
+
+		if (!ht_value) {
+			/* it must be a table alias in which case we are not interested in it.. skip it */
 			return true;
+		} else {
+			alias_value = (typeof(alias_value))ht_value->content;
+
+			/* alias to a COUNT function, makes no sense to check if that is in the group-by clause */
+			if (alias_value->type.is_count)
+				return true;
+		}
 
 		return is_node_in_groupby_clause(root, groupby_node);
 	}
@@ -1315,9 +1329,62 @@ static bool check_groupby_clause_inselect(struct ast_node *root, struct ast_node
 	return true;
 }
 
+struct sem_sel_fds_stats {
+	int no_raw_fields;
+	int no_count_fnc;
+};
+
+static void check_aggr_inselect_nogroupby(struct ast_node *root, char *out_err, size_t out_err_len,
+		struct hashtable *column_alias, struct sem_sel_fds_stats *out_stats)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_alias_node *alias_node;
+	struct hashtable_value *ht_value;
+	struct alias_value *alias_value;
+
+	/* base cases */
+	if (!in_select_clause(root)) {
+		return;
+	}
+	else if (root->node_type == AST_TYPE_SEL_COUNT) {
+		out_stats->no_count_fnc++;
+	}
+	else if (root->node_type == AST_TYPE_SEL_EXPRVAL
+			|| root->node_type == AST_TYPE_SEL_EXPROP
+			|| root->node_type == AST_TYPE_SEL_FIELDNAME) {
+		out_stats->no_raw_fields++;
+	}
+	else if (root->node_type == AST_TYPE_SEL_ALIAS) {
+		alias_node = (typeof(alias_node))root;
+
+		ht_value = hashtable_get(column_alias, alias_node->alias_value, strlen(alias_node->alias_value) + 1);
+
+		if (ht_value) {
+			alias_value = (typeof(alias_value))ht_value->content;
+
+			/* alias to a COUNT function, makes no sense to check if that is in the group-by clause */
+			if (alias_value->type.is_count)
+				out_stats->no_count_fnc++;
+			else
+				out_stats->no_raw_fields++;
+		}
+	}
+	/* recursion */
+	else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			check_aggr_inselect_nogroupby(tmp_entry, out_err, out_err_len, column_alias, out_stats);
+		}
+	}
+}
+
 static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	struct ast_node *groupby_node;
+	struct sem_sel_fds_stats out_stats = {0};
 
 	groupby_node = find_node(root, AST_TYPE_SEL_GROUPBY);
 
@@ -1343,6 +1410,15 @@ static bool check_groupby_clause(struct ast_node *root, char *out_err, size_t ou
 		/* check if fields/aliases on group-by clause are also specified on the SELECT list */
 		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len, column_alias))
 			return false;
+	} else {
+		/*
+		 * edge case: non-aggregate fields alongside aggregate fields with no group-by clause such as:
+		 * 	SELECT f1, COUNT(f2) FROM B;  (should fail as f1 must be in the group-by clause)
+		 */
+		check_aggr_inselect_nogroupby(root, out_err, out_err_len, column_alias, &out_stats);
+		if (out_stats.no_count_fnc > 0 && out_stats.no_raw_fields > 0)
+			return false;
+
 	}
 
 	return true;
@@ -1402,7 +1478,8 @@ static bool check_orderby_clause_count(struct ast_node *root, char *out_err, siz
 	} else if (root->node_type == AST_TYPE_SEL_EXPRVAL) {
 		val_node = (typeof(val_node))root;
 		if (val_node->value_type.is_name) {
-			ht_value = hashtable_get(column_alias, val_node->name_val, strlen(val_node->name_val) + 1);
+			ht_value = hashtable_get(column_alias, val_node->name_val,
+							strlen(val_node->name_val) + 1);
 			if (ht_value) {
 				alias_value = (typeof(alias_value))ht_value->content;
 				if (alias_value->type.is_count) {
@@ -1485,7 +1562,8 @@ static bool check_orderby_clause_inselect(struct ast_node *root, struct ast_node
 
 		if (val_node->value_type.is_name) {
 			if (!is_node_in_select_list(root, node)) {
-				snprintf(out_err, out_err_len, "SELECT list is not in ORDER BY clause: '%.128s'\n",
+				snprintf(out_err, out_err_len,
+						"SELECT list is not in ORDER BY clause: '%.128s'\n",
 						val_node->name_val);
 				return false;
 			}
@@ -1499,7 +1577,8 @@ static bool check_orderby_clause_inselect(struct ast_node *root, struct ast_node
 		field_node = (typeof(field_node))node;
 
 		if (!is_node_in_select_list(root, node)) {
-			snprintf(out_err, out_err_len, "SELECT list is not in ORDER BY clause: '%.128s'.'%.128s'\n",
+			snprintf(out_err, out_err_len,
+					"SELECT list is not in ORDER BY clause: '%.128s'.'%.128s'\n",
 					field_node->table_name,
 					field_node->col_name);
 			return false;
@@ -1548,6 +1627,43 @@ static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t ou
 		/* check if fields/aliases on order-by clause are also specified on the SELECT list */
 		if (!check_orderby_clause_inselect(root, orderby_node, out_err, out_err_len))
 			return false;
+	}
+
+	return true;
+}
+
+static bool check_having_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
+{
+	UNUSED(out_err);
+	UNUSED(out_err_len);
+	UNUSED(column_alias);
+
+	struct ast_node *having_node;
+
+	having_node = find_node(root, AST_TYPE_SEL_HAVING);
+
+	if (having_node) {
+//		/*
+//		 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
+//		 * are ambiguous if more than 1 table is used. This should handle cases like:
+//		 *
+//		 * 	CREATE TABLE A (f1 INT);
+//		 *
+//		 *	SELECT f1 FROM A ORDER BY f1; (okay)
+//		 *	SELECT A.f1 FROM A ORDER BY A.f1; (okay):
+//		 * 	SELECT f1 FROM A ORDER BY f2 + 2; (only fields and alias are supported)
+//		 * 	SELECT f1 FROM A ODER BY 2; (only fields and alias are supported)
+//		 */
+//		if (!check_orderby_clause_expr(orderby_node, out_err, out_err_len))
+//			return false;
+//
+//		/* check if there occurrences of COUNT() function via alias or directly */
+//		if (!check_orderby_clause_count(root, out_err, out_err_len, column_alias))
+//			return false;
+//
+//		/* check if fields/aliases on order-by clause are also specified on the SELECT list */
+//		if (!check_orderby_clause_inselect(root, orderby_node, out_err, out_err_len))
+//			return false;
 	}
 
 	return true;
@@ -1623,8 +1739,10 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	SELECT COUNT(B.f1) FROM A; (invalid fqfield - not part of FROM clause)
 	 * 	SELECT COUNT(non_valid_column) FROM A; (invalid) -> (taken care of through check_column_names routine)
 	 * 	SELECT COUNT(alias_name) FROM A; (invalid)
+	 * 	SELECT COUNT(f1) + 1 FROM A; (invalid)
+	 * 	SELECT (COUNT(f1) + 1) * 2 FROM A; (invalid)
 	 */
-	if (!check_count_function(node, out_err, out_err_len))
+	if (!check_count_function(node, node, out_err, out_err_len))
 		return false;
 
 	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.
@@ -1651,7 +1769,14 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * check_column_names)
 	 */
 	if (!check_orderby_clause(node, out_err, out_err_len, &column_alias))
-		goto err_groupby_clause;
+		goto err_orderby_clause;
+
+	/*
+	 * check if having-clause contains exprval (name) / fields / aliases (verified in check_column_names)
+	 * and count() occurences only
+	 */
+	if (!check_having_clause(node, out_err, out_err_len, &column_alias))
+		goto err_having_clause;
 
 	/*
 	 * TODO:
@@ -1681,9 +1806,11 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	return true;
 
-err_select_clause:
-err_where_clause:
+err_having_clause:
+err_orderby_clause:
 err_groupby_clause:
+err_where_clause:
+err_select_clause:
 err_column_names:
 err_column_alias:
 err_table_names:

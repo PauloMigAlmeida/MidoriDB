@@ -708,6 +708,7 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE V_H_1 (f1 INT);");
 	helper(&db, "SELECT COUNT(*) FROM V_H_1;", false);
 	helper(&db, "SELECT COUNT(f1) FROM V_H_1;", false);
+	helper(&db, "SELECT COUNT(f1), COUNT(f1) as val FROM V_H_1;", false);
 	helper(&db, "SELECT COUNT(V_H_1.f1) FROM V_H_1;", false);
 	helper(&db, "SELECT COUNT(x.f1) FROM V_H_1 as x;", false);
 	helper(&db, "SELECT COUNT(x.f1) as y FROM V_H_1 as x HAVING y > 0;", false);
@@ -720,7 +721,7 @@ static void select_tests(void)
 	helper(&db, "SELECT COUNT(x.f1) FROM V_I_1 as x;", false);
 	helper(&db, "SELECT COUNT(x.f1) as y FROM V_I_1 as x HAVING y > 0;", false);
 	helper(&db, "SELECT f1 FROM V_I_1 GROUP BY f1 HAVING f1 > 0;", false); // group-by field
-	//	helper(&db, "SELECT f1 FROM V_I_1 HAVING f1 > 0;", true);
+//		helper(&db, "SELECT f1 FROM V_I_1 HAVING f1 > 0;", true);
 	helper(&db, "SELECT f1 as x FROM V_I_1 GROUP BY x HAVING x > 0;", false); // group-by field + alias
 //	helper(&db, "SELECT f1 as x FROM V_I_1 HAVING x > 0;", true); // f1 is not part of group-by clause
 //	helper(&db, "SELECT f2 FROM V_I_1 GROUP BY f2 HAVING COUNT(*) > 1;", false); // COUNT has an special treatment
@@ -829,6 +830,7 @@ static void select_tests(void)
 
 	/* invalid case - COUNT function */
 	prep_helper(&db, "CREATE TABLE I_H_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_H_2 (f2 INT, f3 INT, f4 INT);");
 	helper(&db, "SELECT COUNT(*) FROM I_H_1 WHERE COUNT(*) > 1;", true); // count in where
 	helper(&db, "SELECT COUNT(*) as val FROM I_H_1 WHERE val > 1;", true); // count in where
 	helper(&db, "SELECT COUNT(*) FROM I_H_1 GROUP BY COUNT(*);", true); // count in group-by
@@ -858,6 +860,20 @@ static void select_tests(void)
 	helper(&db, "SELECT COUNT(f1 + f2) FROM I_H_1 HAVING COUNT(f1 + f2) > 0;", true); // can't use LOGOP
 	helper(&db, "SELECT COUNT(V_H_1.f1) FROM I_H_1 HAVING COUNT(V_H_1.f1) > 0;", true); // table isn't part of the FROM clause
 	helper(&db, "SELECT COUNT(x.f1) FROM I_H_1 as y HAVING COUNT(x.f1) > 0;", true); // invalid alias
+	helper(&db, "SELECT COUNT(f1) + 1 FROM I_H_1;", true);
+	helper(&db, "SELECT COUNT(f1) + 1 as val FROM I_H_1;", true);
+	helper(&db, "SELECT (COUNT(f1) + 1) * 2 as val FROM I_H_1;", true);
+	helper(&db, "SELECT (COUNT(f1) + 1) * 2 FROM I_H_1;", true);
+
+	helper(&db, "SELECT f2, COUNT(f3) FROM I_H_2;", true); // f2 is non-aggregated field (unless group by is added
+	helper(&db, "SELECT f2, COUNT(f3) as val FROM I_H_2;", true);
+
+	helper(&db, "SELECT f2, COUNT(f3) FROM I_H_2 GROUP BY f2;", false); // Should be okay!
+	helper(&db, "SELECT f2, COUNT(f3) as val FROM I_H_2 GROUP BY f2;", false);
+
+	helper(&db, "SELECT f2, COUNT(f3), f4 FROM I_H_2 GROUP BY f4;", true); // f2 is non-aggregated field
+	helper(&db, "SELECT f2, COUNT(f3) as val, f4 FROM I_H_2 GROUP BY f4;", true); // f2 is non-aggregated field
+
 	//TODO implement HAVING checks. Having-clauses must have their expr as part of SELECT clause too.
 
 	database_close(&db);
