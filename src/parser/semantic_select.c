@@ -1743,7 +1743,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	SELECT (COUNT(f1) + 1) * 2 FROM A; (invalid)
 	 */
 	if (!check_count_function(node, node, out_err, out_err_len))
-		return false;
+		goto err_count_fnc;
 
 	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.
 	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
@@ -1811,6 +1811,7 @@ err_orderby_clause:
 err_groupby_clause:
 err_where_clause:
 err_select_clause:
+err_count_fnc:
 err_column_names:
 err_column_alias:
 err_table_names:
