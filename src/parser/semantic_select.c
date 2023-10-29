@@ -932,7 +932,7 @@ static bool check_column_names(struct database *db, struct ast_node *root, struc
 	return true;
 }
 
-static bool check_count_function(struct ast_node *parent, struct ast_node *node, char *out_err, size_t out_err_len)
+static bool check_count_expr(struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
@@ -943,12 +943,7 @@ static bool check_count_function(struct ast_node *parent, struct ast_node *node,
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (parent->node_type != AST_TYPE_SEL_ALIAS
-					&& parent->node_type != AST_TYPE_SEL_SELECT
-					&& parent->node_type != AST_TYPE_SEL_HAVING) {
-				snprintf(out_err, out_err_len, "invalid use of COUNT function\n");
-				return false;
-			} else if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
 				val_node = (typeof(val_node))tmp_entry;
 
 				if (!val_node->value_type.is_name) {
@@ -969,10 +964,50 @@ static bool check_count_function(struct ast_node *parent, struct ast_node *node,
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!check_count_function(node, tmp_entry, out_err, out_err_len))
+			if (!check_count_expr(tmp_entry, out_err, out_err_len))
 				return false;
 		}
 	}
+
+	return true;
+}
+
+static bool check_count_select(struct ast_node *parent, struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	/* base cases */
+	if (!in_select_clause(node)) {
+		return true;
+	}
+	else if (node->node_type == AST_TYPE_SEL_COUNT
+			&& parent->node_type != AST_TYPE_SEL_ALIAS
+			&& parent->node_type != AST_TYPE_SEL_SELECT) {
+		snprintf(out_err, out_err_len, "In SELECT list, COUNT function must either be raw or use aliases\n");
+		return false;
+	}
+	else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_count_select(node, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_count_function(struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	/* make sure COUNT function only contains *, columns and fqfields */
+	if (!check_count_expr(node, out_err, out_err_len))
+		return false;
+
+	/* in SELECT list, COUNT can only be at free form or using aliases, that's it.. no fancy stuff */
+	if (!check_count_select(node, node, out_err, out_err_len))
+		return false;
 
 	return true;
 }
@@ -1461,7 +1496,6 @@ static bool check_orderby_clause_expr(struct ast_node *node, char *out_err, size
 	}
 
 	return true;
-
 }
 
 static bool check_orderby_clause_count(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
@@ -1632,6 +1666,82 @@ static bool check_orderby_clause(struct ast_node *root, char *out_err, size_t ou
 	return true;
 }
 
+static bool check_having_clause_expr(struct ast_node *root, struct ast_node *parent, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (root->node_type == AST_TYPE_SEL_EXPRVAL || root->node_type == AST_TYPE_SEL_EXPROP) {
+		if (parent->node_type == AST_TYPE_SEL_HAVING || parent->node_type == AST_TYPE_SEL_LOGOP) {
+			snprintf(out_err, out_err_len,
+					"expressions in having-clause must be a type of comparison\n");
+			return false;
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_having_clause_expr(tmp_entry, root, out_err, out_err_len))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool check_having_clause_inselect(struct ast_node *root, struct ast_node *node, char *out_err,
+		size_t out_err_len)
+{
+
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_exprval_node *val_node;
+
+	/* base case 1 */
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+			if (!is_node_in_select_list(root, node)) {
+				snprintf(out_err, out_err_len,
+						"SELECT list is not in HAVING clause: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		}
+	}
+	/* base case 2 */
+	else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		if (!is_node_in_select_list(root, node)) {
+			snprintf(out_err, out_err_len,
+					"SELECT list is not in HAVING clause: '%.128s'.'%.128s'\n",
+					field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
+
+	}
+	/* base case 3 - COUNT has a special treatment on having-clauses */
+	else if (node->node_type == AST_TYPE_SEL_COUNT) {
+		return true;
+	}
+	/* recursion  */
+	else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_having_clause_inselect(root, tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static bool check_having_clause(struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *column_alias)
 {
 	UNUSED(out_err);
@@ -1643,27 +1753,23 @@ static bool check_having_clause(struct ast_node *root, char *out_err, size_t out
 	having_node = find_node(root, AST_TYPE_SEL_HAVING);
 
 	if (having_node) {
-//		/*
-//		 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
-//		 * are ambiguous if more than 1 table is used. This should handle cases like:
-//		 *
-//		 * 	CREATE TABLE A (f1 INT);
-//		 *
-//		 *	SELECT f1 FROM A ORDER BY f1; (okay)
-//		 *	SELECT A.f1 FROM A ORDER BY A.f1; (okay):
-//		 * 	SELECT f1 FROM A ORDER BY f2 + 2; (only fields and alias are supported)
-//		 * 	SELECT f1 FROM A ODER BY 2; (only fields and alias are supported)
-//		 */
-//		if (!check_orderby_clause_expr(orderby_node, out_err, out_err_len))
-//			return false;
-//
-//		/* check if there occurrences of COUNT() function via alias or directly */
-//		if (!check_orderby_clause_count(root, out_err, out_err_len, column_alias))
-//			return false;
-//
-//		/* check if fields/aliases on order-by clause are also specified on the SELECT list */
-//		if (!check_orderby_clause_inselect(root, orderby_node, out_err, out_err_len))
-//			return false;
+		/*
+		 * check if EXPRVAL (names) in the group by clause are either columns or alias... Also ensure that none of them
+		 * are ambiguous if more than 1 table is used. This should handle cases like:
+		 *
+		 * 	CREATE TABLE A (f1 INT);
+		 *
+		 *	SELECT f1 FROM A HAVING f1 > 0; (okay)
+		 *	SELECT A.f1 FROM A HAVING A.f1 > 1; (okay):
+		 * 	SELECT f1 FROM A HAVING f2 + 2; (only fields and alias are supported)
+		 * 	SELECT f1 FROM A HAVING 2; (only fields and alias are supported)
+		 */
+		if (!check_having_clause_expr(having_node, NULL, out_err, out_err_len))
+			return false;
+
+		/* check if fields/aliases on order-by clause are also specified on the SELECT list */
+		if (!check_having_clause_inselect(root, having_node, out_err, out_err_len))
+			return false;
 	}
 
 	return true;
@@ -1742,7 +1848,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	SELECT COUNT(f1) + 1 FROM A; (invalid)
 	 * 	SELECT (COUNT(f1) + 1) * 2 FROM A; (invalid)
 	 */
-	if (!check_count_function(node, node, out_err, out_err_len))
+	if (!check_count_function(node, out_err, out_err_len))
 		goto err_count_fnc;
 
 	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.

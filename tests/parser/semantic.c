@@ -694,6 +694,8 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM V_F_1 GROUP BY f1;", false);
 	helper(&db, "SELECT x.f1 FROM V_F_1 as x GROUP BY x.f1;", false);
 	helper(&db, "SELECT x.f2, x.f3 FROM V_F_2 as x GROUP BY x.f2, x.f3;", false);
+	helper(&db, "SELECT f2, COUNT(f3) FROM V_F_2 GROUP BY f2;", false); // Should be okay!
+	helper(&db, "SELECT f2, COUNT(f3) as val FROM V_F_2 GROUP BY f2;", false);
 
 	/* valid case - order-by clause */
 	prep_helper(&db, "CREATE TABLE V_G_1 (f1 INT);");
@@ -716,15 +718,15 @@ static void select_tests(void)
 	/* valid case - HAVING function */
 	prep_helper(&db, "CREATE TABLE V_I_1 (f1 INT, f2 INT);");
 	helper(&db, "SELECT COUNT(*) FROM V_I_1 HAVING COUNT(*) > 1;", false); // count
-	helper(&db, "SELECT COUNT(f1) FROM V_I_1;", false);
-	helper(&db, "SELECT COUNT(V_I_1.f1) FROM V_I_1;", false);
-	helper(&db, "SELECT COUNT(x.f1) FROM V_I_1 as x;", false);
+	helper(&db, "SELECT COUNT(f1) FROM V_I_1 HAVING COUNT(f1) > 1;", false);
+	helper(&db, "SELECT COUNT(V_I_1.f1) FROM V_I_1 HAVING COUNT(V_I_1.f1) > 1;", false);
+	helper(&db, "SELECT COUNT(x.f1) FROM V_I_1 as x HAVING COUNT(x.f1) > 1;", false);
 	helper(&db, "SELECT COUNT(x.f1) as y FROM V_I_1 as x HAVING y > 0;", false);
 	helper(&db, "SELECT f1 FROM V_I_1 GROUP BY f1 HAVING f1 > 0;", false); // group-by field
-//		helper(&db, "SELECT f1 FROM V_I_1 HAVING f1 > 0;", true);
+	helper(&db, "SELECT f1 FROM V_I_1 HAVING f1 > 0;", false);
 	helper(&db, "SELECT f1 as x FROM V_I_1 GROUP BY x HAVING x > 0;", false); // group-by field + alias
-//	helper(&db, "SELECT f1 as x FROM V_I_1 HAVING x > 0;", true); // f1 is not part of group-by clause
-//	helper(&db, "SELECT f2 FROM V_I_1 GROUP BY f2 HAVING COUNT(*) > 1;", false); // COUNT has an special treatment
+	helper(&db, "SELECT f1 as x FROM V_I_1 HAVING x > 0;", false);
+	helper(&db, "SELECT f2 FROM V_I_1 GROUP BY f2 HAVING COUNT(*) > 1;", false); // COUNT has an special treatment
 
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
@@ -867,14 +869,20 @@ static void select_tests(void)
 
 	helper(&db, "SELECT f2, COUNT(f3) FROM I_H_2;", true); // f2 is non-aggregated field (unless group by is added
 	helper(&db, "SELECT f2, COUNT(f3) as val FROM I_H_2;", true);
-
 	helper(&db, "SELECT f2, COUNT(f3) FROM I_H_2 GROUP BY f2;", false); // Should be okay!
 	helper(&db, "SELECT f2, COUNT(f3) as val FROM I_H_2 GROUP BY f2;", false);
-
 	helper(&db, "SELECT f2, COUNT(f3), f4 FROM I_H_2 GROUP BY f4;", true); // f2 is non-aggregated field
 	helper(&db, "SELECT f2, COUNT(f3) as val, f4 FROM I_H_2 GROUP BY f4;", true); // f2 is non-aggregated field
 
-	//TODO implement HAVING checks. Having-clauses must have their expr as part of SELECT clause too.
+	/* invalid case - HAVING function */
+	prep_helper(&db, "CREATE TABLE I_I_1 (f1 INT, f2 INT, f3 INT);");
+	helper(&db, "SELECT f1 as x FROM I_I_1 HAVING f2 > 0;", true); // f2 is not part of the SELECT list
+	helper(&db, "SELECT f1 as x FROM I_I_1 HAVING f1 > 0 AND f3 > 0;", true); // f3 is not part of the SELECT list
+	helper(&db, "SELECT f1 FROM I_I_1 HAVING 1;", true);
+	helper(&db, "SELECT f1 FROM I_I_1 HAVING f1 + 1;", true);
+	helper(&db, "SELECT f1 FROM I_I_1 HAVING f1 = f2;", true);
+	helper(&db, "SELECT f1 as x FROM I_I_1 HAVING y > 0;", true);
+
 
 	database_close(&db);
 }
