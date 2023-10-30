@@ -728,6 +728,17 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 as x FROM V_I_1 HAVING x > 0;", false);
 	helper(&db, "SELECT f2 FROM V_I_1 GROUP BY f2 HAVING COUNT(*) > 1;", false); // COUNT has an special treatment
 
+	/* valid case - JOIN expressions */
+	prep_helper(&db, "CREATE TABLE V_J_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE V_J_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE V_J_3 (f3 INT);");
+	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON f1 = f2;", false); // single join; expr (name)
+	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2;", false); // single join; fieldname
+	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON V_J_1.f1 = V_J_2.f2;", false); // single join; fqfield
+	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON f1 = f2 JOIN V_J_3 ON f2 = f3;", false); // multi-join; expr (name)
+	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2 JOIN V_J_3 c ON b.f2 = c.f3;", false); // multi-join; fieldname
+	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON V_J_1.f1 = V_J_2.f2 JOIN V_J_3 ON V_J_2.f2 = V_J_3.f3;", false); // multi-join; fqfield
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -883,6 +894,23 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_I_1 HAVING f1 = f2;", true);
 	helper(&db, "SELECT f1 as x FROM I_I_1 HAVING y > 0;", true);
 
+	/* invalid case - JOIN expressions */
+	prep_helper(&db, "CREATE TABLE I_J_1 (f1 INT);");
+	prep_helper(&db, "CREATE TABLE I_J_2 (f2 INT);");
+	prep_helper(&db, "CREATE TABLE I_J_3 (f3 INT);");
+	// single join
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 + f3;", true); // invalid expression
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON 1 + 3;", true);
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON 1;", true);
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(f1) > 1;", true); // COUNT is not valid here
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(*) > 1;", true);
+//	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f3;", true); // no such column
+//	helper(&db, "SELECT * FROM I_J_1 a JOIN I_J_2 b ON a.f1 = c.f2;", true); // invalid alias
+//	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON I_J_1.f1 = I_J_3.f2;", true); // table isn't part of JOIN
+
+//	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON f1 = f2 JOIN V_J_3 ON f2 = f3;", false); // multi-join
+//	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2 JOIN V_J_3 c ON b.f2 = c.f3;", false);
+//	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON V_J_1.f1 = V_J_2.f2 JOIN V_J_3 ON V_J_2.f2 = V_J_3.f3;", false);
 
 	database_close(&db);
 }

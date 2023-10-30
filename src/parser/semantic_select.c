@@ -1210,6 +1210,77 @@ static bool check_select_clause(struct ast_node *root, char *out_err, size_t out
 	return true;
 }
 
+static bool check_join_on_expr(struct ast_node *node, struct ast_node *parent, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if ((node->node_type == AST_TYPE_SEL_EXPRVAL || node->node_type == AST_TYPE_SEL_FIELDNAME)
+			&& parent->node_type != AST_TYPE_SEL_CMP) {
+		snprintf(out_err, out_err_len, "JOIN expressions support only logical comparisons\n");
+		return false;
+	} else if (node->node_type == AST_TYPE_SEL_CMP
+			&& parent->node_type != AST_TYPE_SEL_LOGOP
+			&& parent->node_type != AST_TYPE_SEL_ONEXPR) {
+		snprintf(out_err, out_err_len, "JOIN expressions support only logical comparisons\n");
+		return false;
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_join_on_expr(tmp_entry, node, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_join_on_count(struct ast_node *node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	if (node->node_type == AST_TYPE_SEL_COUNT) {
+		snprintf(out_err, out_err_len, "COUNT() functions are not valid in JOIN ON expressions\n");
+		return false;
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!check_join_on_count(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_from_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct ast_node *join_node;
+
+	join_node = find_node(root, AST_TYPE_SEL_JOIN);
+
+	if (join_node) {
+
+		if (!check_join_on_expr(join_node, root, out_err, out_err_len))
+			return false;
+
+		/* check if there occurrences of COUNT() function */
+		if (!check_join_on_count(join_node, out_err, out_err_len))
+			return false;
+//
+//		/* check if fields/aliases on group-by clause are also specified on the SELECT list */
+//		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len, column_alias))
+//			return false;
+	}
+
+	return true;
+}
+
 static bool check_groupby_clause_expr(struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
@@ -1855,6 +1926,10 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
 	 * It's preferable to debug this code than to debug bison's parser code instead :) */
 	if (!check_select_clause(node, out_err, out_err_len))
+		goto err_select_clause;
+
+	/* check JOIN statements */
+	if (!check_from_clause(node, out_err, out_err_len))
 		goto err_select_clause;
 
 	/* check where clause */
