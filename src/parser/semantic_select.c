@@ -267,24 +267,31 @@ static bool check_column_alias(struct database *db, struct ast_node *root, char 
 	return true;
 }
 
+static bool column_exists(struct database *db, struct ast_sel_table_node *table_node, char *col_name)
+{
+	struct table *table;
+	table = database_table_get(db, table_node->table_name);
+
+	for (int i = 0; i < table->column_count; i++) {
+		if (strcmp(table->columns[i].name, col_name) == 0)
+			return true;
+	}
+
+	return false;
+}
+
 static int tables_with_column_name(struct database *db, struct ast_node *root, char *col_name)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_table_node *table_node;
-	struct table *table;
 	int count = 0;
 
 	if (root->node_type == AST_TYPE_SEL_TABLE) {
 		table_node = (typeof(table_node))root;
-		table = database_table_get(db, table_node->table_name);
 
-		for (int i = 0; i < table->column_count; i++) {
-			if (strcmp(table->columns[i].name, col_name) == 0) {
-				count++;
-				break;
-			}
-		}
+		if (column_exists(db, table_node, col_name))
+			count++;
 	} else {
 		list_for_each(pos, root->node_children_head)
 		{
@@ -1258,7 +1265,79 @@ static bool check_join_on_count(struct ast_node *node, char *out_err, size_t out
 	return true;
 }
 
-static bool check_from_clause(struct ast_node *root, char *out_err, size_t out_err_len)
+static int check_join_on_fields_exprname(struct database *db, struct ast_sel_exprval_node *val_node,
+		struct ast_sel_join_node *join_node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_join_node *new_join_node;
+	struct ast_sel_table_node *table_node;
+	int count = 0;
+
+	list_for_each(pos, join_node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+			table_node = (typeof(table_node))tmp_entry;
+
+			if (column_exists(db, table_node, val_node->name_val))
+				count++;
+
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_JOIN) {
+			new_join_node = (typeof(new_join_node))tmp_entry;
+			count += check_join_on_fields_exprname(db, val_node, new_join_node, out_err, out_err_len);
+		}
+	}
+
+	return count;
+}
+
+static bool check_join_on_fields(struct database *db, struct ast_node *node, struct ast_sel_join_node *join_node,
+		char *out_err, size_t out_err_len, struct hashtable *table_alias)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_join_node *new_join_node;
+	struct ast_sel_exprval_node *val_node;
+	int count;
+
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_name) {
+			count = check_join_on_fields_exprname(db, val_node, join_node, out_err, out_err_len);
+
+			if (count == 0) {
+				snprintf(out_err, out_err_len, "no such column: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			} else if (count > 1) {
+				snprintf(out_err, out_err_len, "ambiguous column name: '%.128s'\n",
+						val_node->name_val);
+				return false;
+			}
+		}
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_JOIN)
+				new_join_node = (typeof(new_join_node))tmp_entry;
+			else
+				new_join_node = join_node;
+
+			if (!check_join_on_fields(db, tmp_entry, new_join_node, out_err, out_err_len, table_alias))
+				return false;
+
+		}
+	}
+
+	return true;
+}
+
+static bool check_from_clause(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *table_alias)
 {
 	struct ast_node *join_node;
 
@@ -1272,10 +1351,12 @@ static bool check_from_clause(struct ast_node *root, char *out_err, size_t out_e
 		/* check if there occurrences of COUNT() function */
 		if (!check_join_on_count(join_node, out_err, out_err_len))
 			return false;
-//
-//		/* check if fields/aliases on group-by clause are also specified on the SELECT list */
-//		if (!check_groupby_clause_inselect(root, groupby_node, out_err, out_err_len, column_alias))
-//			return false;
+
+		/* check if fields/aliases on JOIN ON expression */
+		if (!check_join_on_fields(db, root, (struct ast_sel_join_node*)join_node,
+						out_err,
+						out_err_len, table_alias))
+			return false;
 	}
 
 	return true;
@@ -1929,7 +2010,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 		goto err_select_clause;
 
 	/* check JOIN statements */
-	if (!check_from_clause(node, out_err, out_err_len))
+	if (!check_from_clause(db, node, out_err, out_err_len, &table_alias))
 		goto err_select_clause;
 
 	/* check where clause */

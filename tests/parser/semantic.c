@@ -904,7 +904,11 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON 1;", true);
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(f1) > 1;", true); // COUNT is not valid here
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(*) > 1;", true);
-//	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f3;", true); // no such column
+	//TODO check for columns
+	//TODO for table aliases
+
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f3;", true); // no such column
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f2 JOIN I_J_3 ON f2 = f4;", true); // no such column
 //	helper(&db, "SELECT * FROM I_J_1 a JOIN I_J_2 b ON a.f1 = c.f2;", true); // invalid alias
 //	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON I_J_1.f1 = I_J_3.f2;", true); // table isn't part of JOIN
 
