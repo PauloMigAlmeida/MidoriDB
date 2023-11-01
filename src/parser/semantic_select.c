@@ -1293,13 +1293,65 @@ static int check_join_on_fields_exprname(struct database *db, struct ast_sel_exp
 	return count;
 }
 
+static int check_join_on_fields_fieldname(struct database *db, struct ast_sel_fieldname_node *field_node,
+		struct ast_sel_join_node *join_node, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos1, *pos2;
+	struct ast_node *tmp_entry;
+	struct ast_sel_join_node *new_join_node;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_alias_node *alias_node;
+	int count = 0;
+
+	list_for_each(pos1, join_node->node_children_head)
+	{
+		tmp_entry = list_entry(pos1, typeof(*tmp_entry), head);
+
+		/* fqfield */
+		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+			table_node = (typeof(table_node))tmp_entry;
+
+			/* is it the table that we are looking for ? */
+			if (strcmp(table_node->table_name, field_node->table_name) != 0)
+				continue;
+
+			if (column_exists(db, table_node, field_node->col_name))
+				count++;
+
+		}
+		/* fields using aliases */
+		else if (tmp_entry->node_type == AST_TYPE_SEL_ALIAS) {
+			alias_node = (typeof(alias_node))tmp_entry;
+
+			/* is it the table that we are looking for ? */
+			if (strcmp(alias_node->alias_value, field_node->table_name) != 0)
+				continue;
+
+			list_for_each(pos2, alias_node->node_children_head)
+			{
+				table_node = list_entry(pos2, typeof(*table_node), head);
+
+				if (column_exists(db, table_node, field_node->col_name))
+					count++;
+			}
+
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_JOIN) {
+			new_join_node = (typeof(new_join_node))tmp_entry;
+			count += check_join_on_fields_fieldname(db, field_node, new_join_node, out_err, out_err_len);
+		}
+	}
+
+	return count;
+}
+
 static bool check_join_on_fields(struct database *db, struct ast_node *node, struct ast_sel_join_node *join_node,
-		char *out_err, size_t out_err_len, struct hashtable *table_alias)
+		char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_join_node *new_join_node;
 	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
 	int count;
 
 	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
@@ -1318,6 +1370,17 @@ static bool check_join_on_fields(struct database *db, struct ast_node *node, str
 				return false;
 			}
 		}
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		count = check_join_on_fields_fieldname(db, field_node, join_node, out_err, out_err_len);
+
+		if (count == 0) {
+			snprintf(out_err, out_err_len, "no such column: '%.128s.%.128s'\n",
+					field_node->table_name,
+					field_node->col_name);
+			return false;
+		}
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
@@ -1328,7 +1391,7 @@ static bool check_join_on_fields(struct database *db, struct ast_node *node, str
 			else
 				new_join_node = join_node;
 
-			if (!check_join_on_fields(db, tmp_entry, new_join_node, out_err, out_err_len, table_alias))
+			if (!check_join_on_fields(db, tmp_entry, new_join_node, out_err, out_err_len))
 				return false;
 
 		}
@@ -1337,7 +1400,7 @@ static bool check_join_on_fields(struct database *db, struct ast_node *node, str
 	return true;
 }
 
-static bool check_from_clause(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len, struct hashtable *table_alias)
+static bool check_from_clause(struct database *db, struct ast_node *root, char *out_err, size_t out_err_len)
 {
 	struct ast_node *join_node;
 
@@ -1353,9 +1416,7 @@ static bool check_from_clause(struct database *db, struct ast_node *root, char *
 			return false;
 
 		/* check if fields/aliases on JOIN ON expression */
-		if (!check_join_on_fields(db, root, (struct ast_sel_join_node*)join_node,
-						out_err,
-						out_err_len, table_alias))
+		if (!check_join_on_fields(db, root, (struct ast_sel_join_node*)join_node, out_err, out_err_len))
 			return false;
 	}
 
@@ -2010,7 +2071,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 		goto err_select_clause;
 
 	/* check JOIN statements */
-	if (!check_from_clause(db, node, out_err, out_err_len, &table_alias))
+	if (!check_from_clause(db, node, out_err, out_err_len))
 		goto err_select_clause;
 
 	/* check where clause */

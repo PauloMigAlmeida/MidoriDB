@@ -645,7 +645,7 @@ static void select_tests(void)
 	prep_helper(&db, "CREATE TABLE V_B_3 (f3 INT);");
 	helper(&db, "SELECT f1 FROM V_B_1 as v;", false);
 	helper(&db, "SELECT v1.f1, v2.f2, f3 FROM V_B_1 as v1, V_B_2 as v2, V_B_3;", false);
-	helper(&db, "SELECT * FROM V_B_1 v1 JOIN V_B_2 v2 ON v2.f1 = v2.f2 JOIN V_B_3 ON v2.f2 = f3;", false);
+	helper(&db, "SELECT * FROM V_B_1 v1 JOIN V_B_2 v2 ON v1.f1 = v2.f2 JOIN V_B_3 ON v2.f2 = f3;", false);
 
 	/* valid case - column aliases */
 	prep_helper(&db, "CREATE TABLE V_C_1 (f1 INT);");
@@ -904,13 +904,14 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON 1;", true);
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(f1) > 1;", true); // COUNT is not valid here
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON COUNT(*) > 1;", true);
-	//TODO check for columns
-	//TODO for table aliases
 
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f3;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f2 JOIN I_J_3 ON f2 = f4;", true); // no such column
-//	helper(&db, "SELECT * FROM I_J_1 a JOIN I_J_2 b ON a.f1 = c.f2;", true); // invalid alias
-//	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON I_J_1.f1 = I_J_3.f2;", true); // table isn't part of JOIN
+	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f3 JOIN I_J_3 ON v2.f2 = f3;", true); // no such column
+	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f2 JOIN I_J_3 ON v2.f2 = f4;", true); // no such column
+
+	helper(&db, "SELECT * FROM I_J_1 a JOIN I_J_2 b ON a.f1 = c.f2;", true); // invalid alias
+	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON I_J_1.f1 = I_J_3.f2;", true); // table isn't part of JOIN
 
 //	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON f1 = f2 JOIN V_J_3 ON f2 = f3;", false); // multi-join
 //	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2 JOIN V_J_3 c ON b.f2 = c.f3;", false);
