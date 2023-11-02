@@ -2101,25 +2101,6 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_having_clause(node, out_err, out_err_len, &column_alias))
 		goto err_having_clause;
 
-	/*
-	 * TODO:
-	 * - Check for duplicate / invalid aliases (table done, columns done)
-	 * 	-> Need to change implementation though... instead of storing as KV alias->table_name (for table aliases)
-	 * 	   and alias->?? (for column), I need to find a common denominator. Otherwise, it will become hard to
-	 * 	   validate the existence of columns at some point... my best guess, it to use some structure that resembles
-	 * 	   the ast_sel_fieldname_nome...  -> I think I've done it (TBC)
-	 * - Check for aliases use in the where clause (also group, order, having).
-	 * 	-> This is becoming a big dilemma for me as although column aliases are not available in where clause (MySQL)
-	 * 		they seem to be used in group by and order by.... I wonder if I should implement it for all
-	 * 		like SQLite does:
-	 *
-	 * 		ex: SELECT val as f1 FROM A group by f1 order by f1;
-	 *
-	 * - check field name (full qualified ones) as they can contain either table name or alias
-	 * - check for columns existence
-	 * - check for ambiguous columns on join statements
-	 */
-
 	/* cleanup */
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);
 	hashtable_free(&column_alias);

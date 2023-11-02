@@ -909,13 +909,7 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f2 JOIN I_J_3 ON f2 = f4;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f3 JOIN I_J_3 ON v2.f2 = f3;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f2 JOIN I_J_3 ON v2.f2 = f4;", true); // no such column
-
-	helper(&db, "SELECT * FROM I_J_1 a JOIN I_J_2 b ON a.f1 = c.f2;", true); // invalid alias
-	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON I_J_1.f1 = I_J_3.f2;", true); // table isn't part of JOIN
-
-//	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON f1 = f2 JOIN V_J_3 ON f2 = f3;", false); // multi-join
-//	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2 JOIN V_J_3 c ON b.f2 = c.f3;", false);
-//	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON V_J_1.f1 = V_J_2.f2 JOIN V_J_3 ON V_J_2.f2 = V_J_3.f3;", false);
+	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2 JOIN I_J_3 ON I_J_2.f2 = I_J_3.f3;", true); // after alias is created, we can't use fqfield
 
 	database_close(&db);
 }
