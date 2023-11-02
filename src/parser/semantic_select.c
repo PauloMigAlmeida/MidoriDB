@@ -1988,6 +1988,54 @@ static bool check_having_clause(struct ast_node *root, char *out_err, size_t out
 	return true;
 }
 
+static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_sel_isxin_node *isxin_node;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_node *tmp_entry;
+	int field_count;
+
+	// base case
+	if (root->node_type == AST_TYPE_SEL_EXPRISXIN) {
+		isxin_node = (typeof(isxin_node))root;
+
+		field_count = 0;
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL) {
+				snprintf(out_err, out_err_len, "IN-clause can only contain raw values\n");
+				return false;
+			}
+
+			val_node = (typeof(val_node))tmp_entry;
+			if (val_node->value_type.is_name) {
+				field_count++;
+			}
+
+			/*
+			 * ast_sel_isxin_node holds the field which is part of the expression in the
+			 * linked-list. So it's expected to have 1 field but no more than that.
+			 */
+			if (field_count > 1) {
+				snprintf(out_err, out_err_len, "Fields aren't allowed on IN-clauses\n");
+				return false;
+			}
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			if (!check_isxin_entries(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct hashtable table_alias = {0};
@@ -2100,6 +2148,18 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 */
 	if (!check_having_clause(node, out_err, out_err_len, &column_alias))
 		goto err_having_clause;
+
+	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
+	if (!check_isxin_entries(node, out_err, out_err_len))
+		return false;
+
+	/*
+	 * TODO:
+	 * 	- check CMP (field-to-field, field-to-value, value-to-value
+	 * 	- check isxin expressions
+	 * 	- check isxnull expressions
+	 * 	- check expression types (1 + 1.0 -> error as they have different types)
+	 */
 
 	/* cleanup */
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);

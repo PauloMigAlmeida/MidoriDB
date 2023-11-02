@@ -739,6 +739,15 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM V_J_1 a JOIN V_J_2 b ON a.f1 = b.f2 JOIN V_J_3 c ON b.f2 = c.f3;", false); // multi-join; fieldname
 	helper(&db, "SELECT * FROM V_J_1 JOIN V_J_2 ON V_J_1.f1 = V_J_2.f2 JOIN V_J_3 ON V_J_2.f2 = V_J_3.f3;", false); // multi-join; fqfield
 
+	/* valid case - ISXIN expressions */
+	prep_helper(&db, "CREATE TABLE V_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
+	helper(&db, "SELECT * FROM V_K_1 WHERE f1 IN (1,2,3);", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE f1 NOT IN (1,2,3);", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE f2 IN ('1','2','3');", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE f2 NOT IN ('1','2','3');", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE f3 IN (1.0, 2.0, 3.0);", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE f3 NOT IN (1.0, 2.0, 3.0);", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -909,7 +918,14 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f2 JOIN I_J_3 ON f2 = f4;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f3 JOIN I_J_3 ON v2.f2 = f3;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f2 JOIN I_J_3 ON v2.f2 = f4;", true); // no such column
-	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2 JOIN I_J_3 ON I_J_2.f2 = I_J_3.f3;", true); // after alias is created, we can't use fqfield
+	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2 JOIN I_J_3 ON I_J_2.f2 = I_J_3.f3;",
+	true); // after alias is created, we can't use fqfield
+
+	/* invalid case - ISXIN expressions */
+	prep_helper(&db, "CREATE TABLE J_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
+	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2,f1);", true); // field
+	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2, 1 + 1);", true); // recursive expression
+
 
 	database_close(&db);
 }
