@@ -748,6 +748,17 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM V_K_1 WHERE f3 IN (1.0, 2.0, 3.0);", false);
 	helper(&db, "SELECT * FROM V_K_1 WHERE f3 NOT IN (1.0, 2.0, 3.0);", false);
 
+	/* valid case - NULL comparison */
+	prep_helper(&db, "CREATE TABLE V_L_1 (f1 INT);");
+	helper(&db, "SELECT * FROM V_L_1 WHERE f1 IS NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE f1 IS NOT NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE f1 = NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE f1 <> NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE f1 != NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE NULL != NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE NULL <> NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE NULL = NULL;", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -918,15 +929,36 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 JOIN I_J_2 ON f1 = f2 JOIN I_J_3 ON f2 = f4;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f3 JOIN I_J_3 ON v2.f2 = f3;", true); // no such column
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON v1.f1 = v2.f2 JOIN I_J_3 ON v2.f2 = f4;", true); // no such column
-	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2 JOIN I_J_3 ON I_J_2.f2 = I_J_3.f3;",
-	true); // after alias is created, we can't use fqfield
+	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2;", true); // after alias is created, we can't use fqfield
 
 	/* invalid case - ISXIN expressions */
-	prep_helper(&db, "CREATE TABLE J_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
-	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2,f1);", true); // field
-	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2, 1 + 1);", true); // recursive expression
+	prep_helper(&db, "CREATE TABLE I_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
+	helper(&db, "SELECT * FROM I_K_1 WHERE f1 IN (1,2,f1);", true); // field
+	helper(&db, "SELECT * FROM I_K_1 WHERE f1 IN (1,2, 1 + 1);", true); // recursive expression
 
+	// TODO Check for value type
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2,'3');", true);
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f1 NOT IN (1,2,'3');", true);
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f2 IN ('1','2',3);", true);
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f2 NOT IN ('1',2,'3');", true);
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f3 IN (1.0, 2.0, 3);", true);
+//	helper(&db, "SELECT * FROM J_K_1 WHERE f3 NOT IN (1, 2.0, 3.0);", true);
 
+	/* invalid case - NULL comparison */
+	// TODO Check for value type
+//	prep_helper(&db, "CREATE TABLE I_L_1 (f1 INT);");
+//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 > NULL;", true); // field-to-value
+//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 >= NULL;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 < NULL;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 <= NULL;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > f1;", true); // value-to-field
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= f1;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < f1;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= f1;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > NULL;", true); // value-to-value
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= NULL;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < NULL;", true);
+//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= NULL;", true);
 	database_close(&db);
 }
 

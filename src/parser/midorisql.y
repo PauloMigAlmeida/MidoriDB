@@ -253,6 +253,7 @@ expr: NAME          { emit(result, "NAME %s", $1); free($1); }
    | INTNUM        { emit(result, "NUMBER %d", $1); }
    | APPROXNUM     { emit(result, "FLOAT %g", $1); }
    | BOOL          { emit(result, "BOOL %d", $1); }
+   | NULLX         { emit(result, "NULL"); }
    ;
 
 expr: expr '+' expr { emit(result, "ADD"); }
@@ -272,10 +273,6 @@ expr: expr '+' expr { emit(result, "ADD"); }
 expr:  expr IS NULLX     { emit(result, "ISNULL"); }
    |   expr IS NOT NULLX { emit(result, "ISNOTNULL"); }
    ;
-
-expr: expr BETWEEN expr AND expr %prec BETWEEN { emit(result, "BETWEEN"); }
-   ;
-
 
 val_list: expr { $$ = 1; }
    | expr ',' val_list { $$ = 1 + $3; }

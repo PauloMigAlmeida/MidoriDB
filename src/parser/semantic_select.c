@@ -2036,6 +2036,39 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 	return true;
 }
 
+static bool check_isxnull_entries(struct ast_node *root, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_sel_isxnull_node *isxnull_node;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_node *tmp_entry;
+
+	// base case
+	if (root->node_type == AST_TYPE_SEL_EXPRISXNULL) {
+		isxnull_node = (typeof(isxnull_node))root;
+
+		list_for_each(pos, root->node_children_head)
+		{
+			val_node = list_entry(pos, typeof(*val_node), head);
+
+			if (!val_node->value_type.is_name) {
+				snprintf(out_err, out_err_len, "only fields are allowed in IS NULL|IS NOT NULL\n");
+				return false;
+			}
+
+		}
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+			if (!check_isxnull_entries(tmp_entry, out_err, out_err_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
 bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, char *out_err, size_t out_err_len)
 {
 	struct hashtable table_alias = {0};
@@ -2151,6 +2184,14 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
 	if (!check_isxin_entries(node, out_err, out_err_len))
+		return false;
+
+	/*
+	 * check "IS NULL" and "IS NOT NULL" have fields.
+	 * Syntax-wise, "NULL IS NULL" and "NULL IS NOT NULL" is valid
+	 * Semantically, this is invalid.
+	 */
+	if (!check_isxnull_entries(node, out_err, out_err_len))
 		return false;
 
 	/*
