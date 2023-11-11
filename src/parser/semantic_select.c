@@ -12,6 +12,14 @@
 #include <datastructure/hashtable.h>
 #include <datastructure/linkedlist.h>
 
+#define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) 	\
+					+ 1 /* dot */ 						\
+					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) \
+					+ 1 /* NUL */
+
+#define FIELD_NAME_LEN 		sizeof(((struct ast_sel_exprval_node*)0)->name_val) 		\
+					+ 1 /* NUL */
+
 struct alias_value {
 	char table_name[TABLE_MAX_NAME + 1 /* NUL char */];
 	char col_name[TABLE_MAX_COLUMN_NAME + 1 /* NUL char */];
@@ -2070,480 +2078,340 @@ static bool check_isxnull_entries(struct ast_node *root, char *out_err, size_t o
 	return true;
 }
 
-static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
+struct sem_check_val_types {
+	bool none;
+	bool invalid;
+	bool null;
+	enum COLUMN_TYPE type;
+};
+
+//TODO once this is fully implemented, break it down into smaller functions
+static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
-	struct tm time_struct = {0};
-	const char *fmt;
-	time_t time_out;
 
-	if (type == CT_DATE)
-		fmt = COLUMN_CTDATE_FMT;
-	else
-		fmt = COLUMN_CTDATETIME_FMT;
+	struct sem_check_val_types ret = {0};
+	struct sem_check_val_types left = {0};
+	struct sem_check_val_types right = {0};
+	int i = 0;
 
-	// Parse the string into a time structure
-	if (strptime(str, fmt, &time_struct) == NULL)
-		return false;
+	struct ast_node *tmp_entry = NULL;
+	struct list_head *pos;
 
-	// Convert the time structure to a time_t value
-	time_out = mktime(&time_struct);
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_cmp_node *cmp_node;
 
-	// Check if the conversion was successful
-	if (time_out == -1)
-		return false;
-
-	return true;
-
-}
-
-static bool check_values_field_to_field(struct ast_sel_cmp_node *cmp, struct ast_sel_exprval_node *val_1,
-		struct ast_sel_exprval_node *val_2, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
 	struct hashtable_value *ht_value;
-	enum COLUMN_TYPE *type_1, *type_2;
+	char key[FQFIELD_NAME_LEN] = {0};
 
-	ht_value = hashtable_get(ht, val_1->name_val, strlen(val_1->name_val) + 1);
-	type_1 = (typeof(type_1))ht_value->content;
+	// deep first search - base case
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
 
-	ht_value = hashtable_get(ht, val_2->name_val, strlen(val_2->name_val) + 1);
-	type_2 = (typeof(type_2))ht_value->content;
-
-	if (*type_1 != *type_2) {
-		snprintf(out_err, out_err_len, "field: '%s' and field '%s' don't have the same type\n",
-				val_1->name_val,
-				val_2->name_val);
-		return false;
-	} else if (*type_1 == CT_VARCHAR || *type_2 == CT_VARCHAR) {
-		/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-		if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-			snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_values_field_to_value(struct ast_sel_cmp_node *cmp, struct ast_sel_exprval_node *field_node,
-		struct ast_sel_exprval_node *value_node, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-	struct hashtable_value *ht_value;
-	enum COLUMN_TYPE *type;
-
-	ht_value = hashtable_get(ht, field_node->name_val, strlen(field_node->name_val) + 1);
-	type = (typeof(type))ht_value->content;
-
-	if (value_node->value_type.is_str) {
-		if (*type == CT_DATE || *type == CT_DATETIME) {
-			if (!try_parse_date_type(value_node->str_val, *type)) {
-				snprintf(out_err, out_err_len,
-						/* max str size would exceed buffer's size, so trim it */
-						"val: '%.256s' can't be parsed for DATE | DATETIME column\n",
-						value_node->str_val);
-				return false;
-			}
-		} else if (*type == CT_VARCHAR) {
-			/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-			if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-				snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
-				return false;
-			}
+		if (val_node->value_type.is_name) {
+			ht_value = hashtable_get(ht, val_node->name_val, strlen(val_node->name_val) + 1);
+			BUG_ON(!ht_value); // sanity check
+			ret.type = *(enum COLUMN_TYPE*)ht_value->content;
+		} else if (val_node->value_type.is_approxnum) {
+			ret.type = CT_DOUBLE;
+		} else if (val_node->value_type.is_bool) {
+			ret.type = CT_TINYINT;
+		} else if (val_node->value_type.is_intnum) {
+			ret.type = CT_INTEGER;
+		} else if (val_node->value_type.is_str) {
+			ret.type = CT_VARCHAR;
+		} else if (val_node->value_type.is_null) {
+			ret.null = true;
 		} else {
-			snprintf(out_err, out_err_len,
-					/* max str size would exceed buffer's size, so trim it */
-					"val: '%.256s' requires an VARCHAR() column\n",
-					value_node->str_val);
-			return false;
+			ret.none = true;
 		}
-	} else if (value_node->value_type.is_intnum && *type != CT_INTEGER) {
-		snprintf(out_err, out_err_len, "val: '%ld' requires an INTEGER column\n", value_node->int_val);
-		return false;
-	} else if (value_node->value_type.is_approxnum && *type != CT_DOUBLE) {
-		snprintf(out_err, out_err_len, "val: '%f' requires a DOUBLE column\n", value_node->double_val);
-		return false;
-	} else if (value_node->value_type.is_bool && *type != CT_TINYINT) {
-		snprintf(out_err, out_err_len, "val: '%d' requires a TINYINT column\n", value_node->bool_val);
-		return false;
-	} else if (value_node->value_type.is_null) {
-		/* NULL should only be compared using = or <> operators, anything else is wrong */
-		if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-			snprintf(out_err, out_err_len, "NULL values can only use '=' or '<>' ops\n");
-			return false;
-		}
-	}
-	return true;
 
-}
+		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
 
-static bool check_values_value_to_value(struct ast_sel_cmp_node *cmp, struct ast_sel_exprval_node *val_1,
-		struct ast_sel_exprval_node *val_2, char *out_err, size_t out_err_len)
-{
-	bool ret;
-	bool cmp_cond;
+		snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, field_node->col_name);
+		ht_value = hashtable_get(ht, key, strlen(key) + 1);
+		BUG_ON(!ht_value); // sanity check
+		ret.type = *(enum COLUMN_TYPE*)ht_value->content;
 
-	ret = memcmp(&val_1->value_type, &val_2->value_type, sizeof(val_1->value_type)) == 0;
+		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_EXPROP) {
+		/* sanity check */
+		BUG_ON(list_length(node->node_children_head) != 2);
 
-	if (!ret) {
-		snprintf(out_err, out_err_len, "value-to-value comparison don't have the same type\n");
-		return false;
-	} else {
-		cmp_cond = cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP;
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		/*
-		 * if that's a value-to-value then I can only determine if the operation is supported.
-		 *
-		 * That means that '2020-02-02' > '2020-02-02' is 'invalid' from a semantic point-of-view
-		 * because I can't say for sure that this is a date. (unless we proactively try parsing
-		 * it).
-		 *
-		 * Notes to myself:
-		 *
-		 * 	Apparently SQLITE does that:
-		 *
-		 * 	sqlite> select '2020-02-02' > '2020-02-02';
-		 * 	0
-		 * 	sqlite> select '2020-02-02' < '2020-02-02';
-		 * 	0
-		 * 	sqlite> select '2020-02-03' > '2020-02-02';
-		 * 	1
-		 * 	sqlite> select '2020-02-13' > '2020-02-02';
-		 * 	1
-		 *
-		 * Maybe I will implement this in the future - right now this isn't too important as
-		 * I am not a  huge fan of value-to-value comparisons to begin with - they are just
-		 * silly
-		 */
-
-		/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-		if ((val_1->value_type.is_str || val_2->value_type.is_str) && cmp_cond) {
-			snprintf(out_err, out_err_len,
-					"VARCHAR values '%.128s' and '%.128s' can only use '=' or '<>' ops\n",
-					val_1->str_val,
-					val_2->str_val);
-			return false;
-		} else if ((val_1->value_type.is_null || val_2->value_type.is_null) && cmp_cond) {
-			/* NULL should only be compared using = or <> operators, anything else is wrong */
-			snprintf(out_err, out_err_len, "value-to-value NULL comparisons can only use '=' or '<>'\n");
-			return false;
-		}
-	}
-
-	return true;
-}
-
-#define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) \
-					+ 1 /* dot */ \
-					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) \
-					+ 1 /* NUL */
-
-#define FIELD_NAME_LEN 	sizeof(((struct ast_sel_exprval_node*)0)->name_val) \
-					+ 1 /* NUL */
-
-static bool check_values_fqfield_to_fqfield(struct ast_sel_cmp_node *cmp, struct ast_sel_fieldname_node *val_1,
-		struct ast_sel_fieldname_node *val_2, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-	struct hashtable_value *ht_value;
-	enum COLUMN_TYPE *type_1, *type_2;
-	char name_1[FQFIELD_NAME_LEN] = {0};
-	char name_2[FQFIELD_NAME_LEN] = {0};
-
-	snprintf(name_1, sizeof(name_1) - 1, "%s.%s", val_1->table_name, val_1->col_name);
-	snprintf(name_2, sizeof(name_2) - 1, "%s.%s", val_2->table_name, val_2->col_name);
-
-	ht_value = hashtable_get(ht, name_1, strlen(name_1) + 1);
-	type_1 = (typeof(type_1))ht_value->content;
-
-	ht_value = hashtable_get(ht, name_2, strlen(name_2) + 1);
-	type_2 = (typeof(type_2))ht_value->content;
-
-	if (*type_1 != *type_2) {
-		snprintf(out_err, out_err_len, "field: '%s' and field '%s' don't have the same type\n",
-				name_1,
-				name_2);
-		return false;
-	} else if (*type_1 == CT_VARCHAR || *type_2 == CT_VARCHAR) {
-		/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-		if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-			snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_values_fqfield_to_field(struct ast_sel_cmp_node *cmp, struct ast_sel_fieldname_node *val_1,
-		struct ast_sel_exprval_node *val_2, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-	struct hashtable_value *ht_value;
-	enum COLUMN_TYPE *type_1, *type_2;
-	char name_1[FQFIELD_NAME_LEN] = {0};
-	char name_2[FIELD_NAME_LEN] = {0};
-
-	snprintf(name_1, sizeof(name_1) - 1, "%s.%s", val_1->table_name, val_1->col_name);
-	snprintf(name_2, sizeof(name_2) - 1, "%s", val_2->name_val);
-
-	ht_value = hashtable_get(ht, name_1, strlen(name_1) + 1);
-	type_1 = (typeof(type_1))ht_value->content;
-
-	ht_value = hashtable_get(ht, name_2, strlen(name_2) + 1);
-	type_2 = (typeof(type_2))ht_value->content;
-
-	if (*type_1 != *type_2) {
-		snprintf(out_err, out_err_len, "field: '%s' and field '%s' don't have the same type\n",
-				name_1,
-				name_2);
-		return false;
-	} else if (*type_1 == CT_VARCHAR || *type_2 == CT_VARCHAR) {
-		/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-		if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-			snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_values_fqfield_to_value(struct ast_sel_cmp_node *cmp, struct ast_sel_fieldname_node *field_node,
-		struct ast_sel_exprval_node *value_node, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-	struct hashtable_value *ht_value;
-	enum COLUMN_TYPE *type;
-	char name_1[FQFIELD_NAME_LEN] = {0};
-
-	snprintf(name_1, sizeof(name_1) - 1, "%s.%s", field_node->table_name, field_node->col_name);
-
-	ht_value = hashtable_get(ht, name_1, strlen(name_1) + 1);
-	type = (typeof(type))ht_value->content;
-
-	if (value_node->value_type.is_str) {
-		if (*type == CT_DATE || *type == CT_DATETIME) {
-			if (!try_parse_date_type(value_node->str_val, *type)) {
-				snprintf(out_err, out_err_len,
-						/* max str size would exceed buffer's size, so trim it */
-						"val: '%.256s' can't be parsed for DATE | DATETIME column\n",
-						value_node->str_val);
-				return false;
+			if (i == 0) {
+				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+			} else {
+				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
 			}
-		} else if (*type == CT_VARCHAR) {
-			/* VARCHAR should only be compared using = or <> operators, anything else is wrong */
-			if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-				snprintf(out_err, out_err_len, "VARCHAR fields can only use '=' or '<>' ops\n");
-				return false;
-			}
+			i++;
+		}
+
+		if (memcmp(&left, &right, sizeof(left))) {
+			ret.invalid = true;
 		} else {
-			snprintf(out_err, out_err_len,
-					/* max str size would exceed buffer's size, so trim it */
-					"val: '%.256s' requires an VARCHAR() column\n",
-					value_node->str_val);
-			return false;
+			ret = left;
 		}
-	} else if (value_node->value_type.is_intnum && *type != CT_INTEGER) {
-		snprintf(out_err, out_err_len, "val: '%ld' requires an INTEGER column\n", value_node->int_val);
-		return false;
-	} else if (value_node->value_type.is_approxnum && *type != CT_DOUBLE) {
-		snprintf(out_err, out_err_len, "val: '%f' requires a DOUBLE column\n", value_node->double_val);
-		return false;
-	} else if (value_node->value_type.is_bool && *type != CT_TINYINT) {
-		snprintf(out_err, out_err_len, "val: '%d' requires a TINYINT column\n", value_node->bool_val);
-		return false;
-	} else if (value_node->value_type.is_null) {
-		/* NULL should only be compared using = or <> operators, anything else is wrong */
-		if (cmp->cmp_type != AST_CMP_DIFF_OP && cmp->cmp_type != AST_CMP_EQUALS_OP) {
-			snprintf(out_err, out_err_len, "NULL values can only use '=' or '<>' ops\n");
-			return false;
+		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_CMP) {
+		cmp_node = (typeof(cmp_node))node;
+		/* sanity check */
+		BUG_ON(list_length(cmp_node->node_children_head) != 2);
+
+		list_for_each(pos, cmp_node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (i == 0) {
+				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+			} else {
+				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+			}
+			i++;
+		}
+
+		// NULL has a special set of rules
+		if (left.null || right.null) {
+			if (cmp_node->cmp_type != AST_CMP_EQUALS_OP && cmp_node->cmp_type != AST_CMP_DIFF_OP) {
+				//TODO add error message
+				ret.invalid = true;
+			} else {
+				ret.type = CT_TINYINT;
+			}
+			return ret;
+		}
+		// TODO add special cases (VARCHAR)
+
+		if (memcmp(&left, &right, sizeof(left))) {
+			ret.invalid = true;
+		} else {
+			ret.type = CT_TINYINT; // CMP resolves into a Boolean value
+		}
+		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_LOGOP) {
+		/* sanity check */
+		BUG_ON(list_length(node->node_children_head) != 2);
+
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (i == 0) {
+				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+			} else {
+				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+			}
+			i++;
+		}
+
+		if (memcmp(&left, &right, sizeof(left))) {
+			ret.invalid = true;
+		} else {
+			ret.type = CT_TINYINT; // LOGOP resolves into a Boolean value
+		}
+		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_COUNT) {
+		ret.type = CT_INTEGER;
+		return ret;
+	}
+	//TODO add validation for ISXIN entries
+
+	// recursion
+	else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			ret = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+
+			if (ret.invalid) {
+				return ret;
+			}
 		}
 	}
-	return true;
+
+	ret.none = true;
+	return ret;
 }
 
-static bool check_values_for_cmp(struct ast_sel_cmp_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
+static bool build_column_value_types_ht(struct database *db, struct ast_node *node, struct ast_node *parent, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_node *entry_1 = NULL;
-	struct ast_node *entry_2;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_alias_node *alias_node;
+	struct table *table;
+	char key[FQFIELD_NAME_LEN];
 
-	struct ast_sel_exprval_node *val_1;
-	struct ast_sel_exprval_node *val_2;
-	struct ast_sel_fieldname_node *field_1;
-	struct ast_sel_fieldname_node *field_2;
+	if (node->node_type == AST_TYPE_SEL_TABLE) {
+		table_node = (typeof(table_node))node;
+		table = database_table_get(db, table_node->table_name);
 
-	list_for_each(pos, root->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+		for (int i = 0; i < table->column_count; i++) {
+			char *col_name = table->columns[i].name;
+			enum COLUMN_TYPE col_type = table->columns[i].type;
 
-		/* sanity check */
-		BUG_ON(tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL);
+			/* add exprval (name) or fieldname as it shows up in the query */
+			memzero(key, sizeof(key));
 
-		if (!entry_1)
-			entry_1 = tmp_entry;
-		else
-			entry_2 = tmp_entry;
+			if (parent->node_type == AST_TYPE_SEL_ALIAS) {
+				alias_node = (typeof(alias_node))parent;
+
+				snprintf(key, sizeof(key) - 1, "%s.%s", alias_node->alias_value, col_name);
+				if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
+					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+					return false;
+				}
+
+			} else {
+				/* if no alias is used, then I have to entertain the possibility that the user
+				 * used a fqfield too so I can know the col_type in bothL
+				 *
+				 * 	- SELECT f1 FROM V_D_1;
+				 * 	- SELECT V_D_1.f1 FROM V_D_1;
+				 */
+
+				snprintf(key, sizeof(key) - 1, "%s.%s", table->name, col_name);
+				if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
+					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+					return false;
+				}
+
+			}
+
+			/* add exprval (name) in its purest form */
+			memzero(key, sizeof(key));
+			strcpy(key, col_name);
+
+			if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
+				snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+				return false;
+			}
+
+		}
+
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!build_column_value_types_ht(db, tmp_entry, node, ht, out_err, out_err_len))
+				return false;
+		}
 	}
 
-	if (entry_1->node_type == AST_TYPE_SEL_EXPRVAL && entry_2->node_type == AST_TYPE_SEL_EXPRVAL) {
-		val_1 = (typeof(val_1))entry_1;
-		val_2 = (typeof(val_2))entry_2;
+	return true;
+}
 
-		if (val_1->value_type.is_name && val_2->value_type.is_name) {
-			/* field to field comparison */
-			return check_values_field_to_field(root, val_1, val_2, ht, out_err, out_err_len);
-		} else if (val_1->value_type.is_name && !val_2->value_type.is_name) {
-			/* field-to-value comparison */
-			return check_values_field_to_value(root, val_1, val_2, ht, out_err, out_err_len);
-		} else if (!val_1->value_type.is_name && val_2->value_type.is_name) {
-			/* value-to-field comparison */
-			return check_values_field_to_value(root, val_2, val_1, ht, out_err, out_err_len);
+static enum COLUMN_TYPE extract_alias_types(struct ast_node *node, struct ast_sel_alias_node *alias_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct hashtable_value *ht_value;
+	char lookup_key[FQFIELD_NAME_LEN] = {0};
+	enum COLUMN_TYPE col_type;
+
+	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_node = (typeof(val_node))node;
+
+		if (val_node->value_type.is_intnum) {
+			col_type = CT_INTEGER;
+		} else if (val_node->value_type.is_approxnum) {
+			col_type = CT_DOUBLE;
+		} else if (val_node->value_type.is_bool) {
+			col_type = CT_TINYINT;
+		} else if (val_node->value_type.is_str) {
+			col_type = CT_VARCHAR;
+		} else if (val_node->value_type.is_name) {
+			ht_value = hashtable_get(ht, val_node->name_val, strlen(val_node->name_val) + 1);
+			BUG_ON(!ht_value);
+
+			col_type = *(enum COLUMN_TYPE*)ht_value->content;
 		} else {
-			/* value-to-value comparison */
-			return check_values_value_to_value(root, val_1, val_2, out_err, out_err_len);
+			// most likely a new column type has been added
+			BUG_GENERIC();
 		}
-	} else if (entry_1->node_type == AST_TYPE_SEL_FIELDNAME && entry_2->node_type == AST_TYPE_SEL_FIELDNAME) {
-		field_1 = (typeof(field_1))entry_1;
-		field_2 = (typeof(field_2))entry_2;
 
-		/* fqfield-to-fqfield comparison */
-		return check_values_fqfield_to_fqfield(root, field_1, field_2, ht, out_err, out_err_len);
-	} else if (entry_1->node_type == AST_TYPE_SEL_FIELDNAME && entry_2->node_type == AST_TYPE_SEL_EXPRVAL) {
-		field_1 = (typeof(field_1))entry_1;
-		val_2 = (typeof(val_2))entry_2;
+	} else if (node->node_type == AST_TYPE_SEL_EXPROP) {
+		/* recursive expression such as SELECT f1 * 2 as val FROM a; */
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		if (val_2->value_type.is_name) {
-			/* fqfield-to-field comparison */
-			return check_values_fqfield_to_field(root, field_1, val_2, ht, out_err, out_err_len);
-		} else {
-			/* fqfield-to-value comparison */
-			return check_values_fqfield_to_value(root, field_1, val_2, ht, out_err, out_err_len);
+			col_type = extract_alias_types(tmp_entry, alias_node, ht, out_err, out_err_len);
+			break; /* single instance is fine as they are supposed to match type-wise */
 		}
-	} else if (entry_1->node_type == AST_TYPE_SEL_EXPRVAL && entry_2->node_type == AST_TYPE_SEL_FIELDNAME) {
-		val_1 = (typeof(val_2))entry_1;
-		field_2 = (typeof(field_1))entry_2;
 
-		if (val_1->value_type.is_name) {
-			/* field-to-fqfield comparison */
-			return check_values_fqfield_to_field(root, field_2, val_1, ht, out_err, out_err_len);
-		} else {
-			/* value-to-fqfield comparison */
-			return check_values_fqfield_to_value(root, field_2, val_1, ht, out_err, out_err_len);
-		}
+	} else if (node->node_type == AST_TYPE_SEL_COUNT) {
+		/* COUNT function such as SELECT COUNT(f1) as val FROM a; */
+		col_type = CT_INTEGER;
+	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+		field_node = (typeof(field_node))node;
+
+		snprintf(lookup_key, sizeof(lookup_key) - 1, "%s.%s",
+				field_node->table_name,
+				field_node->col_name);
+
+		ht_value = hashtable_get(ht, lookup_key, strlen(lookup_key) + 1);
+		BUG_ON(!ht_value);
+
+		col_type = *(enum COLUMN_TYPE*)ht_value->content;
+
 	} else {
+		/* is there an edge case that I haven't foreseen */
 		BUG_GENERIC();
 	}
 
-	return false;
+	return col_type;
+
 }
 
-static bool check_values_for_logop(struct ast_sel_logop_node *root, struct hashtable *ht_types, char *out_err, size_t out_err_len)
+static bool build_alias_value_types_ht(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
-	struct ast_node *entry_1 = NULL;
-	struct ast_node *entry_2 = NULL;
+	struct ast_sel_alias_node *alias_node;
+	char key[FQFIELD_NAME_LEN] = {0};
+	enum COLUMN_TYPE col_type;
 
-	list_for_each(pos, root->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+	if (node->node_type == AST_TYPE_SEL_ALIAS) {
+		alias_node = (typeof(alias_node))node;
 
-		/* sanity check */
-		BUG_ON(tmp_entry->node_type != AST_TYPE_SEL_LOGOP && tmp_entry->node_type != AST_TYPE_SEL_CMP);
-
-		if (!entry_1)
-			entry_1 = tmp_entry;
-		else
-			entry_2 = tmp_entry;
-	}
-
-	if (entry_1->node_type == AST_TYPE_SEL_LOGOP) {
-		if (!check_values_for_logop((struct ast_sel_logop_node*)entry_1, ht_types, out_err, out_err_len))
-			return false;
-	} else if (entry_1->node_type == AST_TYPE_SEL_CMP) {
-		if (!check_values_for_cmp((struct ast_sel_cmp_node*)entry_1, ht_types, out_err, out_err_len))
-			return false;
-	}
-
-	if (entry_2->node_type == AST_TYPE_SEL_LOGOP) {
-		if (!check_values_for_logop((struct ast_sel_logop_node*)entry_2, ht_types, out_err, out_err_len))
-			return false;
-	} else if (entry_2->node_type == AST_TYPE_SEL_CMP) {
-		if (!check_values_for_cmp((struct ast_sel_cmp_node*)entry_2, ht_types, out_err, out_err_len))
-			return false;
-	}
-
-	return true;
-}
-
-static bool check_values_for_isxin(struct ast_sel_isxin_node *isxin_node, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-	struct list_head *pos;
-	struct ast_node *tmp_entry;
-	struct ast_sel_cmp_node cmp_node = {0};
-	struct ast_sel_exprval_node *field_node = NULL, *tmpval_node = NULL;
-	//TODO add fieldname
-
-	/* find field first */
-	list_for_each(pos, isxin_node->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
-			tmpval_node = (typeof(tmpval_node))tmp_entry;
-
-			if (tmpval_node->value_type.is_name) {
-				field_node = tmpval_node;
-				break;
-			}
-		}
-	}
-
-	/* go through values now*/
-	list_for_each(pos, isxin_node->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
-			tmpval_node = (typeof(tmpval_node))tmp_entry;
-
-			if (!tmpval_node->value_type.is_name) {
-
-				if (isxin_node->is_negation) {
-					cmp_node.cmp_type = AST_CMP_DIFF_OP;
-				} else {
-					cmp_node.cmp_type = AST_CMP_EQUALS_OP;
-				}
-
-				if (!check_values_field_to_value(&cmp_node, field_node, tmpval_node,
-									ht,
-									out_err, out_err_len))
-					return false; /* fail fast */
-			}
-		}
-	}
-	return true;
-}
-
-static bool __check_value_types(struct ast_node *root, struct hashtable *ht, char *out_err, size_t out_err_len)
-{
-
-	struct ast_node *tmp_entry;
-	struct list_head *pos;
-
-	if (root->node_type == AST_TYPE_SEL_CMP) {
-		return check_values_for_cmp((struct ast_sel_cmp_node*)root, ht, out_err, out_err_len);
-	} else if (root->node_type == AST_TYPE_SEL_LOGOP) {
-		return check_values_for_logop((struct ast_sel_logop_node*)root, ht, out_err, out_err_len);
-	} else if (root->node_type == AST_TYPE_SEL_EXPRISXIN) {
-		return check_values_for_isxin((struct ast_sel_isxin_node*)root, ht, out_err, out_err_len);
-	} else {
-		// traverse the tree
-		list_for_each(pos, root->node_children_head)
+		list_for_each(pos, alias_node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-			if (!__check_value_types(tmp_entry, ht, out_err, out_err_len))
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+				/* table nodes are not used in this validation, so just move on */
+				continue;
+			}
+
+			strcpy(key, alias_node->alias_value);
+			col_type = extract_alias_types(tmp_entry, alias_node, ht, out_err, out_err_len);
+
+			if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
+				snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+				return false;
+			}
+
+		}
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (!build_alias_value_types_ht(tmp_entry, ht, out_err, out_err_len))
 				return false;
 		}
 	}
+
 	return true;
 }
 
@@ -2551,7 +2419,6 @@ static bool check_value_types(struct database *db, struct ast_node *root, char *
 {
 	bool valid = true;
 	struct hashtable ht = {0};
-	struct table *table;
 
 	if (!hashtable_init(&ht, &hashtable_str_compare, &hashtable_str_hash)) {
 		snprintf(out_err, out_err_len, "semantic phase: internal error\n");
@@ -2559,22 +2426,19 @@ static bool check_value_types(struct database *db, struct ast_node *root, char *
 		goto err;
 	}
 
-//	table = database_table_get(db, root->table_name);
-//
-//	for (int i = 0; i < table->column_count; i++) {
-//		char *key = table->columns[i].name;
-//		enum COLUMN_TYPE value = table->columns[i].type;
-//
-//		if (!hashtable_put(&ht, key, strlen(key) + 1, &value, sizeof(value))) {
-//			snprintf(out_err, out_err_len, "semantic phase: internal error\n");
-//			valid = false;
-//			goto err_ht_put_col;
-//		}
-//	}
-//
-//	valid = __check_value_types((struct ast_node*)root, &ht, out_err, out_err_len);
+	if (!build_column_value_types_ht(db, root, NULL, &ht, out_err, out_err_len)) {
+		valid = false;
+		goto err_build_ht;
+	}
 
-//err_ht_put_col:
+	if (!build_alias_value_types_ht(root, &ht, out_err, out_err_len)) {
+		valid = false;
+		goto err_build_ht;
+	}
+
+	valid = __check_value_types(root, &ht, out_err, out_err_len).invalid == false;
+
+err_build_ht:
 	/* clean up */
 	hashtable_foreach(&ht, &free_hashmap_entries, NULL);
 	hashtable_free(&ht);
@@ -2707,9 +2571,9 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	if (!check_isxnull_entries(node, out_err, out_err_len))
 		goto err_cleanup;
 
-//	/* are value types correct? Ex.: "SELECT * FROM A where age > 'paulo'" shouldn't be allowed */
-//	if (!(check_value_types(db, node, out_err, out_err_len)))
-//		goto err_cleanup;
+	/* are value types correct? Ex.: "SELECT * FROM A where age > 'paulo'" shouldn't be allowed */
+	if (!(check_value_types(db, node, out_err, out_err_len)))
+		goto err_cleanup;
 
 	/*
 	 * TODO:

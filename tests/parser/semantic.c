@@ -675,7 +675,6 @@ static void select_tests(void)
 	helper(&db, "SELECT x.f1 FROM V_D_1 as x WHERE x.f1 > 2;", false);
 	helper(&db, "SELECT V_D_1.f1 / 2 as val FROM V_D_1 WHERE V_D_1.f1 > 2;", false);
 	helper(&db, "SELECT x.f1 / 2 as val FROM V_D_1 as x WHERE x.f1 > 2;", false);
-	helper(&db, "SELECT V_D_1.f1 / 2 as val FROM V_D_1 WHERE V_D_1.f1 > 2;", false);
 
 	/* valid case - where clause */
 	prep_helper(&db, "CREATE TABLE V_E_1 (f1 INT);");
@@ -945,20 +944,24 @@ static void select_tests(void)
 //	helper(&db, "SELECT * FROM J_K_1 WHERE f3 NOT IN (1, 2.0, 3.0);", true);
 
 	/* invalid case - NULL comparison */
-	// TODO Check for value type
-//	prep_helper(&db, "CREATE TABLE I_L_1 (f1 INT);");
-//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 > NULL;", true); // field-to-value
-//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 >= NULL;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 < NULL;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE f1 <= NULL;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > f1;", true); // value-to-field
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= f1;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < f1;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= f1;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > NULL;", true); // value-to-value
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= NULL;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < NULL;", true);
-//	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= NULL;", true);
+	prep_helper(&db, "CREATE TABLE I_L_1 (f1 INT);");
+	helper(&db, "SELECT * FROM I_L_1 WHERE f1 > NULL;", true); // field-to-value
+	helper(&db, "SELECT * FROM I_L_1 WHERE f1 >= NULL;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE f1 < NULL;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE f1 <= NULL;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > f1;", true); // value-to-field
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= f1;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < f1;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= f1;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL > NULL;", true); // value-to-value
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL >= NULL;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < NULL;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= NULL;", true);
+
+	// In theory this should be false as f1 = 5 evaluates to bool and I'm not auto-boxing it to integer
+//	helper(&db, "SELECT * FROM I_K_1 WHERE (3 * (f1 = 5)) = 10;", true);
+
+
 	database_close(&db);
 }
 
