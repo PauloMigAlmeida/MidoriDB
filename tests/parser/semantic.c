@@ -758,6 +758,75 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM V_L_1 WHERE NULL <> NULL;", false);
 	helper(&db, "SELECT * FROM V_L_1 WHERE NULL = NULL;", false);
 
+	/* valid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE V_M_1 (f1 INT, f2 DOUBLE, f3 VARCHAR(10));");
+	// int
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 = 1;", false); // field-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 > 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 >= 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 < 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 <= 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 <> 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 = f1;", false); // value-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 > f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 >= f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 < f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 <= f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 <> f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 = f1;", false); // field-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 > f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 >= f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 < f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 <= f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 <> f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 = 1;", false); // value-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 > 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 >= 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 < 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 <= 1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1 <> 1;", false);
+	// double
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 = 1.0;", false); // field-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 > 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 >= 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 < 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 <= 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 <> 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 = f2;", false); // value-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 > f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 >= f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 < f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 <= f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 <> f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 = f2;", false); // field-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 > f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 >= f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 < f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 <= f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f2 <> f2;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 = 1.0;", false); // value-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 > 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 >= 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 < 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 <= 1.0;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 1.0 <> 1.0;", false);
+	// string
+	helper(&db, "SELECT * FROM V_M_1 WHERE f3 = 'test';", false); // field-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE f3 <> 'test';", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 'test' = f3;", false); // value-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE 'test' <> f3;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE f3 = f3;", false); // field-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE f3 <> f3;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE 'test' = 'test';", false); // value-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE 'test' <> 'test';", false);
+	// null
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 = NULL;", false); // field-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE f1 <> NULL;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE NULL = f1;", false); // value-to-field
+	helper(&db, "SELECT * FROM V_M_1 WHERE NULL <> f1;", false);
+	helper(&db, "SELECT * FROM V_M_1 WHERE NULL = NULL;", false); // value-to-value
+	helper(&db, "SELECT * FROM V_M_1 WHERE NULL <> NULL;", false);
+
 	/* invalid case - table doesn't exist */
 	prep_helper(&db, "CREATE TABLE I_A_1 (f1 INT);");
 	prep_helper(&db, "CREATE TABLE I_A_2 (f2 INT);");
@@ -961,6 +1030,20 @@ static void select_tests(void)
 	// In theory this should be false as f1 = 5 evaluates to bool and I'm not auto-boxing it to integer
 //	helper(&db, "SELECT * FROM I_K_1 WHERE (3 * (f1 = 5)) = 10;", true);
 
+	/* invalid case - single condition; [field|value] cmp [field|value] */
+	prep_helper(&db, "CREATE TABLE I_M_1 (f1 INT, f2 DOUBLE, f3 VARCHAR(10));");
+	helper(&db, "SELECT * FROM I_M_1 WHERE f3 > 'a';", true); // field-to-value
+	helper(&db, "SELECT * FROM I_M_1 WHERE f3 >= 'a';", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE f3 < 'a';", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE f3 <= 'a';", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' > f3;", true); // value-to-field
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' >= f3;", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' < f3;", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' <= f3;", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' > 'a';", true); // value-to-value
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' >= 'a';", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' < 'a';", true);
+	helper(&db, "SELECT * FROM I_M_1 WHERE 'a' <= 'a';", true);
 
 	database_close(&db);
 }

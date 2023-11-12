@@ -12,6 +12,9 @@
 #include <datastructure/hashtable.h>
 #include <datastructure/linkedlist.h>
 
+static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err,
+		size_t out_err_len);
+
 #define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) 	\
 					+ 1 /* dot */ 						\
 					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) \
@@ -2086,6 +2089,59 @@ struct sem_check_val_types {
 };
 
 //TODO once this is fully implemented, break it down into smaller functions
+static struct sem_check_val_types check_value_types_cmp(struct ast_sel_cmp_node *cmp_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct sem_check_val_types ret = {0};
+	struct sem_check_val_types left = {0};
+	struct sem_check_val_types right = {0};
+	int i = 0;
+
+	struct ast_node *tmp_entry = NULL;
+	struct list_head *pos;
+
+	/* sanity check */
+	BUG_ON(list_length(cmp_node->node_children_head) != 2);
+
+	list_for_each(pos, cmp_node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (i == 0) {
+			left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		} else {
+			right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		}
+		i++;
+	}
+
+	// NULL has a special set of rules
+	if (left.null || right.null) {
+		if (cmp_node->cmp_type != AST_CMP_EQUALS_OP && cmp_node->cmp_type != AST_CMP_DIFF_OP) {
+			snprintf(out_err, out_err_len, "NULL values can only use '=' or '<>' ops\n");
+			ret.invalid = true;
+		} else {
+			ret.type = CT_TINYINT;
+		}
+		return ret;
+	}
+
+	// VARCHAR has a special set of rules
+	if (left.type == CT_VARCHAR || right.type == CT_VARCHAR) {
+		if (cmp_node->cmp_type != AST_CMP_EQUALS_OP && cmp_node->cmp_type != AST_CMP_DIFF_OP) {
+			snprintf(out_err, out_err_len, "VARCHAR values can only use '=' or '<>' ops\n");
+			ret.invalid = true;
+		}
+	}
+
+	if (memcmp(&left, &right, sizeof(left))) {
+		ret.invalid = true;
+	} else {
+		ret.type = CT_TINYINT; // CMP resolves into a Boolean value
+	}
+
+	return ret;
+}
+
 static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 
@@ -2099,7 +2155,6 @@ static struct sem_check_val_types __check_value_types(struct ast_node *node, str
 
 	struct ast_sel_exprval_node *val_node;
 	struct ast_sel_fieldname_node *field_node;
-	struct ast_sel_cmp_node *cmp_node;
 
 	struct hashtable_value *ht_value;
 	char key[FQFIELD_NAME_LEN] = {0};
@@ -2159,40 +2214,7 @@ static struct sem_check_val_types __check_value_types(struct ast_node *node, str
 		}
 		return ret;
 	} else if (node->node_type == AST_TYPE_SEL_CMP) {
-		cmp_node = (typeof(cmp_node))node;
-		/* sanity check */
-		BUG_ON(list_length(cmp_node->node_children_head) != 2);
-
-		list_for_each(pos, cmp_node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (i == 0) {
-				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			} else {
-				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			}
-			i++;
-		}
-
-		// NULL has a special set of rules
-		if (left.null || right.null) {
-			if (cmp_node->cmp_type != AST_CMP_EQUALS_OP && cmp_node->cmp_type != AST_CMP_DIFF_OP) {
-				//TODO add error message
-				ret.invalid = true;
-			} else {
-				ret.type = CT_TINYINT;
-			}
-			return ret;
-		}
-		// TODO add special cases (VARCHAR)
-
-		if (memcmp(&left, &right, sizeof(left))) {
-			ret.invalid = true;
-		} else {
-			ret.type = CT_TINYINT; // CMP resolves into a Boolean value
-		}
-		return ret;
+		return check_value_types_cmp((struct ast_sel_cmp_node*)node, ht, out_err, out_err_len);
 	} else if (node->node_type == AST_TYPE_SEL_LOGOP) {
 		/* sanity check */
 		BUG_ON(list_length(node->node_children_head) != 2);
