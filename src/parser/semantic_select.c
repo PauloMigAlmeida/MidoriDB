@@ -2088,7 +2088,6 @@ struct sem_check_val_types {
 	enum COLUMN_TYPE type;
 };
 
-//TODO once this is fully implemented, break it down into smaller functions
 static struct sem_check_val_types check_value_types_cmp(struct ast_sel_cmp_node *cmp_node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct sem_check_val_types ret = {0};
@@ -2142,9 +2141,8 @@ static struct sem_check_val_types check_value_types_cmp(struct ast_sel_cmp_node 
 	return ret;
 }
 
-static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
+static struct sem_check_val_types check_value_types_exprop(struct ast_sel_exprop_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
-
 	struct sem_check_val_types ret = {0};
 	struct sem_check_val_types left = {0};
 	struct sem_check_val_types right = {0};
@@ -2153,11 +2151,89 @@ static struct sem_check_val_types __check_value_types(struct ast_node *node, str
 	struct ast_node *tmp_entry = NULL;
 	struct list_head *pos;
 
-	struct ast_sel_exprval_node *val_node;
-	struct ast_sel_fieldname_node *field_node;
+	/* sanity check */
+	BUG_ON(list_length(node->node_children_head) != 2);
 
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (i == 0) {
+			left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		} else {
+			right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		}
+		i++;
+	}
+
+	if (memcmp(&left, &right, sizeof(left))) {
+		ret.invalid = true;
+	} else {
+		ret = left;
+	}
+	return ret;
+}
+
+static struct sem_check_val_types check_value_types_logop(struct ast_sel_logop_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct sem_check_val_types ret = {0};
+	struct sem_check_val_types left = {0};
+	struct sem_check_val_types right = {0};
+	int i = 0;
+
+	struct ast_node *tmp_entry = NULL;
+	struct list_head *pos;
+
+	/* sanity check */
+	BUG_ON(list_length(node->node_children_head) != 2);
+
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (i == 0) {
+			left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		} else {
+			right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
+		}
+		i++;
+	}
+
+	if (memcmp(&left, &right, sizeof(left))) {
+		ret.invalid = true;
+	} else {
+		ret.type = CT_TINYINT; // LOGOP resolves into a Boolean value
+	}
+	return ret;
+}
+
+static struct sem_check_val_types check_value_types_fieldname(struct ast_sel_fieldname_node *field_node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	UNUSED(out_err);
+	UNUSED(out_err_len);
+
+	struct sem_check_val_types ret = {0};
 	struct hashtable_value *ht_value;
 	char key[FQFIELD_NAME_LEN] = {0};
+
+	snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, field_node->col_name);
+	ht_value = hashtable_get(ht, key, strlen(key) + 1);
+	BUG_ON(!ht_value); // sanity check
+	ret.type = *(enum COLUMN_TYPE*)ht_value->content;
+
+	return ret;
+}
+
+static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+
+	struct sem_check_val_types ret = {0};
+
+	struct ast_node *tmp_entry = NULL;
+	struct list_head *pos;
+
+	struct ast_sel_exprval_node *val_node;
+	struct hashtable_value *ht_value;
 
 	// deep first search - base case
 	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
@@ -2183,60 +2259,13 @@ static struct sem_check_val_types __check_value_types(struct ast_node *node, str
 
 		return ret;
 	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
-		field_node = (typeof(field_node))node;
-
-		snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, field_node->col_name);
-		ht_value = hashtable_get(ht, key, strlen(key) + 1);
-		BUG_ON(!ht_value); // sanity check
-		ret.type = *(enum COLUMN_TYPE*)ht_value->content;
-
-		return ret;
+		return check_value_types_fieldname((struct ast_sel_fieldname_node*)node, ht, out_err, out_err_len);
 	} else if (node->node_type == AST_TYPE_SEL_EXPROP) {
-		/* sanity check */
-		BUG_ON(list_length(node->node_children_head) != 2);
-
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (i == 0) {
-				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			} else {
-				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			}
-			i++;
-		}
-
-		if (memcmp(&left, &right, sizeof(left))) {
-			ret.invalid = true;
-		} else {
-			ret = left;
-		}
-		return ret;
+		return check_value_types_exprop((struct ast_sel_exprop_node*)node, ht, out_err, out_err_len);
 	} else if (node->node_type == AST_TYPE_SEL_CMP) {
 		return check_value_types_cmp((struct ast_sel_cmp_node*)node, ht, out_err, out_err_len);
 	} else if (node->node_type == AST_TYPE_SEL_LOGOP) {
-		/* sanity check */
-		BUG_ON(list_length(node->node_children_head) != 2);
-
-		list_for_each(pos, node->node_children_head)
-		{
-			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
-
-			if (i == 0) {
-				left = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			} else {
-				right = __check_value_types(tmp_entry, ht, out_err, out_err_len);
-			}
-			i++;
-		}
-
-		if (memcmp(&left, &right, sizeof(left))) {
-			ret.invalid = true;
-		} else {
-			ret.type = CT_TINYINT; // LOGOP resolves into a Boolean value
-		}
-		return ret;
+		return check_value_types_logop((struct ast_sel_logop_node*)node, ht, out_err, out_err_len);
 	} else if (node->node_type == AST_TYPE_SEL_COUNT) {
 		ret.type = CT_INTEGER;
 		return ret;
