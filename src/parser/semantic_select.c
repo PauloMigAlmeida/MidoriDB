@@ -15,12 +15,12 @@
 static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err,
 		size_t out_err_len);
 
-#define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) 	\
-					+ 1 /* dot */ 						\
-					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) \
+#define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) 		\
+					+ 1 /* dot */ 							\
+					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) 	\
 					+ 1 /* NUL */
 
-#define FIELD_NAME_LEN 		sizeof(((struct ast_sel_exprval_node*)0)->name_val) 		\
+#define FIELD_NAME_LEN 		sizeof(((struct ast_sel_exprval_node*)0)->name_val) 			\
 					+ 1 /* NUL */
 
 struct alias_value {
@@ -45,6 +45,32 @@ static void free_hashmap_entries(struct hashtable *hashtable, const void *key, s
 
 	entry = hashtable_remove(hashtable, key, klen);
 	hashtable_free_entry(entry);
+}
+
+static bool try_parse_date_type(char *str, enum COLUMN_TYPE type)
+{
+	struct tm time_struct = {0};
+	const char *fmt;
+	time_t time_out;
+
+	if (type == CT_DATE)
+		fmt = COLUMN_CTDATE_FMT;
+	else
+		fmt = COLUMN_CTDATETIME_FMT;
+
+	// Parse the string into a time structure
+	if (strptime(str, fmt, &time_struct) == NULL)
+		return false;
+
+	// Convert the time structure to a time_t value
+	time_out = mktime(&time_struct);
+
+	// Check if the conversion was successful
+	if (time_out == -1)
+		return false;
+
+	return true;
+
 }
 
 static struct ast_node* find_node(struct ast_node *root, enum ast_node_type node_type)
@@ -2017,14 +2043,16 @@ static bool check_isxin_entries(struct ast_node *root, char *out_err, size_t out
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL) {
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+				val_node = (typeof(val_node))tmp_entry;
+				if (val_node->value_type.is_name) {
+					field_count++;
+				}
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				field_count++;
+			} else {
 				snprintf(out_err, out_err_len, "IN-clause can only contain raw values\n");
 				return false;
-			}
-
-			val_node = (typeof(val_node))tmp_entry;
-			if (val_node->value_type.is_name) {
-				field_count++;
 			}
 
 			/*
@@ -2061,11 +2089,19 @@ static bool check_isxnull_entries(struct ast_node *root, char *out_err, size_t o
 
 		list_for_each(pos, root->node_children_head)
 		{
-			val_node = list_entry(pos, typeof(*val_node), head);
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			if (!val_node->value_type.is_name) {
-				snprintf(out_err, out_err_len, "only fields are allowed in IS NULL|IS NOT NULL\n");
-				return false;
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+				val_node = (typeof(val_node))tmp_entry;
+
+				if (!val_node->value_type.is_name) {
+					snprintf(out_err, out_err_len,
+							"only fields are allowed in IS NULL|IS NOT NULL\n");
+					return false;
+				}
+			} else if (tmp_entry->node_type != AST_TYPE_SEL_FIELDNAME) {
+				/* something I haven't foreseen */
+				BUG_GENERIC();
 			}
 
 		}
@@ -2224,6 +2260,94 @@ static struct sem_check_val_types check_value_types_fieldname(struct ast_sel_fie
 	return ret;
 }
 
+static struct sem_check_val_types check_value_types_isxin(struct ast_sel_isxin_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
+{
+	struct sem_check_val_types ret = {0};
+	struct hashtable_value *ht_value;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *field_node;
+	char key[FQFIELD_NAME_LEN] = {0};
+
+	struct ast_node *tmp_entry = NULL;
+	struct list_head *pos;
+
+	enum COLUMN_TYPE expected_type;
+	bool first = true;
+
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (first) {
+			first = false;
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+				val_node = (typeof(val_node))tmp_entry;
+				ht_value = hashtable_get(ht, val_node->name_val, strlen(val_node->name_val) + 1);
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				field_node = (typeof(field_node))tmp_entry;
+				snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, field_node->col_name);
+				ht_value = hashtable_get(ht, key, strlen(key) + 1);
+			}
+
+			BUG_ON(!ht_value); // sanity check
+			expected_type = *(enum COLUMN_TYPE*)ht_value->content;
+		} else {
+			// sanity check
+			BUG_ON(tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL);
+			val_node = (typeof(val_node))tmp_entry;
+
+			if (val_node->value_type.is_str) {
+				// strings can be interpreted/parsed for other types such as DATE and DATETIME
+				if (expected_type == CT_DATE || expected_type == CT_DATETIME) {
+					if (!try_parse_date_type(val_node->str_val, expected_type)) {
+						snprintf(out_err,
+								out_err_len,
+								/* max str size would exceed buffer's size, so trim it */
+								"val: '%.256s' can't be parsed for DATE | DATETIME column\n",
+								val_node->str_val);
+						goto err;
+					}
+				} else if (expected_type != CT_VARCHAR) {
+					snprintf(out_err, out_err_len,
+							/* max str size would exceed buffer's size, so trim it */
+							"val: '%.256s' requires an VARCHAR() column\n",
+							val_node->str_val);
+					goto err;
+				}
+			} else if (val_node->value_type.is_intnum) {
+				if (expected_type != CT_INTEGER) {
+					snprintf(out_err, out_err_len, "val: '%ld' requires an INTEGER column\n",
+							val_node->int_val);
+					goto err;
+				}
+			} else if (val_node->value_type.is_approxnum) {
+				if (expected_type != CT_DOUBLE) {
+					snprintf(out_err, out_err_len, "val: '%f' requires a DOUBLE column\n",
+							val_node->double_val);
+					goto err;
+				}
+			} else if (val_node->value_type.is_bool) {
+				if (expected_type != CT_TINYINT) {
+					snprintf(out_err, out_err_len, "val: '%d' requires a TINYINT column\n",
+							val_node->bool_val);
+					goto err;
+				}
+			} else {
+				/* maybe new column type? */
+				BUG_GENERIC();
+			}
+		}
+	}
+
+	ret.type = CT_TINYINT; // ISXIN is just a syntax sugar for a set of comparisons (CMP) so it evals to bool
+	return ret;
+
+err:
+	ret.invalid = true;
+	return ret;
+}
+
 static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 
@@ -2269,8 +2393,9 @@ static struct sem_check_val_types __check_value_types(struct ast_node *node, str
 	} else if (node->node_type == AST_TYPE_SEL_COUNT) {
 		ret.type = CT_INTEGER;
 		return ret;
+	} else if (node->node_type == AST_TYPE_SEL_EXPRISXIN) {
+		return check_value_types_isxin((struct ast_sel_isxin_node*)node, ht, out_err, out_err_len);
 	}
-	//TODO add validation for ISXIN entries
 
 	// recursion
 	else {
@@ -2549,8 +2674,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - SELECT f1 as val FROM I_D_1 WHERE val > 2; - Done.
 	 * - SELECT f1 as val FROM I_D_1 GROUP BY val; - Done
 	 * - SELECT f1 as val FROM I_D_1 ORDER BY val; - Done.
-	 * - SELECT count(*) as val FROM I_D_1 HAVING COUNT(*) > 1; - need to check alias on having statements
-	 * 	TODO: Figure this out
+	 * - SELECT count(*) as val FROM I_D_1 HAVING COUNT(*) > 1; - need to check alias on having statements - Done
 	 */
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
 		goto err_cleanup;
@@ -2605,7 +2729,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	/*
 	 * check if having-clause contains exprval (name) / fields / aliases (verified in check_column_names)
-	 * and count() occurences only
+	 * and count() occurrences only
 	 */
 	if (!check_having_clause(node, out_err, out_err_len, &column_alias))
 		goto err_cleanup;
@@ -2625,14 +2749,6 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	/* are value types correct? Ex.: "SELECT * FROM A where age > 'paulo'" shouldn't be allowed */
 	if (!(check_value_types(db, node, out_err, out_err_len)))
 		goto err_cleanup;
-
-	/*
-	 * TODO:
-	 * 	- check CMP (field-to-field, field-to-value, value-to-value
-	 * 	- check isxin expressions
-	 * 	- check isxnull expressions
-	 * 	- check expression types (1 + 1.0 -> error as they have different types)
-	 */
 
 	/* cleanup */
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);

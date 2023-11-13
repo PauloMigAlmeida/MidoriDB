@@ -741,16 +741,26 @@ static void select_tests(void)
 	/* valid case - ISXIN expressions */
 	prep_helper(&db, "CREATE TABLE V_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
 	helper(&db, "SELECT * FROM V_K_1 WHERE f1 IN (1,2,3);", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE V_K_1.f1 IN (1, 2, 3);", false);
+	helper(&db, "SELECT * FROM V_K_1 a WHERE a.f1 IN (1, 2, 3);", false);
 	helper(&db, "SELECT * FROM V_K_1 WHERE f1 NOT IN (1,2,3);", false);
+
 	helper(&db, "SELECT * FROM V_K_1 WHERE f2 IN ('1','2','3');", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE V_K_1.f2 IN ('1','2','3');", false);
+	helper(&db, "SELECT * FROM V_K_1 a WHERE a.f2 IN ('1','2','3');", false);
 	helper(&db, "SELECT * FROM V_K_1 WHERE f2 NOT IN ('1','2','3');", false);
+
 	helper(&db, "SELECT * FROM V_K_1 WHERE f3 IN (1.0, 2.0, 3.0);", false);
+	helper(&db, "SELECT * FROM V_K_1 WHERE V_K_1.f3 IN (1.0, 2.0, 3.0);", false);
+	helper(&db, "SELECT * FROM V_K_1 a WHERE a.f3 IN (1.0, 2.0, 3.0);", false);
 	helper(&db, "SELECT * FROM V_K_1 WHERE f3 NOT IN (1.0, 2.0, 3.0);", false);
 
 	/* valid case - NULL comparison */
 	prep_helper(&db, "CREATE TABLE V_L_1 (f1 INT);");
 	helper(&db, "SELECT * FROM V_L_1 WHERE f1 IS NULL;", false);
 	helper(&db, "SELECT * FROM V_L_1 WHERE f1 IS NOT NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 WHERE V_L_1.f1 IS NULL;", false);
+	helper(&db, "SELECT * FROM V_L_1 a WHERE a.f1 IS NULL;", false);
 	helper(&db, "SELECT * FROM V_L_1 WHERE f1 = NULL;", false);
 	helper(&db, "SELECT * FROM V_L_1 WHERE f1 <> NULL;", false);
 	helper(&db, "SELECT * FROM V_L_1 WHERE f1 != NULL;", false);
@@ -894,6 +904,7 @@ static void select_tests(void)
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE 1 like f1;", true); // LIKE function
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 like f1;", true); // LIKE function
 	helper(&db, "SELECT f1 FROM I_E_1 WHERE f1 like 1;", true); // LIKE function
+	helper(&db, "SELECT f1 FROM V_E_2 WHERE (3 * (f1 = 5)) = 10;", true); // no autoboxing from bool to int
 
 	/* invalid case - group-by clause */
 	prep_helper(&db, "CREATE TABLE I_F_1 (f1 INT);");
@@ -1000,17 +1011,18 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_J_1 v1 JOIN I_J_2 v2 ON I_J_1.f1 = I_J_2.f2;", true); // after alias is created, we can't use fqfield
 
 	/* invalid case - ISXIN expressions */
-	prep_helper(&db, "CREATE TABLE I_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE);");
+	prep_helper(&db, "CREATE TABLE I_K_1 (f1 INT, f2 VARCHAR(1), f3 DOUBLE, f4 TINYINT, f5 DATE);");
 	helper(&db, "SELECT * FROM I_K_1 WHERE f1 IN (1,2,f1);", true); // field
 	helper(&db, "SELECT * FROM I_K_1 WHERE f1 IN (1,2, 1 + 1);", true); // recursive expression
-
-	// TODO Check for value type
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f1 IN (1,2,'3');", true);
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f1 NOT IN (1,2,'3');", true);
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f2 IN ('1','2',3);", true);
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f2 NOT IN ('1',2,'3');", true);
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f3 IN (1.0, 2.0, 3);", true);
-//	helper(&db, "SELECT * FROM J_K_1 WHERE f3 NOT IN (1, 2.0, 3.0);", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f1 IN (1,2,'3');", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f1 NOT IN (1,2,'3');", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f2 IN ('1','2',3);", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f2 NOT IN ('1',2,'3');", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f3 IN (1.0, 2.0, 3);", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f3 NOT IN (1, 2.0, 3.0);", true);
+	helper(&db, "SELECT * FROM I_K_1 WHERE f4 IN (1, 0);", true); // no auto-boxing
+	helper(&db, "SELECT * FROM I_K_1 WHERE f5 IN ('20231114');", true); // date didn't parse
+	helper(&db, "SELECT * FROM I_K_1 WHERE f5 IN ('2023-11-14');", false); // date parses
 
 	/* invalid case - NULL comparison */
 	prep_helper(&db, "CREATE TABLE I_L_1 (f1 INT);");
@@ -1027,8 +1039,9 @@ static void select_tests(void)
 	helper(&db, "SELECT * FROM I_L_1 WHERE NULL < NULL;", true);
 	helper(&db, "SELECT * FROM I_L_1 WHERE NULL <= NULL;", true);
 
-	// In theory this should be false as f1 = 5 evaluates to bool and I'm not auto-boxing it to integer
-//	helper(&db, "SELECT * FROM I_K_1 WHERE (3 * (f1 = 5)) = 10;", true);
+	helper(&db, "SELECT * FROM I_L_1 WHERE I_L_2.f1 IS NULL;", true); // no such table
+	helper(&db, "SELECT * FROM I_L_1 WHERE I_L_1.f2 IS NULL;", true); // no such field
+	helper(&db, "SELECT * FROM I_L_1 a WHERE b.f2 IS NULL;", true); // no such alias
 
 	/* invalid case - single condition; [field|value] cmp [field|value] */
 	prep_helper(&db, "CREATE TABLE I_M_1 (f1 INT, f2 DOUBLE, f3 VARCHAR(10));");
