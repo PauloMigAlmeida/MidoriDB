@@ -29,6 +29,8 @@ int optimiser_run(struct database *db, struct ast_node *node, struct query_outpu
 	else if (node->node_type == AST_TYPE_UPD_UPDATE)
 		/* TODO: UPDATE statements can be optimised to avoid full table scans */
 		return MIDORIDB_OK;
+	else if (node->node_type == AST_TYPE_SEL_SELECT)
+		return optimiser_run_select_stmt(db, (struct ast_sel_select_node*)node, output);
 	else
 		BUG_GENERIC();
 

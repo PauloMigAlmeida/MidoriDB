@@ -11,4 +11,5 @@
 void test_optimiser_run(void)
 {
 	test_optimiser_insert();
+	test_optimiser_select();
 }

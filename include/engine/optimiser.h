@@ -34,4 +34,15 @@ int optimiser_run(struct database *db, struct ast_node *node, struct query_outpu
  */
 int optimiser_run_insertvals_stmt(struct database *db, struct ast_ins_insvals_node *node, struct query_output *output);
 
+/**
+ * Optimises the AST tree for a SELECT statement
+ *
+ * @param db the database reference
+ * @param node the AST node to optimise
+ * @param output the query output
+ *
+ * @return 0 if success, otherwise error
+ */
+int optimiser_run_select_stmt(struct database *db, struct ast_sel_select_node *node, struct query_output *output);
+
 #endif /* INCLUDE_ENGINE_OPTIMISER_H_ */

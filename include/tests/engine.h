@@ -25,5 +25,6 @@ void test_database_table_exists(void);
 
 /* sub tests */
 void test_optimiser_insert(void);
+void test_optimiser_select(void);
 
 #endif /* INCLUDE_TESTS_ENGINE_H_ */
