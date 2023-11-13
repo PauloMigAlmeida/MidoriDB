@@ -23,4 +23,7 @@ void test_database_close(void);
 void test_database_add_table(void);
 void test_database_table_exists(void);
 
+/* sub tests */
+void test_optimiser_insert(void);
+
 #endif /* INCLUDE_TESTS_ENGINE_H_ */
