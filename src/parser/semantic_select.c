@@ -15,12 +15,12 @@
 static struct sem_check_val_types __check_value_types(struct ast_node *node, struct hashtable *ht, char *out_err,
 		size_t out_err_len);
 
-#define FQFIELD_NAME_LEN 	sizeof(((struct ast_sel_fieldname_node*)0)->table_name) 		\
+#define FQFIELD_NAME_LEN 	MEMBER_SIZE(struct ast_sel_fieldname_node, table_name)			\
 					+ 1 /* dot */ 							\
-					+ sizeof(((struct ast_sel_fieldname_node*)0)->col_name) 	\
+					+ MEMBER_SIZE(struct ast_sel_fieldname_node, col_name)		\
 					+ 1 /* NUL */
 
-#define FIELD_NAME_LEN 		sizeof(((struct ast_sel_exprval_node*)0)->name_val) 			\
+#define FIELD_NAME_LEN 		MEMBER_SIZE(struct ast_sel_exprval_node, name_val)			\
 					+ 1 /* NUL */
 
 struct alias_value {
@@ -34,6 +34,8 @@ struct alias_value {
 		bool is_count; /* Ex.: select count(f1) as val from A */
 	} type;
 };
+
+//TODO add BUILD_ASSERTS in here too for the alias_value struct
 
 static void free_hashmap_entries(struct hashtable *hashtable, const void *key, size_t klen,
 		const void *value, size_t vlen, void *arg)

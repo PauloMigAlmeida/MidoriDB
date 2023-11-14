@@ -9,7 +9,7 @@
 #include <parser/semantic.h>
 #include <engine/query.h>
 
-void helper(struct database *db, char *stmt, bool expect_to_fail)
+static void helper(struct database *db, char *stmt, bool expect_to_fail)
 {
 	struct ast_node *node;
 	char err_msg[1024];
@@ -35,7 +35,7 @@ void helper(struct database *db, char *stmt, bool expect_to_fail)
  * Some statements require tables to exist before the semantic analysis take place.
  * So this a helper that should run before "helper" is invoked in some tests
  */
-void prep_helper(struct database *db, char *stmt)
+static void prep_helper(struct database *db, char *stmt)
 {
 	struct query_output *output;
 

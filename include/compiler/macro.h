@@ -20,4 +20,7 @@
 /* return min value */
 #define MIN(a,b)			(((a)<(b))?(a):(b))
 
+/* return size of a struct member - to be used in BUILD_BUG occurrences */
+#define MEMBER_SIZE(type, member)	(sizeof(((type*)0)->member))
+
 #endif /* COMPILER_MACRO_H */
