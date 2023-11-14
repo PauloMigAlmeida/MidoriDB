@@ -35,7 +35,13 @@ struct alias_value {
 	} type;
 };
 
-//TODO add BUILD_ASSERTS in here too for the alias_value struct
+/* sanity checks during compilation to ensure logic below holds up */
+BUILD_BUG(MEMBER_SIZE(struct alias_value, table_name) == MEMBER_SIZE(struct ast_sel_table_node, table_name),
+		"must have the same size");
+BUILD_BUG(MEMBER_SIZE(struct alias_value, col_name) == MEMBER_SIZE(struct ast_sel_exprval_node, name_val),
+		"must have the same size");
+BUILD_BUG(MEMBER_SIZE(struct alias_value, col_name) == MEMBER_SIZE(struct ast_sel_fieldname_node, col_name),
+		"must have the same size");
 
 static void free_hashmap_entries(struct hashtable *hashtable, const void *key, size_t klen,
 		const void *value, size_t vlen, void *arg)
@@ -2636,16 +2642,16 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	if (!hashtable_init(&column_alias, &hashtable_str_compare, &hashtable_str_hash)) {
 		snprintf(out_err, out_err_len, "semantic phase: internal error\n");
-		goto err;
+		goto cleanup_col_ht;
 	}
 
 	/* does tables exist? */
 	if (!check_table_names(db, node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* build table alias hashtable; check for table alias duplicates */
 	if (!check_table_alias(node, out_err, out_err_len, &table_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * build column alias hashtable; check for column alias validity
@@ -2660,7 +2666,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	-> alias_value.type.is_expre is set in this case
 	 */
 	if (!check_column_alias(db, node, out_err, out_err_len, &table_alias, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * check columns
@@ -2679,7 +2685,7 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * - SELECT count(*) as val FROM I_D_1 HAVING COUNT(*) > 1; - need to check alias on having statements - Done
 	 */
 	if (!check_column_names(db, node, node, out_err, out_err_len, &table_alias, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * Check for COUNT functions
@@ -2697,21 +2703,21 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	SELECT (COUNT(f1) + 1) * 2 FROM A; (invalid)
 	 */
 	if (!check_count_function(node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* check select to ensure only columns, recursive expressions, COUNT fncs, and aliases are used.
 	 * Expr grammar rule is too generic but that seems to be the case for other engines too.
 	 * It's preferable to debug this code than to debug bison's parser code instead :) */
 	if (!check_select_clause(node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* check JOIN statements */
 	if (!check_from_clause(db, node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* check where clause */
 	if (!check_where_clause(node, out_err, out_err_len, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * check if group-by clause:
@@ -2720,25 +2726,25 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * 	-> This is also a different thing on SQLITE and MySQL..... got decide how I want it to work.
 	 */
 	if (!check_groupby_clause(node, out_err, out_err_len, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * check if order-by clause contains only exprval (name) / fieldnames / alias (later one is verified in
 	 * check_column_names)
 	 */
 	if (!check_orderby_clause(node, out_err, out_err_len, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * check if having-clause contains exprval (name) / fields / aliases (verified in check_column_names)
 	 * and count() occurrences only
 	 */
 	if (!check_having_clause(node, out_err, out_err_len, &column_alias))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* are all values in the "field IN (xxxxx)" raw values? We can't have fields in there */
 	if (!check_isxin_entries(node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/*
 	 * check "IS NULL" and "IS NOT NULL" have fields.
@@ -2746,11 +2752,11 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 	 * Semantically, this is invalid.
 	 */
 	if (!check_isxnull_entries(node, out_err, out_err_len))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* are value types correct? Ex.: "SELECT * FROM A where age > 'paulo'" shouldn't be allowed */
 	if (!(check_value_types(db, node, out_err, out_err_len)))
-		goto err_cleanup;
+		goto cleanup_tbl_ht;
 
 	/* cleanup */
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);
@@ -2761,10 +2767,11 @@ bool semantic_analyse_select_stmt(struct database *db, struct ast_node *node, ch
 
 	return true;
 
-err_cleanup:
+cleanup_tbl_ht:
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);
 	hashtable_free(&column_alias);
 
+cleanup_col_ht:
 	hashtable_foreach(&table_alias, &free_hashmap_entries, NULL);
 	hashtable_free(&table_alias);
 err:
