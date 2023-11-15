@@ -7,11 +7,6 @@
 
 #include <tests/engine.h>
 
-extern void test_executor_create(void);
-extern void test_executor_insert(void);
-extern void test_executor_delete(void);
-extern void test_executor_update(void);
-
 void test_executor_run(void)
 {
 	/* CREATE statements */
@@ -25,4 +20,7 @@ void test_executor_run(void)
 
 	/* UPDATE statements */
 	test_executor_update();
+
+	/* SELECT statements */
+	test_executor_select();
 }

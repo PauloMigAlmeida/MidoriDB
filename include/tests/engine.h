@@ -27,4 +27,10 @@ void test_database_table_exists(void);
 void test_optimiser_insert(void);
 void test_optimiser_select(void);
 
+void test_executor_create(void);
+void test_executor_insert(void);
+void test_executor_delete(void);
+void test_executor_update(void);
+void test_executor_select(void);
+
 #endif /* INCLUDE_TESTS_ENGINE_H_ */

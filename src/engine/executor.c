@@ -20,6 +20,8 @@ int executor_run(struct database *db, struct ast_node *node, struct query_output
 		return executor_run_deleteone_stmt(db, (struct ast_del_deleteone_node*)node, output);
 	else if (node->node_type == AST_TYPE_UPD_UPDATE)
 		return executor_run_update_stmt(db, (struct ast_upd_update_node*)node, output);
+	else if (node->node_type == AST_TYPE_SEL_SELECT)
+		return executor_run_select_stmt(db, (struct ast_sel_select_node*)node, output);
 	else
 		/* semantic analysis not implemented for that yet */
 		BUG_GENERIC();
