@@ -88,6 +88,15 @@ bool table_check_var_column(struct column *column);
  */
 size_t table_calc_column_space(struct column *column);
 
+/**
+ * table_calc_column_precision - calculate column precision given column type.
+ *
+ * This is only possible for fixed-precision columns
+ *
+ * @column: column reference
+ */
+size_t table_calc_column_precision(enum COLUMN_TYPE type);
+
 /*
  * table_validate_column_name - validate column name
  *

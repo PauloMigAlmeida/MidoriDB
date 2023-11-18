@@ -12,6 +12,8 @@
 #include <datastructure/queue.h>
 #include <engine/optimiser.h>
 #include <engine/executor.h>
+#include <primitive/row.h>
+#include <primitive/column.h>
 
 /**
  * Notes to my future self:
@@ -30,7 +32,6 @@
  * 		phase.... some sort of hash map of locked elements pointer that I pass around. (TBD)
  */
 
-//TODO add tests
 struct query_output* query_execute(struct database *db, char *query)
 {
 	struct query_output *output = NULL;
@@ -80,8 +81,10 @@ struct query_output* query_execute(struct database *db, char *query)
 	if (executor_run(db, node, output))
 		goto err_execution_phase;
 
-	//TODO change this once we implement SELECT statements
-	output->status = ST_OK_EXECUTED;
+	if (node->node_type == AST_TYPE_SEL_SELECT)
+		output->status = ST_OK_WITH_RESULTS;
+	else
+		output->status = ST_OK_EXECUTED;
 
 	/* clean up */
 	queue_free(&queue);
@@ -102,3 +105,72 @@ err:
 	return output;
 }
 
+int query_cur_step(struct result_set *res)
+{
+	struct row *row;
+	size_t row_size;
+
+	/* sanity checks */
+	BUG_ON(!res || !res->table);
+
+	row_size = table_calc_row_size(res->table);
+
+	/* is this the first time ? */
+	if (!res->cursor_blk) {
+
+		res->cursor_blk = container_of(res->table->datablock_head->next, typeof(struct datablock), head);
+		res->cursor_offset = 0;
+	} else {
+		if (res->cursor_offset + row_size > DATABLOCK_PAGE_SIZE) {
+			res->cursor_blk = container_of(res->cursor_blk->head.next, typeof(struct datablock), head);
+			res->cursor_offset = 0;
+
+			if (&res->cursor_blk->head == res->table->datablock_head) {
+				/* end of the line */
+				return MIDORIDB_OK;
+			}
+		} else {
+			res->cursor_offset += row_size;
+		}
+	}
+
+	/* at this point we shouldn't have any of this, so clearly something went really wrong here */
+	row = (typeof(row))&res->cursor_blk->data[res->cursor_offset];
+	BUG_ON(row->flags.deleted);
+
+	if (row->flags.empty)
+		/* end of the line */
+		return MIDORIDB_OK;
+
+	return MIDORIDB_ROW;
+}
+
+int64_t query_column_int64(struct result_set *res, int col_idx)
+{
+	struct row *row;
+	size_t offset = 0;
+	int64_t ret = 0;
+
+	/* sanity checks */
+	BUG_ON(!res || !res->table || !res->cursor_blk || col_idx > res->table->column_count - 1);
+
+	row = (typeof(row))&res->cursor_blk->data[res->cursor_offset];
+
+	/* sounds like user either didn't invoke query_cur_step or didn't check if it returned MIDORIDB_ROW */
+	BUG_ON_CUSTOM_MSG(row->flags.deleted || row->flags.empty, "cursor is pointing at an invalid row\n");
+
+	for (int i = 0; i < col_idx; i++)
+		offset += table_calc_column_space(&res->table->columns[i]);
+
+	ret = *(int64_t*)(row->data + offset);
+	return ret;
+}
+
+void query_free(struct query_output* output)
+{
+	if (output->status == ST_OK_WITH_RESULTS){
+		table_destroy(&output->results.table);
+	}
+
+	free(output);
+}

@@ -18,6 +18,7 @@
  */
 
 #include <engine/executor.h>
+#include <primitive/row.h>
 
 #define FQFIELD_NAME_LEN 	MEMBER_SIZE(struct ast_sel_fieldname_node, table_name)			\
 					+ 1 /* dot */ 							\
@@ -36,12 +37,12 @@ static void free_hashmap_entries(struct hashtable *hashtable, const void *key, s
 	hashtable_free_entry(entry);
 }
 
-static int _build_coltypes_fieldname(struct database *db, struct ast_node *node, struct hashtable *column_types)
+static int _build_cols_hashtable_fieldname(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
 {
 	struct ast_sel_fieldname_node *field_node;
 	struct table *table;
 	struct column *column;
-	char key[FQFIELD_NAME_LEN];
+	char key[FQFIELD_NAME_LEN] = {0};
 
 	field_node = (typeof(field_node))node;
 	table = database_table_get(db, field_node->table_name);
@@ -49,22 +50,23 @@ static int _build_coltypes_fieldname(struct database *db, struct ast_node *node,
 	for (int i = 0; i < table->column_count; i++) {
 		column = &table->columns[i];
 
-		memzero(key, sizeof(key));
-		snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, column->name);
+		if (strcmp(field_node->col_name, column->name) == 0) {
+			snprintf(key, sizeof(key) - 1, "%s.%s", field_node->table_name, column->name);
 
-		if (!hashtable_put(column_types, key, strlen(key) + 1, &column->type, sizeof(column->type)))
-			return -MIDORIDB_INTERNAL;
+			if (!hashtable_put(cols_ht, key, strlen(key) + 1, &column, sizeof(column)))
+				return -MIDORIDB_INTERNAL;
+		}
 	}
 	return MIDORIDB_OK;
 }
 
-static int _build_coltypes_alias(struct database *db, struct ast_node *node, struct ast_sel_alias_node *alias_node,
-		struct hashtable *column_types)
+static int _build_cols_hastable_alias(struct database *db, struct ast_node *node, struct ast_sel_alias_node *alias_node,
+		struct hashtable *cols_ht)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	struct ast_sel_exprval_node *val_node;
-	enum COLUMN_TYPE col_type;
+	struct column column = {0};
 	int ret = MIDORIDB_OK;
 
 	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
@@ -73,57 +75,87 @@ static int _build_coltypes_alias(struct database *db, struct ast_node *node, str
 		/* sanity check - there shouldn't be any exprvals (name) at this point in here */
 		BUG_ON(val_node->value_type.is_name);
 
-		if (val_node->value_type.is_approxnum)
-			col_type = CT_DOUBLE;
-		else if (val_node->value_type.is_intnum)
-			col_type = CT_INTEGER;
-		else if (val_node->value_type.is_bool)
-			col_type = CT_TINYINT;
-		else if (val_node->value_type.is_str)
-			col_type = CT_VARCHAR; // PS: raw values are not auto-boxed into CT_DATE/CT_DATETIMEs
-		else
-			BUG_GENERIC();
+		if (val_node->value_type.is_str) {
+			column.type = CT_VARCHAR; // PS: raw values are not auto-boxed into CT_DATE/CT_DATETIMEs
+			column.precision = strlen(val_node->str_val) + 1;
+		} else {
+			if (val_node->value_type.is_approxnum)
+				column.type = CT_DOUBLE;
+			else if (val_node->value_type.is_intnum)
+				column.type = CT_INTEGER;
+			else if (val_node->value_type.is_bool)
+				column.type = CT_TINYINT;
+			else
+				BUG_GENERIC();
 
-		if (!hashtable_put(column_types, alias_node->alias_value, strlen(alias_node->alias_value) + 1,
-					&col_type,
-					sizeof(col_type)))
+			column.precision = table_calc_column_precision(column.type);
+		}
+
+		if (!hashtable_put(cols_ht, alias_node->alias_value, strlen(alias_node->alias_value) + 1,
+					&column,
+					sizeof(column)))
 			ret = -MIDORIDB_INTERNAL;
 
 	} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
-		ret = _build_coltypes_fieldname(db, node, column_types);
+		ret = _build_cols_hashtable_fieldname(db, node, cols_ht);
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-			return _build_coltypes_alias(db, tmp_entry, (struct ast_sel_alias_node*)tmp_entry, column_types);
+			return _build_cols_hastable_alias(db, tmp_entry, (struct ast_sel_alias_node*)tmp_entry,
+								cols_ht);
 		}
 	}
 
 	return ret;
 }
 
-static int build_coltypes_hashtable(struct database *db, struct ast_node *node, struct hashtable *column_types)
+static int _build_cols_hashtable_table(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
+{
+	struct ast_sel_table_node *table_node;
+	struct table *table;
+	struct column *column;
+	char key[FQFIELD_NAME_LEN];
+
+	table_node = (typeof(table_node))node;
+	table = database_table_get(db, table_node->table_name);
+
+	for (int i = 0; i < table->column_count; i++) {
+		column = &table->columns[i];
+
+		memzero(key, sizeof(key));
+		snprintf(key, sizeof(key) - 1, "%s.%s", table_node->table_name, column->name);
+
+		if (!hashtable_put(cols_ht, key, strlen(key) + 1, column, sizeof(*column)))
+			return -MIDORIDB_INTERNAL;
+	}
+
+	return MIDORIDB_OK;
+}
+
+static int build_cols_hashtable(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 	int ret = MIDORIDB_OK;
 
-	list_for_each(pos, node->node_children_head)
-	{
-		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+	if (node->node_type == AST_TYPE_SEL_ALIAS) {
+		return _build_cols_hastable_alias(db, node, (struct ast_sel_alias_node*)node, cols_ht);
+	} else if (node->node_type == AST_TYPE_SEL_TABLE) {
+		return _build_cols_hashtable_table(db, node, cols_ht);
+	} else {
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
-		if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
-			if ((ret = _build_coltypes_fieldname(db, tmp_entry, column_types)))
-				break;
-		} else if (tmp_entry->node_type == AST_TYPE_SEL_ALIAS) {
-			if ((ret = _build_coltypes_alias(db, tmp_entry, (struct ast_sel_alias_node*)tmp_entry,
-								column_types)))
+			if ((ret = build_cols_hashtable(db, tmp_entry, cols_ht)))
 				break;
 		}
-		/* anything different from that is most likely not columns in the SELECT statement */
+
 	}
 	return ret;
+
 }
 
 static void do_build_table_scafold(struct hashtable *hashtable, const void *key, size_t klen, const void *value,
@@ -138,49 +170,99 @@ static void do_build_table_scafold(struct hashtable *hashtable, const void *key,
 	table = (typeof(table))arg;
 
 	strncpy(column.name, key, MIN(sizeof(column.name), klen) - 1);
-	column.type = *(enum COLUMN_TYPE*)value;
+	column.type = ((struct column*)value)->type;
+	column.precision = ((struct column*)value)->precision;
 
 	BUG_ON(!table_add_column(table, &column));
 }
 
-static int build_table_scafold(struct hashtable *column_types, struct table *out_table)
+static int build_table_scafold(struct hashtable *column_types, struct table **out_table)
 {
-	out_table = table_init("early_mat_tbl");
+	*out_table = table_init("early_mat_tbl");
 
-	if (!out_table)
+	if (!(*out_table))
 		return -MIDORIDB_INTERNAL;
 
-	hashtable_foreach(column_types, &do_build_table_scafold, out_table);
+	hashtable_foreach(column_types, &do_build_table_scafold, *out_table);
+
+	return MIDORIDB_OK;
+}
+
+static int proc_from_clause_single_table(struct database *db, struct ast_sel_table_node *table_node, struct table *earmattbl)
+{
+	struct list_head *pos;
+	struct table *table;
+	struct datablock *block;
+	struct row *row;
+	size_t row_size;
+
+	table = database_table_get(db, table_node->table_name);
+
+	row_size = table_calc_row_size(table);
+
+	list_for_each(pos, table->datablock_head)
+	{
+		block = list_entry(pos, typeof(*block), head);
+
+		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+			row = (typeof(row))&block->data[row_size * i];
+
+			//TODO process WHERE-Clause here?? This can substantially reduce the amount of memory required
+			if (!row->flags.deleted && !row->flags.empty /* && should_add_row(table, row, node) */) {
+				if (!table_insert_row(earmattbl, row, row_size)) {
+					return -MIDORIDB_INTERNAL;
+				}
+			}
+		}
+	}
 
 	return MIDORIDB_OK;
 }
 
 static int proc_from_clause(struct database *db, struct ast_node *node, struct query_output *output, struct table *earmattbl)
 {
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+
+	UNUSED(output);
+
+	/*
+	 * TODO this logic will have to change a lot to cover all possible scenarios. I'm writing a happy-path one
+	 * so I can get the tests/executor_select.c code organised
+	 */
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+			return proc_from_clause_single_table(db, (struct ast_sel_table_node*)tmp_entry, earmattbl);
+		}
+	}
+
 	return MIDORIDB_OK;
 }
 
 int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *select_node, struct query_output *output)
 {
-	struct hashtable column_types = {0};
+	struct hashtable cols_ht = {0};
 	struct table *table = NULL;
 	int ret = MIDORIDB_OK;
 
-	if (!hashtable_init(&column_types, &hashtable_str_compare, &hashtable_str_hash)) {
+	if (!hashtable_init(&cols_ht, &hashtable_str_compare, &hashtable_str_hash)) {
 		snprintf(output->error.message, sizeof(output->error.message), "execution phase: internal error\n");
 		ret = -MIDORIDB_INTERNAL;
 		goto err;
 	}
 
-	/* build column-types hashtable */
-	if ((ret = build_coltypes_hashtable(db, (struct ast_node*)select_node, &column_types))) {
+	/* build columns hashtable */
+	if ((ret = build_cols_hashtable(db, (struct ast_node*)select_node, &cols_ht))) {
 		snprintf(output->error.message, sizeof(output->error.message),
-				"execution phase: cannot build column tables hashtable\n");
+				"execution phase: cannot build columns hashtable\n");
 		goto err_bld_ht;
 	}
 
 	/* build early-materialisation table structure */
-	if ((ret = build_table_scafold(&column_types, table))) {
+	if ((ret = build_table_scafold(&cols_ht, &table))) {
 		snprintf(output->error.message, sizeof(output->error.message),
 				"execution phase: cannot build early materialisation table\n");
 		goto err_bld_ht;
@@ -193,16 +275,19 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		goto err_bld_fc;
 	}
 
-	hashtable_foreach(&column_types, &free_hashmap_entries, NULL);
-	hashtable_free(&column_types);
+	// temp
+	output->results.table = table;
+
+	hashtable_foreach(&cols_ht, &free_hashmap_entries, NULL);
+	hashtable_free(&cols_ht);
 
 	return ret;
 
 err_bld_fc:
 	table_destroy(&table);
 err_bld_ht:
-	hashtable_foreach(&column_types, &free_hashmap_entries, NULL);
-	hashtable_free(&column_types);
+	hashtable_foreach(&cols_ht, &free_hashmap_entries, NULL);
+	hashtable_free(&cols_ht);
 
 err:
 	return ret;

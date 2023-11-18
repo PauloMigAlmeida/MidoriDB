@@ -12,6 +12,7 @@
 #define	MIDORIDB_ERROR			1	/* Generic error */
 #define	MIDORIDB_INTERNAL		2	/* Internal error - apps shouldn't see this */
 #define	MIDORIDB_NOMEM			3	/* Resource couldn't be allocated */
+#define	MIDORIDB_ROW			4	/* Next row is available */
 
 
 #endif /* INCLUDE_COMPILER_ERROR_H_ */

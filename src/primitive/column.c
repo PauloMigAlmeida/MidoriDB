@@ -32,17 +32,6 @@ bool table_validate_column_name(char *name)
 	return __valid_name(name, TABLE_MAX_COLUMN_NAME);
 }
 
-static bool table_validate_column(struct column *column)
-{
-	if (!table_validate_column_name(column->name))
-		return false;
-
-	if (column->precision < 1)
-		return false;
-
-	return true;
-}
-
 static bool datablock_add_column(struct table *table, size_t row_cur_size, size_t row_nxt_size)
 {
 	struct list_head *old_head, *new_head;
@@ -125,8 +114,7 @@ bool table_add_column(struct table *table, struct column *column)
 	if (!table || !column)
 		return false;
 
-	/* check column name rules */
-	if (!table_validate_column(column))
+	if (column->precision < 1)
 		return false;
 
 	/* check whether it is within the max limit for columns */
@@ -231,14 +219,6 @@ bool table_rem_column(struct table *table, struct column *column)
 	if (!table || !column || table->column_count == 0)
 		return false;
 
-	/*
-	 * check column name rules. Not so much because we care but
-	 * if this returns false then it's sure as hell that the column
-	 * doesn't exist so we can fail-fast
-	 */
-	if (!table_validate_column(column))
-		return false;
-
 	for (pos = 0; pos < table->column_count; pos++) {
 		if (strncmp(table->columns[pos].name, column->name, TABLE_MAX_COLUMN_NAME) == 0) {
 			found = true;
@@ -262,9 +242,14 @@ bool table_rem_column(struct table *table, struct column *column)
 	return true;
 }
 
+static inline bool _table_check_var_column(enum COLUMN_TYPE type)
+{
+	return type == CT_VARCHAR;
+}
+
 bool table_check_var_column(struct column *column)
 {
-	return column->type == CT_VARCHAR;
+	return _table_check_var_column(column->type);
 }
 
 size_t table_calc_column_space(struct column *column)
@@ -275,4 +260,34 @@ size_t table_calc_column_space(struct column *column)
 		return sizeof(uintptr_t);
 	else
 		return (size_t)column->precision;
+}
+
+size_t table_calc_column_precision(enum COLUMN_TYPE type)
+{
+	size_t ret;
+
+	/* not meant to be used with variable precision types */
+	BUG_ON(_table_check_var_column(type));
+
+	switch (type) {
+	case CT_INTEGER:
+		ret = sizeof(int64_t);
+		break;
+	case CT_TINYINT:
+		ret = sizeof(bool);
+		break;
+	case CT_DOUBLE:
+		ret = sizeof(double);
+		break;
+	case CT_DATE:
+		ret = sizeof(time_t);
+		break;
+	case CT_DATETIME:
+		ret = sizeof(time_t);
+		break;
+	default:
+		BUG_GENERIC();
+	}
+
+	return ret;
 }

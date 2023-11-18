@@ -60,7 +60,7 @@ static enum query_output_status run_stmt(struct database *db, char *stmt)
 		printf("%s\n", output->error.message);
 	}
 
-	free(output);
+	query_free(output);
 
 	return ret;
 }

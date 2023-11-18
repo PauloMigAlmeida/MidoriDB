@@ -20,23 +20,23 @@ static void parse_bison_data_type(char *str, struct ast_crt_column_def_node *nod
 	case 4:
 		case 5:
 		node->type = CT_INTEGER;
-		node->precision = sizeof(int64_t);
+		node->precision = table_calc_column_precision(node->type);
 		break;
 	case 6:
 		node->type = CT_TINYINT;
-		node->precision = sizeof(bool);
+		node->precision = table_calc_column_precision(node->type);
 		break;
 	case 8:
 		node->type = CT_DOUBLE;
-		node->precision = sizeof(double);
+		node->precision = table_calc_column_precision(node->type);
 		break;
 	case 10:
 		node->type = CT_DATE;
-		node->precision = sizeof(time_t);
+		node->precision = table_calc_column_precision(node->type);
 		break;
 	case 11:
 		node->type = CT_DATETIME;
-		node->precision = sizeof(time_t);
+		node->precision = table_calc_column_precision(node->type);
 		break;
 	case 13:
 		node->type = CT_VARCHAR;
