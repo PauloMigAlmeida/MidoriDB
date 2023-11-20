@@ -223,20 +223,25 @@ static int proc_from_clause(struct database *db, struct ast_node *node, struct q
 {
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
+	int count_table = 0, count_join = 0;
 
 	UNUSED(output);
 
-	/*
-	 * TODO this logic will have to change a lot to cover all possible scenarios. I'm writing a happy-path one
-	 * so I can get the tests/executor_select.c code organised
-	 */
 	list_for_each(pos, node->node_children_head)
 	{
 		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
 
 		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
-			return proc_from_clause_single_table(db, (struct ast_sel_table_node*)tmp_entry, earmattbl);
+			count_table++;
 		}
+	}
+
+	if (count_table == 1) {
+		// single table: SELECT * FROM A;
+		return proc_from_clause_single_table(db, (struct ast_sel_table_node*)tmp_entry, earmattbl);
+	} else {
+		// join table: SELECT * FROM A JOIN B ON ... ;
+//		return proc_from_clause_join_table(db, (struct ast_sel_table_node*)tmp_entry, earmattbl);
 	}
 
 	return MIDORIDB_OK;

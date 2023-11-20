@@ -311,6 +311,221 @@ int remove_table_aliases(struct ast_node *node, struct query_output *output)
 	return MIDORIDB_OK;
 }
 
+struct ast_sel_exprval_node* wrap_on_join_node_exprval(void)
+{
+	struct ast_sel_exprval_node *node;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_EXPRVAL;
+	node->value_type.is_intnum = true;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	node->int_val = 1;
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+struct ast_sel_cmp_node* wrap_on_join_node_cmp(struct ast_node *left, struct ast_node *right)
+{
+	struct ast_sel_cmp_node *node;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_CMP;
+	node->cmp_type = AST_CMP_EQUALS_OP;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	list_add(&left->head, node->node_children_head);
+	list_add(&right->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+struct ast_sel_onexpr_node* wrap_on_join_node_onexpr(struct ast_node *cmp)
+{
+	struct ast_sel_onexpr_node *node;
+
+	node = zalloc(sizeof(*node));
+	if (!node)
+		goto err_node;
+
+	node->node_type = AST_TYPE_SEL_ONEXPR;
+
+	if (!(node->node_children_head = malloc(sizeof(*node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&node->head);
+	list_head_init(node->node_children_head);
+
+	list_add(&cmp->head, node->node_children_head);
+
+	return node;
+
+err_head:
+	free(node);
+err_node:
+	return NULL;
+}
+
+int wrap_on_join_node(struct ast_node *left, struct ast_node *right)
+{
+	struct ast_sel_join_node *join_node;
+	struct ast_sel_onexpr_node *onexpr_node;
+	struct ast_sel_cmp_node *cmp_node;
+	struct ast_sel_exprval_node *val_node_1;
+	struct ast_sel_exprval_node *val_node_2;
+
+	val_node_1 = wrap_on_join_node_exprval();
+
+	if (!val_node_1)
+		goto err_val_1;
+
+	val_node_2 = wrap_on_join_node_exprval();
+
+	if (!val_node_2)
+		goto err_val_2;
+
+	cmp_node = wrap_on_join_node_cmp((struct ast_node*)val_node_1, (struct ast_node*)val_node_2);
+
+	if (!cmp_node)
+		goto err_cmp;
+
+	onexpr_node = wrap_on_join_node_onexpr((struct ast_node*)cmp_node);
+	if (!onexpr_node)
+		goto err_onexpr;
+
+	/* building a custom join node */
+	join_node = zalloc(sizeof(*join_node));
+	if (!join_node)
+		goto err_node;
+
+	join_node->node_type = AST_TYPE_SEL_JOIN;
+	join_node->join_type = AST_SEL_JOIN_INNER;
+
+	if (!(join_node->node_children_head = malloc(sizeof(*join_node->node_children_head))))
+		goto err_head;
+
+	list_head_init(&join_node->head);
+	list_head_init(join_node->node_children_head);
+
+	/* replace node within the tree */
+	list_add(&join_node->head, left->head.prev);
+	list_del(&left->head);
+	list_del(&right->head);
+
+	/* add children to synthetic join node */
+	list_add(&onexpr_node->head, join_node->node_children_head);
+	list_add(&right->head, join_node->node_children_head);
+	list_add(&left->head, join_node->node_children_head);
+
+	return MIDORIDB_OK;
+
+err_head:
+	free(join_node);
+err_node:
+err_onexpr:
+	/*ast_node is recursive so it will take care of cmp_node */
+	ast_free((struct ast_node*)onexpr_node);
+	return -MIDORIDB_INTERNAL;
+err_cmp:
+	/*ast_node is recursive so it will take care of exprval */
+	ast_free((struct ast_node*)cmp_node);
+	return -MIDORIDB_INTERNAL;
+err_val_2:
+	ast_free((struct ast_node*)val_node_2);
+err_val_1:
+	ast_free((struct ast_node*)val_node_1);
+	return -MIDORIDB_INTERNAL;
+}
+
+int do_replace_entries_from(struct ast_node *node)
+{
+	struct ast_node *tmp_entry;
+	struct list_head *pos, *tmp_pos;
+	struct ast_node *left = NULL, *right = NULL;
+	bool found = false;
+	int ret = MIDORIDB_OK;
+
+	list_for_each_safe(pos, tmp_pos, node->node_children_head)
+	{
+
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+			found = true;
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_JOIN) {
+			found = true;
+		}
+
+		if (found) {
+			if (!left) {
+				left = tmp_entry;
+			} else {
+				right = tmp_entry;
+
+				if ((ret = wrap_on_join_node(left, right)))
+					return ret;
+
+				left = right;
+				right = NULL;
+			}
+		}
+
+		found = false;
+	}
+
+	return ret;
+}
+
+int replace_entries_from(struct ast_node *node)
+{
+	struct ast_node *tmp_entry;
+	struct list_head *pos;
+	int count_table = 0, count_join = 0;
+
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_TABLE) {
+			count_table++;
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_JOIN) {
+			count_join++;
+		}
+	}
+
+	if ((count_join == 1 && count_table == 0) || (count_join == 0 && count_table == 1))
+		return MIDORIDB_OK; /* nothing to do here, shall we? */
+	else {
+		return do_replace_entries_from(node);
+	}
+}
+
 int optimiser_run_select_stmt(struct database *db, struct ast_sel_select_node *node, struct query_output *output)
 {
 	struct hashtable table_alias = {0};
@@ -342,6 +557,13 @@ int optimiser_run_select_stmt(struct database *db, struct ast_sel_select_node *n
 	/* remove table aliases as they are no longer useful */
 	if ((ret = remove_table_aliases((struct ast_node*)node, output)))
 		goto cleanup_tbl_ht;
+
+	/* replace multiple tables / joins in the FROM clause with a JOIN wrapper */
+	if ((ret = replace_entries_from((struct ast_node*)node))) {
+		snprintf(output->error.message, sizeof(output->error.message), "optimiser phase: failed to replace "
+				"multiple entries in the FROM-clause wit synthetic JOINs\n");
+		goto cleanup_tbl_ht;
+	}
 
 cleanup_tbl_ht:
 	hashtable_foreach(&column_alias, &free_hashmap_entries, NULL);

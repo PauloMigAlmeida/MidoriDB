@@ -767,6 +767,168 @@ static void select_case_6(void)
 	database_close(&db);
 }
 
+static void select_case_7(void)
+{
+	struct database db = {0};
+	struct query_output output = {0};
+	struct ast_node *node;
+	struct ast_sel_select_node *select_node;
+	struct ast_sel_selectall_node *selectall_node;
+	struct ast_sel_table_node *table_node;
+	struct ast_sel_fieldname_node *field_node;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_join_node *join_node;
+	struct ast_sel_onexpr_node *onexpr_node;
+	struct ast_sel_cmp_node *cmp_node;
+	struct list_head *pos1, *pos2, *pos3, *pos4;
+	int i, j;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+	CU_ASSERT_EQUAL(db.tables->count, 0);
+
+	prep_helper(&db, "CREATE TABLE A (f1 INT);");
+	prep_helper(&db, "CREATE TABLE B (f1 INT);");
+
+	node = build_ast("SELECT * FROM A, B;");
+
+	// before
+	select_node = (typeof(select_node))node;
+	CU_ASSERT_EQUAL(select_node->node_type, AST_TYPE_SEL_SELECT);
+	CU_ASSERT_FALSE(select_node->distinct);
+	CU_ASSERT_EQUAL(list_length(select_node->node_children_head), 3);
+	CU_ASSERT(list_is_empty(&select_node->head));
+
+	i = 0;
+	list_for_each(pos1, select_node->node_children_head)
+	{
+		if (i == 0) {
+			selectall_node = list_entry(pos1, typeof(*selectall_node), head);
+
+			CU_ASSERT_EQUAL(selectall_node->node_type, AST_TYPE_SEL_SELECTALL);
+			CU_ASSERT_FALSE(list_is_empty(&selectall_node->head));
+			CU_ASSERT_EQUAL(list_length(selectall_node->node_children_head), 0);
+		} else if (i == 1) {
+			table_node = list_entry(pos1, typeof(*table_node), head);
+
+			CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+
+			CU_ASSERT_STRING_EQUAL(table_node->table_name, "A");
+		} else {
+			table_node = list_entry(pos1, typeof(*table_node), head);
+
+			CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+			CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+			CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+
+			CU_ASSERT_STRING_EQUAL(table_node->table_name, "B");
+		}
+		i++;
+	}
+
+	// optimise it
+	CU_ASSERT_EQUAL(optimiser_run(&db, node, &output), MIDORIDB_OK);
+
+//	after
+	select_node = (typeof(select_node))node;
+	CU_ASSERT_EQUAL(select_node->node_type, AST_TYPE_SEL_SELECT);
+	CU_ASSERT_FALSE(select_node->distinct);
+	CU_ASSERT_EQUAL(list_length(select_node->node_children_head), 3);
+	CU_ASSERT(list_is_empty(&select_node->head));
+
+	i = 0;
+	list_for_each(pos1, select_node->node_children_head)
+	{
+		if (i == 0) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "B");
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+		} else if (i == 1) {
+			field_node = list_entry(pos1, typeof(*field_node), head);
+
+			CU_ASSERT_EQUAL(field_node->node_type, AST_TYPE_SEL_FIELDNAME);
+			CU_ASSERT_FALSE(list_is_empty(&field_node->head));
+			CU_ASSERT_EQUAL(list_length(field_node->node_children_head), 0);
+
+			CU_ASSERT_STRING_EQUAL(field_node->table_name, "A");
+			CU_ASSERT_STRING_EQUAL(field_node->col_name, "f1");
+		} else {
+
+			join_node = list_entry(pos1, typeof(*join_node), head);
+
+			CU_ASSERT_EQUAL(join_node->node_type, AST_TYPE_SEL_JOIN);
+			CU_ASSERT_FALSE(list_is_empty(&join_node->head));
+			CU_ASSERT_EQUAL(list_length(join_node->node_children_head), 3);
+			CU_ASSERT_EQUAL(join_node->join_type, AST_SEL_JOIN_INNER);
+
+			j = 0;
+			list_for_each(pos2, join_node->node_children_head)
+			{
+				// order seems different after optimisation...I wonder if I care...
+				if (j == 0) {
+					table_node = list_entry(pos2, typeof(*table_node), head);
+
+					CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+					CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+					CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+
+					CU_ASSERT_STRING_EQUAL(table_node->table_name, "A");
+				} else if (j == 1) {
+					table_node = list_entry(pos2, typeof(*table_node), head);
+
+					CU_ASSERT_EQUAL(table_node->node_type, AST_TYPE_SEL_TABLE);
+					CU_ASSERT_FALSE(list_is_empty(&table_node->head));
+					CU_ASSERT_EQUAL(list_length(table_node->node_children_head), 0);
+
+					CU_ASSERT_STRING_EQUAL(table_node->table_name, "B");
+				} else {
+					onexpr_node = list_entry(pos2, typeof(*onexpr_node), head);
+
+					CU_ASSERT_EQUAL(onexpr_node->node_type, AST_TYPE_SEL_ONEXPR);
+					CU_ASSERT_FALSE(list_is_empty(&onexpr_node->head));
+					CU_ASSERT_EQUAL(list_length(onexpr_node->node_children_head), 1);
+
+					list_for_each(pos3, onexpr_node->node_children_head)
+					{
+						cmp_node = list_entry(pos3, typeof(*cmp_node), head);
+
+						CU_ASSERT_EQUAL(cmp_node->node_type, AST_TYPE_SEL_CMP);
+						CU_ASSERT_FALSE(list_is_empty(&cmp_node->head));
+						CU_ASSERT_EQUAL(list_length(cmp_node->node_children_head), 2);
+						CU_ASSERT_EQUAL(cmp_node->cmp_type, AST_CMP_EQUALS_OP);
+
+						list_for_each(pos4, cmp_node->node_children_head)
+						{
+							val_node = list_entry(pos4, typeof(*val_node),
+										head);
+
+							CU_ASSERT_EQUAL(val_node->node_type,
+									AST_TYPE_SEL_EXPRVAL);
+							CU_ASSERT_FALSE(list_is_empty(&val_node->head));
+							CU_ASSERT_EQUAL(list_length(val_node->node_children_head), 0);
+
+							CU_ASSERT(val_node->value_type.is_intnum);
+							CU_ASSERT_EQUAL(val_node->int_val, 1);
+						}
+					}
+				}
+				j++;
+			}
+
+		}
+		i++;
+	}
+
+	ast_free(node);
+	database_close(&db);
+}
+
 void test_optimiser_select(void)
 {
 	/* exprval (name) */
@@ -784,7 +946,10 @@ void test_optimiser_select(void)
 	/* select all */
 	select_case_5();
 
-	/* select all + multi-table + table alias (big boss) */
+	/* select all + join + table alias (big boss) */
 	select_case_6();
+
+	/* select all + multi-table */
+	select_case_7();
 
 }
