@@ -70,7 +70,12 @@ static void test_select_2(void)
 {
 	struct database db = {0};
 	struct query_output *output;
-	int64_t exp_vals[4][4] = {{123, -12345}, {123, -67890}, {456, -12345}, {456, -67890}};
+	int64_t exp_vals[4][4] = {
+			{123, -12345},
+			{123, -67890},
+			{456, -12345},
+			{456, -67890}
+	};
 	int i = 0;
 
 	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);

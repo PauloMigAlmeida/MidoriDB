@@ -291,7 +291,7 @@ static int merge_rows(struct database *db, struct ast_sel_table_node *left_node,
 	tbl_1 = database_table_get(db, left_node->table_name);
 	tbl_2 = database_table_get(db, right_node->table_name);
 
-	*out = zalloc(sizeof(**out));
+	*out = zalloc(table_calc_row_size(mattbl));
 	if (!(*out))
 		goto err;
 
@@ -680,6 +680,9 @@ static int _join_nested_loop(struct database *db, struct ast_sel_join_node *join
 
 						if (!table_insert_row(mattbl, new_row, new_row_size))
 							goto err;
+
+						table_free_row_content(mattbl, new_row);
+						free(new_row);
 					}
 				}
 			}
