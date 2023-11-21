@@ -66,8 +66,37 @@ static void test_select_1(void)
 	database_close(&db);
 }
 
+static void test_select_2(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[4][4] = {{123, -12345}, {123, -67890}, {456, -12345}, {456, -67890}};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (123), (456);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE B (f2 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (-12345), (-67890);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT * FROM A, B;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 1), exp_vals[i][1]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
 void test_executor_select(void)
 {
 	/* single field */
 	test_select_1();
+
+	/* implicit join = CROSS JOIN functionally-wise */
+	test_select_2();
 }
