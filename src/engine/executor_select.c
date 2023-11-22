@@ -58,6 +58,11 @@ static void free_hashmap_entries(struct hashtable *hashtable, const void *key, s
 	hashtable_free_entry(entry);
 }
 
+static int int_compare(const void *a, const void *b)
+{
+	return *((int*)a) - *((int*)b);
+}
+
 static int _build_cols_hashtable_fieldname(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
 {
 	struct ast_sel_fieldname_node *field_node;
@@ -974,6 +979,69 @@ static int proc_from_clause(struct database *db, struct ast_node *node, struct t
 	return -MIDORIDB_INTERNAL;
 }
 
+static int proc_select_clause(struct ast_sel_select_node *node, struct table *outtbl)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct column *column;
+	struct ast_sel_exprval_node *val_node;
+	struct ast_sel_fieldname_node *fld_node;
+	int rem_col[TABLE_MAX_COLUMNS] = {0};
+	int rem_col_idx = -1;
+	char key[FQFIELD_NAME_LEN];
+	bool found;
+
+	for (int i = 0; i < outtbl->column_count; i++) {
+		column = &outtbl->columns[i];
+		found = false;
+
+		list_for_each(pos, node->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+				val_node = (typeof(val_node))tmp_entry;
+
+				//TODO what about raw values ?
+				BUG_ON(!val_node->value_type.is_name);
+
+				memzero(key, sizeof(key));
+				strncpy(key, val_node->name_val, sizeof(key) - 1);
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+				fld_node = (typeof(fld_node))tmp_entry;
+
+				memzero(key, sizeof(key));
+				snprintf(key, sizeof(key) - 1, "%s.%s", fld_node->table_name, fld_node->col_name);
+			} else {
+				/* nothing to just, just move on */
+				continue;
+			}
+
+			if (strcmp(column->name, key) == 0) {
+				found = true;
+				break;
+			}
+
+		}
+
+		if (!found) {
+			rem_col_idx++;
+			rem_col[rem_col_idx] = i;
+		}
+	}
+
+	if (rem_col_idx > -1) {
+		qsort(rem_col, rem_col_idx + 1, sizeof(int), int_compare);
+
+		for (int i = rem_col_idx; i >= 0; i--) {
+			if (!table_rem_column(outtbl, &outtbl->columns[i]))
+				return -MIDORIDB_INTERNAL;
+		}
+	}
+
+	return MIDORIDB_OK;
+}
+
 int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *select_node, struct query_output *output)
 {
 	struct hashtable cols_ht = {0};
@@ -1007,7 +1075,14 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		goto err_bld_fc;
 	}
 
-	/* remove excluded rows from ON-clauses, WHERE clauses and so on */
+	/* leave only columns that were specified in the statements */
+	if ((ret = proc_select_clause(select_node, table))) {
+		snprintf(output->error.message, sizeof(output->error.message),
+				"execution phase: error while processing SELECT-clause\n");
+		goto err_bld_fc;
+	}
+
+	/* remove excluded rows from ON-clauses, WHERE-clauses and so on */
 	table_vacuum(table);
 
 	// temp

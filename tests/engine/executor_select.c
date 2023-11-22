@@ -166,6 +166,35 @@ static void test_select_4(void)
 	database_close(&db);
 }
 
+static void test_select_5(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[2][2] = {
+			{123, -12345},
+			{789, -67890},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (id_a INT, f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1, 123), (2, 456), (3, 789);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE B (id_b INT, f2 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (1, -12345), (3, -67890);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT f1,f2 FROM A INNER JOIN B ON A.id_a = B.id_b;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 1), exp_vals[i][1]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
 void test_executor_select(void)
 {
 	/* single field */
@@ -179,4 +208,7 @@ void test_executor_select(void)
 
 	/* multiple join - inner */
 	test_select_4();
+
+	/* single join - selected columns only */
+	test_select_5();
 }
