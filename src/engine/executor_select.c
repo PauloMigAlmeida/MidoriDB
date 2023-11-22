@@ -243,7 +243,8 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 {
 	struct column *column;
 	char key[FQFIELD_NAME_LEN];
-	size_t offset, pos = 0;
+	size_t dst_offset, src_offset = 0;
+	int dst_col_idx = -1;
 
 	for (int i = 0; i < src->column_count; i++) {
 		column = &src->columns[i];
@@ -252,11 +253,13 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 		snprintf(key, sizeof(key) - 1, "%s.%s", src->name, column->name);
 
 		/* find offset for target table */
-		offset = 0;
+		dst_offset = 0;
 		for (int j = 0; j < dst->column_count; j++) {
-			if (strcmp(dst->columns[j].name, key) == 0)
+			if (strcmp(dst->columns[j].name, key) == 0) {
+				dst_col_idx = j;
 				break;
-			offset += table_calc_column_space(&dst->columns[j]);
+			}
+			dst_offset += table_calc_column_space(&dst->columns[j]);
 		}
 
 		if (table_check_var_column(column)) {
@@ -267,17 +270,22 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 
 			/* Copy data only if column is not NULL */
 			if (!bit_test(src_row->null_bitmap, i, sizeof(src_row->null_bitmap))) {
-				memcpy(ptr, *((char**)((char*)src_row->data + pos)), column->precision);
+				memcpy(ptr, *((char**)((char*)src_row->data + src_offset)), column->precision);
 			}
 
-			uintptr_t *col_idx_ptr = (uintptr_t*)&dst_row->data[offset];
+			uintptr_t *col_idx_ptr = (uintptr_t*)&dst_row->data[dst_offset];
 			*col_idx_ptr = (uintptr_t)ptr;
 
 		} else {
-			memcpy(dst_row->data + offset, ((char*)src_row->data) + pos, column->precision);
+			memcpy(dst_row->data + dst_offset, ((char*)src_row->data) + src_offset, column->precision);
 		}
 
-		pos += table_calc_column_space(column);
+		/* if src column isn't NULL then dst column won't be NULL either */
+		if (!bit_test(src_row->null_bitmap, i, sizeof(src_row->null_bitmap))) {
+			bit_clear(dst_row->null_bitmap, dst_col_idx, sizeof(dst_row->null_bitmap));
+		}
+
+		src_offset += table_calc_column_space(column);
 	}
 
 	return true;
@@ -407,7 +415,8 @@ static bool cmp_time_value_to_value(enum ast_comparison_type cmp_type, time_t va
 	}
 }
 
-static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_sel_cmp_node *node, struct ast_sel_exprval_node *val_1, struct ast_sel_exprval_node *val_2)
+static bool cmp_field_to_field(struct table *table, struct row *row, struct ast_sel_cmp_node *node,
+		struct ast_sel_exprval_node *val_1, struct ast_sel_exprval_node *val_2)
 {
 	enum COLUMN_TYPE type = 0;
 	size_t tmp_offset = 0, offset_1 = 0, offset_2 = 0;
@@ -549,34 +558,144 @@ static bool cmp_value_to_value(struct ast_sel_cmp_node *node, struct ast_sel_exp
 
 }
 
+static bool cmp_fieldname_to_fieldname(struct table *table, struct row *row, struct ast_sel_cmp_node *node,
+		struct ast_sel_fieldname_node *val_1, struct ast_sel_fieldname_node *val_2)
+{
+	enum COLUMN_TYPE type = 0;
+	size_t offset_1 = 0, offset_2 = 0;
+	int col_idx_1 = -1, col_idx_2 = -1;
+	bool is_null_1, is_null_2;
+	char key[FQFIELD_NAME_LEN];
+
+	for (int i = 0, tmp_offset = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		memzero(key, sizeof(key));
+		snprintf(key, sizeof(key) - 1, "%s.%s", val_1->table_name, val_1->col_name);
+
+		if (strcmp(col->name, key) == 0) {
+			/* semantic phase guarantees that columns will have the same type in CMP nodes */
+			type = col->type;
+			offset_1 = tmp_offset;
+			col_idx_1 = i;
+			break;
+		}
+		tmp_offset += table_calc_column_space(col);
+	}
+
+	for (int i = 0, tmp_offset = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		memzero(key, sizeof(key));
+		snprintf(key, sizeof(key) - 1, "%s.%s", val_2->table_name, val_2->col_name);
+
+		if (strcmp(col->name, key) == 0) {
+			offset_2 = tmp_offset;
+			col_idx_2 = i;
+			break;
+		}
+		tmp_offset += table_calc_column_space(col);
+	}
+
+	/* is any field set to null in this row ? */
+	is_null_1 = bit_test(row->null_bitmap, col_idx_1, sizeof(row->null_bitmap));
+	is_null_2 = bit_test(row->null_bitmap, col_idx_2, sizeof(row->null_bitmap));
+
+	if (is_null_1 || is_null_2) {
+		/*
+		 * if even one field is NULL, then no comparison would evaluate to true.
+		 *
+		 * That one was a bit odd as I felt tempted to use a truth table, then again if 2 fields where NULL,
+		 * they ought to return True if I compare field1 = field2, right?
+		 *
+		 * Wrong! (let that sink in for a moment.............. I know, right?)
+		 *
+		 * I noticed that SQLITE implements the following:
+		 *
+		 * sqlite> create table a(f1 int, f2 int);
+		 * sqlite> insert into a values (1,1), (1, NULL), (NULL,1), (NULL,NULL);
+		 * sqlite> select * from a where f1 <> f2;
+		 * 	<nothing...> - baffling, right?
+		 * sqlite> select * from a where f1 == f2;
+		 * f1  f2
+		 * --  --
+		 * 1   1
+		 * 	<I would expect to see NULL, NULL here... but this isn't how it works >
+		 * sqlite>
+		 */
+		return false;
+	} else if (type == CT_DOUBLE) {
+		return cmp_double_value_to_value(node->cmp_type,
+							*(double*)&row->data[offset_1],
+							*(double*)&row->data[offset_2]);
+	} else if (type == CT_TINYINT) {
+		return cmp_bool_value_to_value(node->cmp_type,
+						*(bool*)&row->data[offset_1],
+						*(bool*)&row->data[offset_2]);
+	} else if (type == CT_INTEGER) {
+		return cmp_int_value_to_value(node->cmp_type,
+						*(int64_t*)&row->data[offset_1],
+						*(int64_t*)&row->data[offset_2]);
+	} else if (type == CT_DATE || type == CT_DATETIME) {
+		return cmp_time_value_to_value(node->cmp_type,
+						*(time_t*)&row->data[offset_1],
+						*(time_t*)&row->data[offset_2]);
+	} else if (type == CT_VARCHAR) {
+		return cmp_str_value_to_value(node->cmp_type,
+						*(char**)&row->data[offset_1],
+						*(char**)&row->data[offset_2]);
+	} else {
+		/* something went really wrong here */
+		BUG_GENERIC();
+		return false;
+	}
+
+}
+
 static bool eval_cmp(struct table *table, struct row *row, struct ast_sel_cmp_node *node)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_node;
-	struct ast_sel_exprval_node *val_1 = NULL, *val_2 = NULL;
+	struct ast_node *node_1 = NULL, *node_2 = NULL;
+	struct ast_sel_exprval_node *val_1, *val_2;
+	struct ast_sel_fieldname_node *fld_1, *fld_2;
 
 	list_for_each(pos, node->node_children_head)
 	{
 		tmp_node = list_entry(pos, typeof(*tmp_node), head);
 
-		if (!val_1)
-			val_1 = (typeof(val_1))tmp_node;
+		if (!node_1)
+			node_1 = tmp_node;
 		else
-			val_2 = (typeof(val_2))tmp_node;
+			node_2 = tmp_node;
 	}
 
-	if (val_1->value_type.is_name && val_2->value_type.is_name) {
-		/* field to field comparison */
-		return cmp_field_to_field(table, row, node, val_1, val_2);
-	} else if (val_1->value_type.is_name && !val_2->value_type.is_name) {
-		/* field-to-value or value-to-field comparison */
-		return cmp_field_to_value(table, row, node, val_1, val_2);
-	} else if (!val_1->value_type.is_name && val_2->value_type.is_name) {
-		/* value-to-field or value-to-field comparison */
-		return cmp_field_to_value(table, row, node, val_2, val_1);
+	if (node_1->node_type == node_2->node_type && node_1->node_type == AST_TYPE_SEL_EXPRVAL) {
+		val_1 = (typeof(val_1))node_1;
+		val_2 = (typeof(val_2))node_2;
+
+		if (val_1->value_type.is_name && val_2->value_type.is_name) {
+			/* field to field comparison */
+			return cmp_field_to_field(table, row, node, val_1, val_2);
+		} else if (val_1->value_type.is_name && !val_2->value_type.is_name) {
+			/* field-to-value or value-to-field comparison */
+			return cmp_field_to_value(table, row, node, val_1, val_2);
+		} else if (!val_1->value_type.is_name && val_2->value_type.is_name) {
+			/* value-to-field or value-to-field comparison */
+			return cmp_field_to_value(table, row, node, val_2, val_1);
+		} else {
+			/* value-to-value comparison */
+			return cmp_value_to_value(node, val_1, val_2);
+		}
+	} else if (node_1->node_type == node_2->node_type && node_1->node_type == AST_TYPE_SEL_FIELDNAME) {
+		fld_1 = (typeof(fld_1))node_1;
+		fld_2 = (typeof(fld_2))node_2;
+
+		return cmp_fieldname_to_fieldname(table, row, node, fld_1, fld_2);
 	} else {
-		/* value-to-value comparison */
-		return cmp_value_to_value(node, val_1, val_2);
+		/* to be implemented */
+		BUG_GENERIC();
+		return false;
 	}
 
 }
@@ -681,9 +800,10 @@ static int _join_nested_loop(struct database *db, struct ast_sel_join_node *join
 						if (!table_insert_row(mattbl, new_row, new_row_size))
 							goto err;
 
-						table_free_row_content(mattbl, new_row);
-						free(new_row);
 					}
+					/* free up used resources */
+					table_free_row_content(mattbl, new_row);
+					free(new_row);
 				}
 			}
 		}

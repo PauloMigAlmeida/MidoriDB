@@ -156,7 +156,7 @@ int64_t query_column_int64(struct result_set *res, int col_idx)
 
 	row = (typeof(row))&res->cursor_blk->data[res->cursor_offset];
 
-	/* sounds like user either didn't invoke query_cur_step or didn't check if it returned MIDORIDB_ROW */
+	/* sounds like user neither invoked query_cur_step nor checked if it returned MIDORIDB_ROW */
 	BUG_ON_CUSTOM_MSG(row->flags.deleted || row->flags.empty, "cursor is pointing at an invalid row\n");
 
 	for (int i = 0; i < col_idx; i++)
