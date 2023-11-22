@@ -130,6 +130,42 @@ static void test_select_3(void)
 	database_close(&db);
 }
 
+static void test_select_4(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[2][6] = {
+			{1, 1, 1, 123, -12345, 333},
+			{3, 3, 3, 789, -67890, 666},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (id_a INT, f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1, 123), (2, 456), (3, 789);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE B (id_b INT, f2 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (1, -12345), (2, -11111), (3, -67890);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE C (id_c INT, f3 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO C VALUES (1, 333), (3, 666), (4, 999);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT * FROM A INNER JOIN B ON A.id_a = B.id_b INNER JOIN C ON A.id_a = C.id_c;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+//		printf("i: %d\n", i);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 1), exp_vals[i][1]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 2), exp_vals[i][2]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 3), exp_vals[i][3]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 4), exp_vals[i][4]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 5), exp_vals[i][5]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
 void test_executor_select(void)
 {
 	/* single field */
@@ -140,4 +176,7 @@ void test_executor_select(void)
 
 	/* single join - inner */
 	test_select_3();
+
+	/* multiple join - inner */
+	test_select_4();
 }

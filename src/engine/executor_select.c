@@ -239,7 +239,7 @@ static int proc_from_clause_table(struct database *db, struct ast_sel_table_node
 	return MIDORIDB_OK;
 }
 
-static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, struct row *dst_row)
+static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, struct row *dst_row, bool is_src_earlymat)
 {
 	struct column *column;
 	char key[FQFIELD_NAME_LEN];
@@ -250,7 +250,12 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 		column = &src->columns[i];
 
 		memzero(key, sizeof(key));
-		snprintf(key, sizeof(key) - 1, "%s.%s", src->name, column->name);
+
+		if (!is_src_earlymat) {
+			snprintf(key, sizeof(key) - 1, "%s.%s", src->name, column->name);
+		} else {
+			strncpy(key, column->name, sizeof(key) - 1);
+		}
 
 		/* find offset for target table */
 		dst_offset = 0;
@@ -277,10 +282,15 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 			*col_idx_ptr = (uintptr_t)ptr;
 
 		} else {
-			memcpy(dst_row->data + dst_offset, ((char*)src_row->data) + src_offset, column->precision);
+
+			if (!bit_test(src_row->null_bitmap, i, sizeof(src_row->null_bitmap))) {
+				memcpy(dst_row->data + dst_offset, ((char*)src_row->data) + src_offset,
+					column->precision);
+			}
+
 		}
 
-		/* if src column isn't NULL then dst column won't be NULL either */
+		/* adjust null_bitmap */
 		if (!bit_test(src_row->null_bitmap, i, sizeof(src_row->null_bitmap))) {
 			bit_clear(dst_row->null_bitmap, dst_col_idx, sizeof(dst_row->null_bitmap));
 		}
@@ -291,14 +301,9 @@ static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, 
 	return true;
 }
 
-static int merge_rows(struct database *db, struct ast_sel_table_node *left_node, struct ast_sel_table_node *right_node,
-		struct row *row_1, struct row *row_2, struct table *mattbl, struct row **out)
+static int _merge_rows(struct table *tbl_1, struct table *tbl_2, struct row *row_1, struct row *row_2,
+		struct table *mattbl, struct row **out, bool is_tbl2_earlymat)
 {
-	struct table *tbl_1, *tbl_2;
-
-	tbl_1 = database_table_get(db, left_node->table_name);
-	tbl_2 = database_table_get(db, right_node->table_name);
-
 	*out = zalloc(table_calc_row_size(mattbl));
 	if (!(*out))
 		goto err;
@@ -310,10 +315,10 @@ static int merge_rows(struct database *db, struct ast_sel_table_node *left_node,
 		bit_set((*out)->null_bitmap, i, sizeof((*out)->null_bitmap));
 	}
 
-	if (!cpy_cols(tbl_1, row_1, mattbl, *out))
+	if (!cpy_cols(tbl_1, row_1, mattbl, *out, false))
 		goto err_ptr;
 
-	if (!cpy_cols(tbl_2, row_2, mattbl, *out))
+	if (!cpy_cols(tbl_2, row_2, mattbl, *out, is_tbl2_earlymat))
 		goto err_ptr;
 
 	return MIDORIDB_OK;
@@ -323,6 +328,13 @@ err_ptr:
 err:
 	return -MIDORIDB_INTERNAL;
 
+}
+
+static int merge_rows(struct table *tbl_1, struct table *tbl_2, struct row *row_1, struct row *row_2,
+		struct table *mattbl, struct row **out)
+{
+	bool is_tbl2_earlymat = tbl_2 == mattbl;
+	return _merge_rows(tbl_1, tbl_2, row_1, row_2, mattbl, out, is_tbl2_earlymat);
 }
 
 static bool cmp_double_value_to_value(enum ast_comparison_type cmp_type, double val_1, double val_2)
@@ -746,7 +758,7 @@ static bool _eval_join_on_clause(struct ast_sel_join_node *join_node, struct ast
 	return ret;
 }
 
-static int _join_nested_loop(struct database *db, struct ast_sel_join_node *join_node,
+static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_node *join_node,
 		struct ast_sel_onexpr_node *onexpr_node, struct ast_sel_table_node *left_node,
 		struct ast_sel_table_node *right_node, struct table *mattbl)
 {
@@ -789,9 +801,7 @@ static int _join_nested_loop(struct database *db, struct ast_sel_join_node *join
 					// SELECT (f1 + 4) as val FROM A JOIN B ON ....
 
 					/* copy columns of both rows to materialised row */
-					if (merge_rows(db, left_node, right_node, left_row, right_row,
-							mattbl,
-							&new_row))
+					if (merge_rows(left, right, left_row, right_row, mattbl, &new_row))
 						goto err;
 
 					if (_eval_join_on_clause(join_node, (struct ast_node*)onexpr_node, mattbl,
@@ -816,6 +826,82 @@ err:
 
 }
 
+static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_node *join_node,
+		struct ast_sel_onexpr_node *onexpr_node, struct ast_sel_table_node *table_node_1,
+		struct table *mattbl)
+{
+	struct table *table_1, *table_2;
+	struct list_head *tbl1_pos, *tbl2_pos;
+	struct datablock *tbl1_blk, *tbl2_blk;
+	size_t tbl1_row_size, tbl2_row_size, new_row_size;
+	struct row *tbl1_row, *tbl2_row, *new_row;
+
+	table_1 = database_table_get(db, table_node_1->table_name);
+	table_2 = mattbl;
+
+	tbl1_row_size = table_calc_row_size(table_1);
+	tbl2_row_size = table_calc_row_size(table_2);
+	new_row_size = table_calc_row_size(mattbl);
+
+	// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
+	BUG_ON(join_node->join_type != AST_SEL_JOIN_INNER);
+
+	list_for_each(tbl1_pos, table_1->datablock_head)
+	{
+		tbl1_blk = list_entry(tbl1_pos, typeof(*tbl1_blk), head);
+		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / tbl1_row_size); i++) {
+			tbl1_row = (struct row*)&tbl1_blk->data[tbl1_row_size * i];
+
+			list_for_each(tbl2_pos, table_2->datablock_head)
+			{
+				tbl2_blk = list_entry(tbl2_pos, typeof(*tbl2_blk), head);
+
+				for (size_t j = 0; j < (DATABLOCK_PAGE_SIZE / tbl2_row_size); j++) {
+					tbl2_row = (struct row*)&tbl2_blk->data[tbl2_row_size * j];
+
+					/* do we need to compare those rows? */
+					if (tbl1_row->flags.deleted || tbl1_row->flags.empty
+							|| tbl2_row->flags.deleted
+							|| tbl2_row->flags.empty)
+						continue;
+
+					//TODO figure out how I will populate aliases into the new row
+					// SELECT (f1 + 4) as val FROM A JOIN B ON ....
+
+					/* copy columns of both rows to materialised row */
+					if (merge_rows(table_1, mattbl, tbl1_row, tbl2_row, mattbl, &new_row))
+						goto err;
+
+					if (_eval_join_on_clause(join_node, (struct ast_node*)onexpr_node, mattbl,
+									new_row)) {
+
+						if (!table_update_row(mattbl, tbl2_blk, tbl2_row_size * j, new_row,
+									new_row_size))
+							goto err;
+
+					} else {
+						/* when using materialisation tables,
+						 * if it doesn't match ON-clause then it needs to be discarded
+						 * TODO: this should change once we implement other JOIN types
+						 */
+						table_delete_row(mattbl, tbl2_blk, tbl2_row_size * j);
+					}
+
+					/* free up used resources */
+					table_free_row_content(mattbl, new_row);
+					free(new_row);
+				}
+			}
+		}
+	}
+
+	return MIDORIDB_OK;
+
+err:
+	return -MIDORIDB_INTERNAL;
+
+}
+
 static int proc_from_clause_join(struct database *db, struct ast_sel_join_node *join_node, struct table *earmattbl)
 {
 	struct list_head *pos;
@@ -823,6 +909,8 @@ static int proc_from_clause_join(struct database *db, struct ast_sel_join_node *
 
 	struct ast_sel_onexpr_node *onexpr_node;
 	struct ast_node *left_node = NULL, *right_node = NULL;
+
+	int early_ret;
 
 	list_for_each(pos, join_node->node_children_head)
 	{
@@ -838,15 +926,28 @@ static int proc_from_clause_join(struct database *db, struct ast_sel_join_node *
 	}
 
 	if (left_node->node_type == AST_TYPE_SEL_TABLE && right_node->node_type == AST_TYPE_SEL_TABLE) {
-		return _join_nested_loop(db, join_node, onexpr_node,
-						(struct ast_sel_table_node*)left_node,
-						(struct ast_sel_table_node*)right_node, earmattbl);
+		return _join_nested_loop_tbl2tbl(db, join_node, onexpr_node,
+							(struct ast_sel_table_node*)left_node,
+							(struct ast_sel_table_node*)right_node, earmattbl);
+	} else if (left_node->node_type == AST_TYPE_SEL_JOIN && right_node->node_type == AST_TYPE_SEL_TABLE) {
+		if ((early_ret = proc_from_clause_join(db, (struct ast_sel_join_node*)left_node, earmattbl)))
+			return early_ret;
+
+		return _join_nested_loop_tbl2mat(db, join_node, onexpr_node,
+							(struct ast_sel_table_node*)right_node,
+							earmattbl);
+	} else if (left_node->node_type == AST_TYPE_SEL_TABLE && right_node->node_type == AST_TYPE_SEL_JOIN) {
+		if ((early_ret = proc_from_clause_join(db, (struct ast_sel_join_node*)right_node, earmattbl)))
+			return early_ret;
+
+		return _join_nested_loop_tbl2mat(db, join_node, onexpr_node,
+							(struct ast_sel_table_node*)left_node,
+							earmattbl);
 	} else {
-		//TODO add other variations (J - J, J - T, T - J)
 		BUG_GENERIC();
 	}
 
-	return -MIDORIDB_INTERNAL;
+	return MIDORIDB_OK;
 }
 
 static int proc_from_clause(struct database *db, struct ast_node *node, struct table *earmattbl)
@@ -906,7 +1007,10 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		goto err_bld_fc;
 	}
 
-// temp
+	/* remove excluded rows from ON-clauses, WHERE clauses and so on */
+	table_vacuum(table);
+
+	// temp
 	output->results.table = table;
 
 	hashtable_foreach(&cols_ht, &free_hashmap_entries, NULL);
