@@ -1147,7 +1147,7 @@ static int proc_from_clause_join(struct database *db, struct ast_sel_join_node *
 	struct list_head *pos;
 	struct ast_node *tmp_entry;
 
-	struct ast_sel_onexpr_node *onexpr_node;
+	struct ast_sel_onexpr_node *onexpr_node = NULL;
 	struct ast_node *left_node = NULL, *right_node = NULL;
 
 	int early_ret;

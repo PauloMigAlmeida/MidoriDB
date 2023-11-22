@@ -171,7 +171,7 @@ static int replace_fieldname(struct database *db, struct ast_node *node, struct 
 	lookup = hashtable_get(out_tbl_alias, field_node->table_name, strlen(field_node->table_name) + 1);
 	if (lookup) {
 		/* boundaries guaranteed via BUILD_BUG above */
-		strncpy(field_node->table_name, (char*)lookup->content, sizeof(field_node->table_name));
+		strncpy(field_node->table_name, (char*)lookup->content, sizeof(field_node->table_name) - 1);
 	} else if (database_table_exists(db, field_node->table_name)) {
 		/* user specified the fqfield - silly but still valid.. so do nothing  */
 	} else {
@@ -211,8 +211,8 @@ static int replace_selectall(struct database *db, struct ast_node *node, struct 
 			list_head_init(&new_field->head);
 			list_head_init(new_field->node_children_head);
 
-			strncpy(new_field->table_name, table->name, sizeof(new_field->table_name));
-			strncpy(new_field->col_name, column->name, sizeof(new_field->col_name));
+			strcpy(new_field->table_name, table->name);
+			strcpy(new_field->col_name, column->name);
 
 			/* add it to the tree - adjacently to the SELECTALL node for now */
 			list_add(&new_field->head, root->node_children_head);
