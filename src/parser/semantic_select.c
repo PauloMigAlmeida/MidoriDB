@@ -2448,7 +2448,7 @@ static bool build_column_value_types_ht(struct database *db, struct ast_node *no
 
 				snprintf(key, sizeof(key) - 1, "%s.%s", alias_node->alias_value, col_name);
 				if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
-					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+					snprintf(out_err, out_err_len, "duplicate column name: '%s'\n", key);
 					return false;
 				}
 
@@ -2462,7 +2462,7 @@ static bool build_column_value_types_ht(struct database *db, struct ast_node *no
 
 				snprintf(key, sizeof(key) - 1, "%s.%s", table->name, col_name);
 				if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
-					snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+					snprintf(out_err, out_err_len, "duplicate column name: '%s'\n", key);
 					return false;
 				}
 
@@ -2473,7 +2473,7 @@ static bool build_column_value_types_ht(struct database *db, struct ast_node *no
 			strcpy(key, col_name);
 
 			if (!hashtable_put(ht, key, strlen(key) + 1, &col_type, sizeof(col_type))) {
-				snprintf(out_err, out_err_len, "semantic phase: internal error\n");
+				snprintf(out_err, out_err_len, "duplicate column name: '%s'\n", key);
 				return false;
 			}
 
