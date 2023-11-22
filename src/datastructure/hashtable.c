@@ -180,9 +180,9 @@ bool hashtable_put(struct hashtable *hashtable, const void *key, size_t key_len,
 err_duplicate:
 	free(new->value.content);
 err_value:
-	free(entry->key.content);
+	free(new->key.content);
 err_key:
-	free(entry);
+	free(new);
 err:
 	return false;
 }
