@@ -2271,7 +2271,7 @@ static struct sem_check_val_types check_value_types_fieldname(struct ast_sel_fie
 static struct sem_check_val_types check_value_types_isxin(struct ast_sel_isxin_node *node, struct hashtable *ht, char *out_err, size_t out_err_len)
 {
 	struct sem_check_val_types ret = {0};
-	struct hashtable_value *ht_value;
+	struct hashtable_value *ht_value = NULL;
 	struct ast_sel_exprval_node *val_node;
 	struct ast_sel_fieldname_node *field_node;
 	char key[FQFIELD_NAME_LEN] = {0};
@@ -2500,7 +2500,7 @@ static enum COLUMN_TYPE extract_alias_types(struct ast_node *node, struct ast_se
 	struct ast_sel_fieldname_node *field_node;
 	struct hashtable_value *ht_value;
 	char lookup_key[FQFIELD_NAME_LEN] = {0};
-	enum COLUMN_TYPE col_type;
+	enum COLUMN_TYPE col_type = 0;
 
 	if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
 		val_node = (typeof(val_node))node;
