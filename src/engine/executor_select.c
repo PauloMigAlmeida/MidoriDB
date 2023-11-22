@@ -63,6 +63,28 @@ static int int_compare(const void *a, const void *b)
 	return *((int*)a) - *((int*)b);
 }
 
+static struct ast_node* find_node(struct ast_node *root, enum ast_node_type node_type)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_node *ret = NULL;
+
+	if (root->node_type == node_type) {
+		return root;
+	} else {
+		list_for_each(pos, root->node_children_head)
+		{
+			tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+			ret = find_node(tmp_entry, node_type);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
+}
+
 static int _build_cols_hashtable_fieldname(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
 {
 	struct ast_sel_fieldname_node *field_node;
@@ -669,6 +691,104 @@ static bool cmp_fieldname_to_fieldname(struct table *table, struct row *row, str
 
 }
 
+static bool cmp_fieldname_to_value(struct table *table, struct row *row, struct ast_sel_cmp_node *node,
+		struct ast_sel_fieldname_node *field, struct ast_sel_exprval_node *value)
+{
+	enum COLUMN_TYPE type = 0;
+	size_t offset = 0;
+	int col_idx = -1;
+	bool is_null;
+	char key[FQFIELD_NAME_LEN];
+
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		memzero(key, sizeof(key));
+		snprintf(key, sizeof(key) - 1, "%s.%s", field->table_name, field->col_name);
+
+		if (strcmp(col->name, key) == 0) {
+			/* semantic phase guarantees that columns will have the same type in CMP nodes */
+			type = col->type;
+			col_idx = i;
+			break;
+		}
+		offset += table_calc_column_space(col);
+	}
+
+	is_null = bit_test(row->null_bitmap, col_idx, sizeof(row->null_bitmap));
+
+	if (is_null || value->value_type.is_null) {
+		/* no comparison evaluates to true if NULL is one of the operands */
+		return false;
+	} else if (type == CT_DOUBLE) {
+		return cmp_double_value_to_value(node->cmp_type, *(double*)&row->data[offset], value->double_val);
+	} else if (type == CT_TINYINT) {
+		return cmp_bool_value_to_value(node->cmp_type, *(bool*)&row->data[offset], value->bool_val);
+	} else if (type == CT_INTEGER) {
+		return cmp_int_value_to_value(node->cmp_type, *(int64_t*)&row->data[offset], value->int_val);
+	} else if (type == CT_DATE || type == CT_DATETIME) {
+		return cmp_time_value_to_value(node->cmp_type,
+						*(time_t*)&row->data[offset],
+						parse_date_type(value->str_val, type));
+	} else if (type == CT_VARCHAR) {
+		return cmp_str_value_to_value(node->cmp_type, *(char**)&row->data[offset], value->str_val);
+	} else {
+		/* something went really wrong here */
+		BUG_GENERIC();
+		return false;
+	}
+
+}
+
+static bool cmp_value_to_fieldname(struct table *table, struct row *row, struct ast_sel_cmp_node *node,
+		struct ast_sel_exprval_node *value, struct ast_sel_fieldname_node *field)
+{
+	enum COLUMN_TYPE type = 0;
+	size_t offset = 0;
+	int col_idx = -1;
+	bool is_null;
+	char key[FQFIELD_NAME_LEN];
+
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		memzero(key, sizeof(key));
+		snprintf(key, sizeof(key) - 1, "%s.%s", field->table_name, field->col_name);
+
+		if (strcmp(col->name, key) == 0) {
+			/* semantic phase guarantees that columns will have the same type in CMP nodes */
+			type = col->type;
+			col_idx = i;
+			break;
+		}
+		offset += table_calc_column_space(col);
+	}
+
+	is_null = bit_test(row->null_bitmap, col_idx, sizeof(row->null_bitmap));
+
+	if (is_null || value->value_type.is_null) {
+		/* no comparison evaluates to true if NULL is one of the operands */
+		return false;
+	} else if (type == CT_DOUBLE) {
+		return cmp_double_value_to_value(node->cmp_type, value->double_val, *(double*)&row->data[offset]);
+	} else if (type == CT_TINYINT) {
+		return cmp_bool_value_to_value(node->cmp_type, value->bool_val, *(bool*)&row->data[offset]);
+	} else if (type == CT_INTEGER) {
+		return cmp_int_value_to_value(node->cmp_type, value->int_val, *(int64_t*)&row->data[offset]);
+	} else if (type == CT_DATE || type == CT_DATETIME) {
+		return cmp_time_value_to_value(node->cmp_type,
+						parse_date_type(value->str_val, type),
+						*(time_t*)&row->data[offset]);
+	} else if (type == CT_VARCHAR) {
+		return cmp_str_value_to_value(node->cmp_type, value->str_val, *(char**)&row->data[offset]);
+	} else {
+		/* something went really wrong here */
+		BUG_GENERIC();
+		return false;
+	}
+
+}
+
 static bool eval_cmp(struct table *table, struct row *row, struct ast_sel_cmp_node *node)
 {
 	struct list_head *pos;
@@ -709,6 +829,16 @@ static bool eval_cmp(struct table *table, struct row *row, struct ast_sel_cmp_no
 		fld_2 = (typeof(fld_2))node_2;
 
 		return cmp_fieldname_to_fieldname(table, row, node, fld_1, fld_2);
+	} else if (node_1->node_type == AST_TYPE_SEL_FIELDNAME && node_2->node_type == AST_TYPE_SEL_EXPRVAL) {
+		fld_1 = (typeof(fld_1))node_1;
+		val_2 = (typeof(val_2))node_2;
+
+		return cmp_fieldname_to_value(table, row, node, fld_1, val_2);
+	} else if (node_1->node_type == AST_TYPE_SEL_EXPRVAL && node_2->node_type == AST_TYPE_SEL_FIELDNAME) {
+		val_1 = (typeof(val_1))node_1;
+		fld_2 = (typeof(fld_2))node_2;
+
+		return cmp_value_to_fieldname(table, row, node, val_1, fld_2);
 	} else {
 		/* to be implemented */
 		BUG_GENERIC();
@@ -717,8 +847,111 @@ static bool eval_cmp(struct table *table, struct row *row, struct ast_sel_cmp_no
 
 }
 
-static bool _eval_join_on_clause(struct ast_sel_join_node *join_node, struct ast_node *node,
-		struct table *table, struct row *row)
+static bool eval_isxnull(struct table *table, struct row *row, struct ast_sel_isxnull_node *node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_fieldname_node *field = NULL;
+	struct ast_sel_exprval_node *val = NULL;
+	int col_idx = -1;
+	bool is_field = false;
+	char key[FQFIELD_NAME_LEN] = {0};
+
+	list_for_each(pos, node->node_children_head)
+	{
+
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+		if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+			field = (typeof(field))tmp_entry;
+			is_field = true;
+			break;
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			val = (typeof(val))tmp_entry;
+			break;
+		}
+	}
+
+	/* sanity check */
+	BUG_ON(!field && !val);
+
+	if (is_field) {
+		snprintf(key, sizeof(key) - 1, "%s.%s", field->table_name, field->col_name);
+	} else {
+		strncpy(key, val->name_val, sizeof(key) - 1);
+	}
+
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		if (strcmp(col->name, key) == 0) {
+			col_idx = i;
+			break;
+		}
+	}
+
+	return bit_test(row->null_bitmap, col_idx, sizeof(row->null_bitmap)) ^ node->is_negation;
+}
+
+static bool eval_isxin(struct table *table, struct row *row, struct ast_sel_isxin_node *node)
+{
+	struct list_head *pos;
+	struct ast_node *tmp_entry;
+	struct ast_sel_fieldname_node *field = NULL;
+	struct ast_sel_exprval_node *value = NULL;
+	struct ast_sel_cmp_node cmp_node = {0};
+	bool is_field;
+
+	if (node->is_negation) {
+		cmp_node.cmp_type = AST_CMP_DIFF_OP;
+	} else {
+		cmp_node.cmp_type = AST_CMP_EQUALS_OP;
+	}
+
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_EXPRVAL) {
+			if (((struct ast_sel_exprval_node*)tmp_entry)->value_type.is_name) {
+				value = (typeof(value))tmp_entry;
+				break;
+			}
+		} else if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME) {
+			field = (typeof(field))tmp_entry;
+			is_field = true;
+			break;
+		}
+	}
+
+	/* sanity check */
+	BUG_ON(!field && !value);
+
+	list_for_each(pos, node->node_children_head)
+	{
+		tmp_entry = list_entry(pos, typeof(*tmp_entry), head);
+
+		if (tmp_entry->node_type == AST_TYPE_SEL_FIELDNAME)
+			continue; /*same as field we jus fetched.. just move on */
+
+		BUG_ON(tmp_entry->node_type != AST_TYPE_SEL_EXPRVAL);
+
+		if (!((struct ast_sel_exprval_node*)tmp_entry)->value_type.is_name) {
+
+			if (is_field) {
+				if (!cmp_fieldname_to_value(table, row, &cmp_node, field,
+								(struct ast_sel_exprval_node*)tmp_entry))
+					return false; // fail-fast
+			} else {
+				if (!cmp_field_to_value(table, row, &cmp_node, value,
+							(struct ast_sel_exprval_node*)tmp_entry))
+					return false; // fail-fast
+			}
+		}
+	}
+	return true;
+}
+
+static bool eval_row_cond(struct ast_node *node, struct table *table, struct row *row)
 {
 	struct list_head *pos;
 	struct ast_node *tmp_node;
@@ -736,7 +969,7 @@ static bool _eval_join_on_clause(struct ast_sel_join_node *join_node, struct ast
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
 
-			bool eval = _eval_join_on_clause(join_node, tmp_node, table, row);
+			bool eval = eval_row_cond(tmp_node, table, row);
 
 			if (!gate_init) {
 				gate_init = true;
@@ -751,12 +984,16 @@ static bool _eval_join_on_clause(struct ast_sel_join_node *join_node, struct ast
 				BUG_GENERIC();
 		}
 
+	} else if (node->node_type == AST_TYPE_SEL_EXPRISXIN) {
+		return eval_isxin(table, row, (struct ast_sel_isxin_node*)node);
+	} else if (node->node_type == AST_TYPE_SEL_EXPRISXNULL) {
+		return eval_isxnull(table, row, (struct ast_sel_isxnull_node*)node);
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
 			tmp_node = list_entry(pos, typeof(*tmp_node), head);
 
-			if (!_eval_join_on_clause(join_node, tmp_node, table, row))
+			if (!eval_row_cond(tmp_node, table, row))
 				return false;
 		}
 	}
@@ -780,7 +1017,7 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 	right_row_size = table_calc_row_size(right);
 	new_row_size = table_calc_row_size(mattbl);
 
-	// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
+// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
 	BUG_ON(join_node->join_type != AST_SEL_JOIN_INNER);
 
 	list_for_each(left_pos, left->datablock_head)
@@ -809,8 +1046,7 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 					if (merge_rows(left, right, left_row, right_row, mattbl, &new_row))
 						goto err;
 
-					if (_eval_join_on_clause(join_node, (struct ast_node*)onexpr_node, mattbl,
-									new_row)) {
+					if (eval_row_cond((struct ast_node*)onexpr_node, mattbl, new_row)) {
 
 						if (!table_insert_row(mattbl, new_row, new_row_size))
 							goto err;
@@ -848,7 +1084,7 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 	tbl2_row_size = table_calc_row_size(table_2);
 	new_row_size = table_calc_row_size(mattbl);
 
-	// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
+// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
 	BUG_ON(join_node->join_type != AST_SEL_JOIN_INNER);
 
 	list_for_each(tbl1_pos, table_1->datablock_head)
@@ -877,8 +1113,7 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 					if (merge_rows(table_1, mattbl, tbl1_row, tbl2_row, mattbl, &new_row))
 						goto err;
 
-					if (_eval_join_on_clause(join_node, (struct ast_node*)onexpr_node, mattbl,
-									new_row)) {
+					if (eval_row_cond((struct ast_node*)onexpr_node, mattbl, new_row)) {
 
 						if (!table_update_row(mattbl, tbl2_blk, tbl2_row_size * j, new_row,
 									new_row_size))
@@ -1034,8 +1269,35 @@ static int proc_select_clause(struct ast_sel_select_node *node, struct table *ou
 		qsort(rem_col, rem_col_idx + 1, sizeof(int), int_compare);
 
 		for (int i = rem_col_idx; i >= 0; i--) {
-			if (!table_rem_column(outtbl, &outtbl->columns[i]))
+			if (!table_rem_column(outtbl, &outtbl->columns[rem_col[i]]))
 				return -MIDORIDB_INTERNAL;
+		}
+	}
+
+	return MIDORIDB_OK;
+}
+
+static int proc_where_clause(struct ast_node *node, struct table *table)
+{
+	struct list_head *pos;
+	struct datablock *blk;
+	struct row *row;
+	size_t row_size;
+
+	row_size = table_calc_row_size(table);
+
+	list_for_each(pos, table->datablock_head)
+	{
+		blk = list_entry(pos, typeof(*blk), head);
+		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+			row = (struct row*)&blk->data[row_size * i];
+
+			if (row->flags.deleted || row->flags.empty)
+				continue;
+
+			if (!eval_row_cond(node, table, row)) {
+				table_delete_row(table, blk, row_size * i);
+			}
 		}
 	}
 
@@ -1046,6 +1308,7 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 {
 	struct hashtable cols_ht = {0};
 	struct table *table = NULL;
+	struct ast_node *where_node;
 	int ret = MIDORIDB_OK;
 
 	if (!hashtable_init(&cols_ht, &hashtable_str_compare, &hashtable_str_hash)) {
@@ -1075,6 +1338,16 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		goto err_bld_fc;
 	}
 
+	/* filter out rows that don't match WHERE-clause */
+	where_node = find_node((struct ast_node*)select_node, AST_TYPE_SEL_WHERE);
+	if (where_node) {
+		if ((ret = proc_where_clause(where_node, table))) {
+			snprintf(output->error.message, sizeof(output->error.message),
+					"execution phase: error while processing WHERE-clause\n");
+			goto err_bld_fc;
+		}
+	}
+
 	/* leave only columns that were specified in the statements */
 	if ((ret = proc_select_clause(select_node, table))) {
 		snprintf(output->error.message, sizeof(output->error.message),
@@ -1082,10 +1355,12 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		goto err_bld_fc;
 	}
 
+	/* TODO process distinct */
+
 	/* remove excluded rows from ON-clauses, WHERE-clauses and so on */
 	table_vacuum(table);
 
-	// temp
+// temp
 	output->results.table = table;
 
 	hashtable_foreach(&cols_ht, &free_hashmap_entries, NULL);

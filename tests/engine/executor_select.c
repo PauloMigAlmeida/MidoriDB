@@ -195,6 +195,127 @@ static void test_select_5(void)
 	database_close(&db);
 }
 
+static void test_select_6(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[1][2] = {
+			{123, -12345},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (id_a INT, f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1, 123), (2, 456), (3, 789);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE B (id_b INT, f2 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (1, -12345), (3, -67890);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT "
+				"		f1,f2 "
+				"	 FROM "
+				"		A INNER JOIN B "
+				"		ON A.id_a = B.id_b"
+				"	 WHERE"
+				"		f1 = 123;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 1), exp_vals[i][1]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
+static void test_select_7(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[1][2] = {
+			{123, -12345},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (id_a INT, f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1, 123), (2, 456), (3, 789);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE B (id_b INT, f2 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO B VALUES (1, -12345), (3, -67890);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT "
+				"		f1,f2 "
+				"	 FROM "
+				"		A INNER JOIN B "
+				"		ON A.id_a = B.id_b"
+				"	 WHERE"
+				"		123 >= f1 AND f1 < 200;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 1), exp_vals[i][1]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
+static void test_select_8(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[3][1] = {
+			{123},
+			{124},
+			{125},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1),(2),(123),(3),(126),(4),(124),(125);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT f1 FROM A WHERE f1 IN (123, 124, 125);");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
+static void test_select_9(void)
+{
+	struct database db = {0};
+	struct query_output *output;
+	int64_t exp_vals[2][1] = {
+			{3},
+			{5},
+	};
+	int i = 0;
+
+	CU_ASSERT_EQUAL(database_open(&db), MIDORIDB_OK);
+
+	CU_ASSERT_EQUAL(run_stmt(&db, "CREATE TABLE A (id INT, f1 INT);"), ST_OK_EXECUTED);
+	CU_ASSERT_EQUAL(run_stmt(&db, "INSERT INTO A VALUES (1, 1),(2, 2),(3, NULL),(4, 4),(5, NULL);"), ST_OK_EXECUTED);
+
+	output = run_query(&db, "SELECT id FROM A WHERE f1 IS NULL;");
+
+	while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+		CU_ASSERT_EQUAL(query_column_int64(&output->results, 0), exp_vals[i][0]);
+		i++;
+	}
+
+	query_free(output);
+	database_close(&db);
+}
+
 void test_executor_select(void)
 {
 	/* single field */
@@ -211,4 +332,16 @@ void test_executor_select(void)
 
 	/* single join - selected columns only */
 	test_select_5();
+
+	/* single join - selected columns only - where clause */
+	test_select_6();
+
+	/* single join - selected columns only - where clause - yoda conditions */
+	test_select_7();
+
+	/* single table - where clause - isxin expr */
+	test_select_8();
+
+	/* single table - where clause - isxnull expr */
+	test_select_9();
 }
