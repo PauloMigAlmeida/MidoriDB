@@ -3,9 +3,16 @@
 
 <img src="https://github.com/PauloMigAlmeida/MidoriDB/assets/1011868/3356dfb3-e62c-4019-a43e-afe1a25b457a" alt="midoridblogo_readme" width="150">
 
-In-memory database written in C from scratch
+In-memory database written in C completely from scratch.
 
-## Dependencies
+## Features
+
+* Dependency Minimalism: It relies solely on `libc` and `libm` in runtime, ensuring easy integration and reducing external dependencies
+* Custom Implementation: Every component of MidoriDB has been crafted from the ground up - mostly because I wanted to learn about it really
+* Small Footprint: approximately 200KB.
+
+
+## Build
 
 On ubuntu:
 
@@ -16,8 +23,7 @@ apt install bison flex libfl-dev
 apt install libcunit1-dev
 ```
 
-
-## Build
+To build it, just run: 
 
 ```bash
 make
@@ -34,11 +40,10 @@ make all
 To make sure I won't lose focus on what I want this database to be able to do, I decided to write a list of features
 that I want to implement in the short to medium term.
 
-- [ ] Transaction [Model -> Flat Transation, Isolation -> Read uncommitted]
+- [x] In-memory
+- [x] Parser (CREATE, SELECT, INSERT, UPDATE, DELETE)
+- [x] Recursive JOINs (INNER - more to come)
+- [x] Recursive expressions (INSERT)
 - [X] Locking [Granularity -> Table-level]
-- [X] In-memory database
-- [ ] Write Ahead Log
 
-## Strech goals
-- [ ] Transaction [Isolation -> Read committed (seems to be the default in most popular database engines)]
-- [ ] Locking [Granularity -> Row-level]
+
