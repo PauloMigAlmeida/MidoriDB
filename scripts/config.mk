@@ -31,7 +31,6 @@ endif
 
 
 CCFLAGS		:= -std=gnu11 \
-			-g \
 			-O2 \
 			-fpic \
 			-masm=intel \
