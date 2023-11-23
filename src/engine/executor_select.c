@@ -26,6 +26,23 @@
 					+ MEMBER_SIZE(struct ast_sel_fieldname_node, col_name)		\
 					+ 1 /* NUL */
 
+//static void print_row(struct table *table, struct row *row)
+//{
+//	struct column *column;
+//	size_t offset = 0;
+//
+//	printf("Row: { ");
+//
+//	for (int i = 0; i < table->column_count; i++) {
+//		column = &table->columns[i];
+//		printf(".%s = ", column->name);
+//		printf("%ld , ", *(int64_t*)&row->data[offset]);
+//		offset += table_calc_column_space(column);
+//	}
+//
+//	printf("};\n");
+//}
+
 static time_t parse_date_type(char *str, enum COLUMN_TYPE type)
 {
 	time_t time_out;
@@ -83,6 +100,55 @@ static struct ast_node* find_node(struct ast_node *root, enum ast_node_type node
 	}
 
 	return ret;
+}
+
+struct column_specs {
+	enum COLUMN_TYPE type;
+	size_t offset;
+	int col_idx;
+};
+
+static bool find_column_mattbl(struct table *table, struct ast_node *node, struct column_specs *out)
+{
+	char key[FQFIELD_NAME_LEN] = {0};
+	bool found = false;
+
+	struct ast_sel_fieldname_node *fld_node;
+	struct ast_sel_exprval_node *val_node;
+
+	for (int i = 0; i < table->column_count; i++) {
+		struct column *col = &table->columns[i];
+
+		if (node->node_type == AST_TYPE_SEL_EXPRVAL) {
+			val_node = (typeof(val_node))node;
+
+			BUG_ON(!val_node->value_type.is_name);
+
+			memzero(key, sizeof(key));
+			strncpy(key, val_node->name_val, sizeof(key) - 1);
+		} else if (node->node_type == AST_TYPE_SEL_FIELDNAME) {
+			fld_node = (typeof(fld_node))node;
+
+			memzero(key, sizeof(key));
+			snprintf(key, sizeof(key) - 1, "%s.%s", fld_node->table_name, fld_node->col_name);
+		} else if (node->node_type == AST_TYPE_SEL_COUNT) {
+			memzero(key, sizeof(key));
+			strcpy(key, "COUNT(*)");
+		} else {
+			BUG_GENERIC();
+		}
+
+		if (strcmp(col->name, key) == 0) {
+			found = true;
+			out->type = col->type;
+			out->col_idx = i;
+			break;
+		}
+
+		out->offset += table_calc_column_space(col);
+	}
+
+	return found;
 }
 
 static int _build_cols_hashtable_fieldname(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
@@ -182,6 +248,22 @@ static int _build_cols_hashtable_table(struct database *db, struct ast_node *nod
 	return MIDORIDB_OK;
 }
 
+static int _build_cols_hashtable_count(struct ast_node *node, struct hashtable *cols_ht)
+{
+	UNUSED(node);
+	char key[] = "COUNT(*)";
+	struct column column = {0};
+
+	column.type = CT_INTEGER;
+	column.precision = table_calc_column_precision(column.type);
+	column.is_count = true;
+
+	if (!hashtable_put(cols_ht, key, strlen(key) + 1, &column, sizeof(column)))
+		return -MIDORIDB_INTERNAL;
+
+	return MIDORIDB_OK;
+}
+
 static int build_cols_hashtable(struct database *db, struct ast_node *node, struct hashtable *cols_ht)
 {
 	struct list_head *pos;
@@ -192,6 +274,8 @@ static int build_cols_hashtable(struct database *db, struct ast_node *node, stru
 		return _build_cols_hastable_alias(db, node, (struct ast_sel_alias_node*)node, cols_ht);
 	} else if (node->node_type == AST_TYPE_SEL_TABLE) {
 		return _build_cols_hashtable_table(db, node, cols_ht);
+	} else if (node->node_type == AST_TYPE_SEL_COUNT) {
+		return _build_cols_hashtable_count(node, cols_ht);
 	} else {
 		list_for_each(pos, node->node_children_head)
 		{
@@ -220,6 +304,7 @@ static void do_build_table_scafold(struct hashtable *hashtable, const void *key,
 	strncpy(column.name, key, MIN(sizeof(column.name), klen) - 1);
 	column.type = ((struct column*)value)->type;
 	column.precision = ((struct column*)value)->precision;
+	column.is_count = ((struct column*)value)->is_count;
 
 	BUG_ON(!table_add_column(table, &column));
 }
@@ -236,34 +321,20 @@ static int build_table_scafold(struct hashtable *column_types, struct table **ou
 	return MIDORIDB_OK;
 }
 
-static int proc_from_clause_table(struct database *db, struct ast_sel_table_node *table_node, struct table *earmattbl)
+static void init_count_cols(struct table *table, struct row *row)
 {
-	struct list_head *pos;
-	struct table *table;
-	struct datablock *block;
-	struct row *row;
-	size_t row_size;
+	struct column *column;
+	size_t offset = 0;
 
-	table = database_table_get(db, table_node->table_name);
+	for (int i = 0; i < table->column_count; i++) {
+		column = &table->columns[i];
 
-	row_size = table_calc_row_size(table);
-
-	list_for_each(pos, table->datablock_head)
-	{
-		block = list_entry(pos, typeof(*block), head);
-
-		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
-			row = (typeof(row))&block->data[row_size * i];
-
-			if (!row->flags.deleted && !row->flags.empty) {
-				if (!table_insert_row(earmattbl, row, row_size)) {
-					return -MIDORIDB_INTERNAL;
-				}
-			}
+		if (column->is_count) {
+			(*(int64_t*)&row->data[offset]) = 1;
 		}
-	}
 
-	return MIDORIDB_OK;
+		offset += table_calc_column_space(column);
+	}
 }
 
 static bool cpy_cols(struct table *src, struct row *src_row, struct table *dst, struct row *dst_row, bool is_src_earlymat)
@@ -347,6 +418,8 @@ static int _merge_rows(struct table *tbl_1, struct table *tbl_2, struct row *row
 
 	if (!cpy_cols(tbl_2, row_2, mattbl, *out, is_tbl2_earlymat))
 		goto err_ptr;
+
+	init_count_cols(mattbl, *out);
 
 	return MIDORIDB_OK;
 
@@ -1017,7 +1090,7 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 	right_row_size = table_calc_row_size(right);
 	new_row_size = table_calc_row_size(mattbl);
 
-// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
+	// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
 	BUG_ON(join_node->join_type != AST_SEL_JOIN_INNER);
 
 	list_for_each(left_pos, left->datablock_head)
@@ -1026,6 +1099,12 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / left_row_size); i++) {
 			left_row = (struct row*)&left_blk->data[left_row_size * i];
 
+			if (left_row->flags.empty)
+				break; /* end of the line */
+
+			if (left_row->flags.deleted)
+				continue; /* nothing to do here */
+
 			list_for_each(right_pos, right->datablock_head)
 			{
 				right_blk = list_entry(right_pos, typeof(*right_blk), head);
@@ -1033,11 +1112,11 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 				for (size_t j = 0; j < (DATABLOCK_PAGE_SIZE / right_row_size); j++) {
 					right_row = (struct row*)&right_blk->data[right_row_size * j];
 
-					/* do we need to compare those rows? */
-					if (left_row->flags.deleted || left_row->flags.empty
-							|| right_row->flags.deleted
-							|| right_row->flags.empty)
-						continue;
+					if (right_row->flags.empty)
+						break; /* end of the line */
+
+					if (right_row->flags.deleted)
+						continue; /* nothing to do here */
 
 					//TODO figure out how I will populate aliases into the new row
 					// SELECT (f1 + 4) as val FROM A JOIN B ON ....
@@ -1050,6 +1129,8 @@ static int _join_nested_loop_tbl2tbl(struct database *db, struct ast_sel_join_no
 
 						if (!table_insert_row(mattbl, new_row, new_row_size))
 							goto err;
+
+//						print_row(mattbl, new_row);
 
 					}
 					/* free up used resources */
@@ -1084,7 +1165,7 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 	tbl2_row_size = table_calc_row_size(table_2);
 	new_row_size = table_calc_row_size(mattbl);
 
-// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
+	// TODO add nested-loop for other join types.. for now I will focus on the INNER JOIN
 	BUG_ON(join_node->join_type != AST_SEL_JOIN_INNER);
 
 	list_for_each(tbl1_pos, table_1->datablock_head)
@@ -1093,6 +1174,12 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / tbl1_row_size); i++) {
 			tbl1_row = (struct row*)&tbl1_blk->data[tbl1_row_size * i];
 
+			if (tbl1_row->flags.empty)
+				break; /* end of the line */
+
+			if (tbl1_row->flags.deleted)
+				continue; /* nothing to do here */
+
 			list_for_each(tbl2_pos, table_2->datablock_head)
 			{
 				tbl2_blk = list_entry(tbl2_pos, typeof(*tbl2_blk), head);
@@ -1100,11 +1187,11 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 				for (size_t j = 0; j < (DATABLOCK_PAGE_SIZE / tbl2_row_size); j++) {
 					tbl2_row = (struct row*)&tbl2_blk->data[tbl2_row_size * j];
 
-					/* do we need to compare those rows? */
-					if (tbl1_row->flags.deleted || tbl1_row->flags.empty
-							|| tbl2_row->flags.deleted
-							|| tbl2_row->flags.empty)
-						continue;
+					if (tbl2_row->flags.empty)
+						break; /* end of the line */
+
+					if (tbl2_row->flags.deleted)
+						continue; /* nothing to do here */
 
 					//TODO figure out how I will populate aliases into the new row
 					// SELECT (f1 + 4) as val FROM A JOIN B ON ....
@@ -1118,6 +1205,8 @@ static int _join_nested_loop_tbl2mat(struct database *db, struct ast_sel_join_no
 						if (!table_update_row(mattbl, tbl2_blk, tbl2_row_size * j, new_row,
 									new_row_size))
 							goto err;
+
+//						print_row(mattbl, new_row);
 
 					} else {
 						/* when using materialisation tables,
@@ -1190,6 +1279,69 @@ static int proc_from_clause_join(struct database *db, struct ast_sel_join_node *
 	return MIDORIDB_OK;
 }
 
+static int proc_from_clause_table(struct database *db, struct ast_sel_table_node *table_node, struct table *mattbl)
+{
+	struct list_head *pos;
+	struct table *exs_table;
+	struct datablock *exs_block;
+	struct row *exs_row, *new_row;
+	size_t exs_row_size, new_row_size;
+
+	exs_table = database_table_get(db, table_node->table_name);
+
+	exs_row_size = table_calc_row_size(exs_table);
+	new_row_size = table_calc_row_size(mattbl);
+
+	list_for_each(pos, exs_table->datablock_head)
+	{
+		exs_block = list_entry(pos, typeof(*exs_block), head);
+
+		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / exs_row_size); i++) {
+			exs_row = (typeof(exs_row))&exs_block->data[exs_row_size * i];
+
+			if (exs_row->flags.empty)
+				break; /* end of line */
+
+			if (exs_row->flags.deleted)
+				continue; /* nothing to do here */
+
+			/* rebuild row - needed queries that use COUNT(*) */
+			new_row = zalloc(new_row_size);
+			if (!new_row)
+				goto err;
+
+			new_row->flags.deleted = false;
+			new_row->flags.empty = false;
+
+			for (int i = 0; i < mattbl->column_count; i++) {
+				bit_set(new_row->null_bitmap, i, sizeof(new_row->null_bitmap));
+			}
+
+			if (!cpy_cols(exs_table, exs_row, mattbl, new_row, false))
+				goto err_ptr;
+
+			init_count_cols(mattbl, new_row);
+
+			if (!table_insert_row(mattbl, new_row, new_row_size)) {
+				goto err_ins;
+			}
+
+//			print_row(mattbl, new_row);
+			table_free_row_content(mattbl, new_row);
+			free(new_row);
+		}
+	}
+
+	return MIDORIDB_OK;
+
+err_ins:
+	table_free_row_content(mattbl, new_row);
+err_ptr:
+	free(new_row);
+err:
+	return -MIDORIDB_INTERNAL;
+}
+
 static int proc_from_clause(struct database *db, struct ast_node *node, struct table *earmattbl)
 {
 	struct list_head *pos;
@@ -1247,6 +1399,9 @@ static int proc_select_clause(struct ast_sel_select_node *node, struct table *ou
 
 				memzero(key, sizeof(key));
 				snprintf(key, sizeof(key) - 1, "%s.%s", fld_node->table_name, fld_node->col_name);
+			} else if (tmp_entry->node_type == AST_TYPE_SEL_COUNT) {
+				memzero(key, sizeof(key));
+				strcpy(key, "COUNT(*)");
 			} else {
 				/* nothing to just, just move on */
 				continue;
@@ -1292,7 +1447,10 @@ static int proc_where_clause(struct ast_node *node, struct table *table)
 		for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
 			row = (struct row*)&blk->data[row_size * i];
 
-			if (row->flags.deleted || row->flags.empty)
+			if (row->flags.empty)
+				break;
+
+			if (row->flags.deleted)
 				continue;
 
 			if (!eval_row_cond(node, table, row)) {
@@ -1304,11 +1462,201 @@ static int proc_where_clause(struct ast_node *node, struct table *table)
 	return MIDORIDB_OK;
 }
 
+static int cmp_rows_col_mattbl(struct table *table, struct row *row_1, struct row *row_2, struct ast_node *fld_val)
+{
+	struct column_specs col_spcs = {0};
+	bool is_null_1, is_null_2;
+	int ret = 0;
+
+	BUG_ON(!find_column_mattbl(table, fld_val, &col_spcs));
+
+	is_null_1 = bit_test(row_1->null_bitmap, col_spcs.col_idx, sizeof(row_1->null_bitmap));
+	is_null_2 = bit_test(row_2->null_bitmap, col_spcs.col_idx, sizeof(row_2->null_bitmap));
+
+	/* MySQL and SQLITE seems to evaluate values that are NULL to be smaller than everything else... */
+	if (is_null_1 && is_null_2)
+		ret = 0;
+	else if (is_null_1 && !is_null_2)
+		ret = -1;
+	else if (!is_null_1 && is_null_2)
+		ret = 1;
+	else if (col_spcs.type == CT_DOUBLE) {
+		ret = (*(double*)&row_1->data[col_spcs.offset]) - (*(double*)&row_2->data[col_spcs.offset]);
+	} else if (col_spcs.type == CT_TINYINT) {
+		ret = (*(bool*)&row_1->data[col_spcs.offset]) - (*(bool*)&row_2->data[col_spcs.offset]);
+	} else if (col_spcs.type == CT_INTEGER) {
+		ret = (*(int64_t*)&row_1->data[col_spcs.offset]) - (*(int64_t*)&row_2->data[col_spcs.offset]);
+	} else if (col_spcs.type == CT_DATE || col_spcs.type == CT_DATETIME) {
+		ret = (*(time_t*)&row_1->data[col_spcs.offset]) - (*(time_t*)&row_2->data[col_spcs.offset]);
+	} else if (col_spcs.type == CT_VARCHAR) {
+		ret = strcmp(*(char**)&row_1->data[col_spcs.offset], *(char**)&row_2->data[col_spcs.offset]);
+	} else {
+		/* some new column type that I forgot to add in here */
+		BUG_GENERIC();
+	}
+
+	return ret;
+}
+
+static int inc_count_cols(struct table *table, struct datablock *blk, size_t blk_offset, struct row *row, size_t row_size)
+{
+	struct column *column;
+	size_t offset = 0;
+	bool found = false;
+
+	for (int i = 0; i < table->column_count; i++) {
+		column = &table->columns[i];
+
+		if (column->is_count) {
+			found = true;
+			(*(int64_t*)&row->data[offset])++;
+		}
+
+		offset += table_calc_column_space(column);
+	}
+
+	if (found) {
+		if (!table_update_row(table, blk, blk_offset, row, row_size))
+			return -MIDORIDB_INTERNAL;
+	}
+
+	return MIDORIDB_OK;
+}
+
+static int proc_groupby_clause(struct ast_node *node, struct table *table)
+{
+	struct list_head *grppos, *pos1, *pos2;
+	struct ast_node *tmp_entry;
+	struct datablock *blk_1, *blk_2;
+	struct row *row_1, *row_2;
+	size_t row_size;
+	int ret = MIDORIDB_OK;
+
+	row_size = table_calc_row_size(table);
+
+	list_for_each(grppos, node->node_children_head)
+	{
+		/* process each field on the group-by clause list one at a time */
+		tmp_entry = list_entry(grppos, typeof(*tmp_entry), head);
+
+		list_for_each(pos1, table->datablock_head)
+		{
+			blk_1 = list_entry(pos1, typeof(*blk_1), head);
+			for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+				row_1 = (struct row*)&blk_1->data[row_size * i];
+
+				if (row_1->flags.empty)
+					break; /* end of the line */
+
+				if (row_1->flags.deleted)
+					continue; /* nothing to do here */
+
+				list_for_each(pos2, table->datablock_head)
+				{
+					blk_2 = list_entry(pos2, typeof(*blk_2), head);
+					for (size_t j = i + 1; j < (DATABLOCK_PAGE_SIZE / row_size); j++) {
+						row_2 = (struct row*)&blk_2->data[row_size * j];
+
+						if (row_2->flags.empty)
+							break; /* end of the line */
+
+						if (row_2->flags.deleted)
+							continue; /* nothing to do here */
+
+						if (cmp_rows_col_mattbl(table, row_1, row_2, tmp_entry) == 0) {
+
+							if (!table_delete_row(table, blk_2, row_size * j)) {
+								ret = -MIDORIDB_INTERNAL;
+								goto out;
+							}
+
+							/* increment counts if any */
+							if ((ret = inc_count_cols(table, blk_1, row_size * i,
+											row_1,
+											row_size)))
+								goto out;
+						}
+					}
+				}
+			}
+		}
+	}
+
+out:
+	return ret;
+
+}
+
+static int handle_countonly_case(struct table *table)
+{
+	struct list_head *pos1, *pos2;
+	struct datablock *blk_1, *blk_2;
+	struct row *row_1, *row_2;
+	size_t row_size;
+	int ret = MIDORIDB_OK;
+
+	/* check if we need to do that in the first plae */
+	bool non_count_field = false;
+	for (int i = 0; i < table->column_count; i++) {
+		if (!table->columns[i].is_count) {
+			non_count_field = true;
+			break;
+		}
+	}
+
+	if (!non_count_field) {
+		row_size = table_calc_row_size(table);
+
+		list_for_each(pos1, table->datablock_head)
+		{
+			blk_1 = list_entry(pos1, typeof(*blk_1), head);
+			for (size_t i = 0; i < (DATABLOCK_PAGE_SIZE / row_size); i++) {
+				row_1 = (struct row*)&blk_1->data[row_size * i];
+
+				if (row_1->flags.empty)
+					break; /* end of the line */
+
+				if (row_1->flags.deleted)
+					continue; /* nothing to do here */
+
+				list_for_each(pos2, table->datablock_head)
+				{
+					blk_2 = list_entry(pos2, typeof(*blk_2), head);
+					for (size_t j = i + 1; j < (DATABLOCK_PAGE_SIZE / row_size); j++) {
+						row_2 = (struct row*)&blk_2->data[row_size * j];
+
+						if (row_2->flags.empty)
+							break; /* end of the line */
+
+						if (row_2->flags.deleted)
+							continue; /* nothing to do here */
+
+						if (!table_delete_row(table, blk_2, row_size * j)) {
+							ret = -MIDORIDB_INTERNAL;
+							goto out;
+						}
+
+						/* increment counts if any */
+						if ((ret = inc_count_cols(table, blk_1, row_size * i,
+										row_1,
+										row_size)))
+							goto out;
+					}
+				}
+			}
+		}
+	}
+
+out:
+	return ret;
+
+}
+
 int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *select_node, struct query_output *output)
 {
 	struct hashtable cols_ht = {0};
 	struct table *table = NULL;
-	struct ast_node *where_node;
+	struct ast_node *where_node, *groupby_node;
 	int ret = MIDORIDB_OK;
 
 	if (!hashtable_init(&cols_ht, &hashtable_str_compare, &hashtable_str_hash)) {
@@ -1348,10 +1696,27 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 		}
 	}
 
+	/* collate rows if group-by clause is specified */
+	groupby_node = find_node((struct ast_node*)select_node, AST_TYPE_SEL_GROUPBY);
+	if (groupby_node) {
+		if ((ret = proc_groupby_clause(groupby_node, table))) {
+			snprintf(output->error.message, sizeof(output->error.message),
+					"execution phase: error while processing GROUPBY-clause\n");
+			goto err_bld_fc;
+		}
+	}
+
 	/* leave only columns that were specified in the statements */
 	if ((ret = proc_select_clause(select_node, table))) {
 		snprintf(output->error.message, sizeof(output->error.message),
 				"execution phase: error while processing SELECT-clause\n");
+		goto err_bld_fc;
+	}
+
+	/* handle COUNT(*)-only field edge-case */
+	if ((ret = handle_countonly_case(table))) {
+		snprintf(output->error.message, sizeof(output->error.message),
+				"execution phase: error while processing COUNT-only-case\n");
 		goto err_bld_fc;
 	}
 
@@ -1360,7 +1725,6 @@ int executor_run_select_stmt(struct database *db, struct ast_sel_select_node *se
 	/* remove excluded rows from ON-clauses, WHERE-clauses and so on */
 	table_vacuum(table);
 
-// temp
 	output->results.table = table;
 
 	hashtable_foreach(&cols_ht, &free_hashmap_entries, NULL);

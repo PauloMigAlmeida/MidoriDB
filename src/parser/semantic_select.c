@@ -1217,7 +1217,7 @@ static bool check_where_clause(struct ast_node *root, char *out_err, size_t out_
 		 * 	SELECT COUNT(*) as val FROM A WHERE val > 1; (invalid);
 		 * 	SELECT COUNT(*) FROM A WHERE COUNT(*)> 1; (invalid);
 		 */
-		if (!check_where_clause_count(root, out_err, out_err_len, column_alias))
+		if (!check_where_clause_count(where_node, out_err, out_err_len, column_alias))
 			return false;
 	}
 

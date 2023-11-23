@@ -44,6 +44,8 @@ struct column {
 	bool auto_inc;
 	/* is this column primary key ? */
 	bool primary_key;
+	/* is this column holding count(*) info */
+	bool is_count;
 };
 
 /**
