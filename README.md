@@ -7,9 +7,9 @@ In-memory database written in C completely from scratch.
 
 ## Features
 
-* Dependency Minimalism: It relies solely on `libc` and `libm` in runtime, ensuring easy integration and reducing external dependencies
-* Custom Implementation: Every component of MidoriDB has been crafted from the ground up - mostly because I wanted to learn about it really
-* Small Footprint: approximately 200KB.
+* **Dependency Minimalism**: It relies solely on `libc` and `libm` in runtime, ensuring easy integration and reducing external dependencies
+* **Custom Implementation**: Every component of MidoriDB has been crafted from the ground up - mostly because I wanted to learn about it really
+* **Small Footprint**: approximately 200KB.
 
 
 ## Build
