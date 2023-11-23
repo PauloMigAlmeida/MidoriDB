@@ -36,6 +36,43 @@ make all
 ./build/tests/run_unit_tests
 ```
 
+## Linking shared-object with your executable
+
+```bash
+gcc  -L<root_repo>/build/               \
+        -lmidoridb                      \
+        -Wl,-rpath <root_repo>/build/	\
+        -o your_code
+```
+
+## Example
+
+```C
+#include <engine/query.h>
+
+int main(void) {
+        struct database db = {0};
+        struct query_output *output;
+        
+        if (database_open(&db) != MIDORIDB_OK)
+                return -1;        
+
+        output = query_execute(&db, "SELECT id_a, COUNT(*) FROM A INNER JOIN B ON A.id_a = B.id_b GROUP BY id_a;");        
+
+        if (output->status != ST_OK_WITH_RESULTS)
+                return -1;
+        
+        while (query_cur_step(&output->results) == MIDORIDB_ROW) {
+                printf("id_a: %ld, count: %ld\n"
+                        query_column_int64(&output->results, 0),
+                        query_column_int64(&output->results, 1));
+        }        
+        
+        query_free(output);
+        database_close(&db);
+}
+```
+
 ## Wishlist
 To make sure I won't lose focus on what I want this database to be able to do, I decided to write a list of features
 that I want to implement in the short to medium term.
