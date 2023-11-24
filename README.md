@@ -70,6 +70,7 @@ int main(void) {
         
         query_free(output);
         database_close(&db);
+        return 0;
 }
 ```
 
