@@ -83,4 +83,15 @@ that I want to implement in the short to medium term.
 - [x] Recursive expressions (INSERT)
 - [X] Locking [Granularity -> Table-level]
 
+## References
 
+These are all the references that helped me a lot during the development of MidoriDB
+
+Books:
+
+* https://www.amazon.com/flex-bison-Text-Processing-Tools/dp/0596155972
+* https://www.amazon.com/Database-Internals-Deep-Distributed-Systems/dp/1492040347
+
+Courses:
+
+* https://www.youtube.com/watch?v=LWS8LEQAUVc&list=PLSE8ODhjZXjYzlLMbX3cR0sxWnRM7CLFn
