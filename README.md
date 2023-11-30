@@ -57,7 +57,13 @@ int main(void) {
         if (database_open(&db) != MIDORIDB_OK)
                 return -1;        
 
-        output = query_execute(&db, "SELECT id_a, COUNT(*) FROM A INNER JOIN B ON A.id_a = B.id_b GROUP BY id_a;");        
+        output = query_execute(&db, "SELECT "
+                                    "    id_a, COUNT(*) "
+                                    "FROM "
+                                    "    A INNER JOIN B "
+                                    "    ON A.id_a = B.id_b "
+                                    "GROUP BY "
+                                    "    id_a;");        
 
         if (output->status != ST_OK_WITH_RESULTS)
                 return -1;
